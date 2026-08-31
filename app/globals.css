@@ -88,8 +88,24 @@
 
 @layer base {
   * { @apply border-border outline-ring/50; }
-  html { @apply font-sans; -webkit-tap-highlight-color: transparent; }
-  body { @apply bg-background text-foreground; overscroll-behavior-y: none; }
+  html {
+    @apply font-sans;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    overscroll-behavior-y: none;
+    touch-action: pan-y;
+  }
   button { touch-action: manipulation; }
 }
 

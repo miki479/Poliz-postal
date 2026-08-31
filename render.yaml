@@ -3,8 +3,8 @@ services:
     name: turno-reale
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build
-    startCommand: npm run start -- --ip 0.0.0.0 --port $PORT
+    buildCommand: npm ci && npm run build:render
+    startCommand: npm run start:render
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION

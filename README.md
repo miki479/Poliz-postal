@@ -14,7 +14,7 @@ Web app mobile per confrontare la produzione dei turni **Michele & Simone** e **
 
 ## Pubblicazione su Render
 
-Il file `render.yaml` è già pronto per un **Blueprint** Render:
+Il file `render.yaml` è già pronto per un **Blueprint** Render. La pubblicazione usa una build statica servita da un processo Node minimale, senza dipendere da server di sviluppo:
 
 1. carica questo progetto in un repository GitHub;
 2. in Render scegli **New → Blueprint**;

@@ -9,6 +9,8 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
+    "build:render": "vite build --config vite.render.config.ts",
+    "start:render": "node server.mjs",
     "lint": "oxlint",
     "format": "oxfmt"
   },

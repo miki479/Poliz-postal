@@ -627,7 +627,7 @@ function RecordDrawer({ open, onOpenChange, value, onChange, onSave }: {
   const weekend = isWeekend(value.date);
   return (
     <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
-      <DrawerContent className="mx-auto max-w-md rounded-t-[30px] bg-background">
+      <DrawerContent className="mx-auto w-full max-w-md overflow-x-hidden rounded-t-[30px] bg-background">
         <DrawerHeader className="border-b px-5 pb-4 pt-6 text-left">
           <div className="flex items-start justify-between gap-4">
             <div><DrawerTitle className="text-xl font-semibold tracking-[-0.03em]">Registra giornata</DrawerTitle><DrawerDescription className="mt-1 text-left">Quantità dei due turni, senza calcoli a mano.</DrawerDescription></div>
@@ -635,7 +635,7 @@ function RecordDrawer({ open, onOpenChange, value, onChange, onSave }: {
           </div>
         </DrawerHeader>
 
-        <div className="overflow-y-auto px-5 py-5 pb-8">
+        <div className="w-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-x-none px-5 py-5 pb-8 [touch-action:pan-y]">
           <label className="block" htmlFor="record-date">
             <span className="field-label">Data</span>
             <Input id="record-date" type="date" value={value.date} onChange={(event) => onChange({ ...value, date: event.target.value })} className="mt-2 h-12 rounded-2xl bg-card px-4 text-[15px]" />
@@ -695,7 +695,7 @@ function ShiftForm({ slot, date, team, shift, onChange }: {
 
       <div className="mt-4 space-y-2.5">
         {PRODUCTS.map((product) => (
-          <label key={product.key} htmlFor={`${slot}-${product.key}`} className="product-row surface-card flex items-center gap-3 rounded-2xl p-3">
+          <label key={product.key} htmlFor={`${slot}-${product.key}`} className="product-row surface-card flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl p-3">
             <span className={`product-icon product-${product.accent}`}><Package className="size-4" /></span>
             <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{product.label}</span><span className="block text-[11px] text-muted-foreground">{product.detail}</span></span>
             <Input
@@ -707,7 +707,7 @@ function ShiftForm({ slot, date, team, shift, onChange }: {
               placeholder="0"
               value={shift[product.key] || ''}
               onChange={(event) => onChange({ ...shift, [product.key]: Math.max(0, Number(event.target.value)) })}
-              className="h-11 w-24 rounded-xl bg-muted/70 text-right text-lg font-semibold tabular-nums focus:bg-card"
+              className="h-11 w-24 shrink-0 rounded-xl bg-muted/70 text-right text-lg font-semibold tabular-nums focus:bg-card"
               aria-label={`${product.label} ${product.detail}, turno ${slot === 'morning' ? 'mattina' : 'pomeriggio'}`}
             />
           </label>

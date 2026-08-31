@@ -1,0 +1,17 @@
+{
+  "name": "Turno Reale",
+  "short_name": "Turno Reale",
+  "description": "Conteggio e confronto della produzione dei due turni.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f2f5fa",
+  "theme_color": "#0a2d67",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Turno Reale">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A2D67"/>
+      <stop offset="1" stop-color="#0A72D5"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="128" y1="112" x2="392" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7DEBFF"/>
+      <stop offset="1" stop-color="#2AA8FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="116" y="103" width="280" height="306" rx="80" fill="#fff" fill-opacity=".08" stroke="#fff" stroke-opacity=".18" stroke-width="8"/>
+  <path d="M163 182h186M163 330h186" stroke="url(#accent)" stroke-width="24" stroke-linecap="round"/>
+  <path d="M191 237v38M256 218v76M321 198v116" stroke="#fff" stroke-width="28" stroke-linecap="round"/>
+</svg>

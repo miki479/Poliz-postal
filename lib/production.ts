@@ -37,6 +37,9 @@ export type TeamReport = ProductCounts & {
   hours: number;
   standardHours: number;
   productionIndex: number;
+  challengeHours: number;
+  challengeStandardHours: number;
+  challengeProductionIndex: number;
   timeBalanceMinutes: number;
   personHours: number;
   shifts: number;
@@ -171,10 +174,14 @@ export function recordHandover(record: ProductionRecord) {
   const afternoonScheduleBalanceMinutes = (afternoonStandardHours - plannedAfternoonHours) * 60;
   const handedOverMinutes = Math.max(0, -morningScheduleBalanceMinutes);
   const recoveredMinutes = Math.min(handedOverMinutes, Math.max(0, afternoonScheduleBalanceMinutes));
+  const morningLoad = morningAvailableHours > 0 ? morningStandardHours / morningAvailableHours : 0;
+  const afternoonLoad = afternoonAvailableHours > 0 ? afternoonStandardHours / afternoonAvailableHours : 0;
+  const challengeComparable = morningLoad >= 0.5 && afternoonLoad >= 0.5;
 
   return {
-    morningProductionIndex: morningEvaluationHours > 0 ? (morningStandardHours / morningEvaluationHours) * 100 : 0,
-    afternoonProductionIndex: afternoonStandardHours > 0 && afternoonEvaluationHours > 0 ? (afternoonStandardHours / afternoonEvaluationHours) * 100 : 100,
+    morningProductionIndex: morningAvailableHours > 0 ? (morningStandardHours / morningAvailableHours) * 100 : 0,
+    afternoonProductionIndex: afternoonAvailableHours > 0 ? (afternoonStandardHours / afternoonAvailableHours) * 100 : 0,
+    challengeComparable,
     morningEvaluationHours,
     afternoonEvaluationHours,
     morningAvailableHours,
@@ -207,6 +214,9 @@ function emptyReport(team: TeamId): TeamReport {
     hours: 0,
     standardHours: 0,
     productionIndex: 0,
+    challengeHours: 0,
+    challengeStandardHours: 0,
+    challengeProductionIndex: 0,
     timeBalanceMinutes: 0,
     personHours: 0,
     shifts: 0,
@@ -225,9 +235,13 @@ export function buildReport(records: ProductionRecord[], month: string) {
   const compared = relevant.filter((record) => !record.isSingleShift);
   const teams: Record<TeamId, TeamReport> = { ms: emptyReport('ms'), ga: emptyReport('ga') };
   let draws = 0;
+  let challengeCount = 0;
+  let unbalanced = 0;
 
   for (const record of compared) {
     const handover = recordHandover(record);
+    if (handover.challengeComparable) challengeCount += 1;
+    else unbalanced += 1;
     teams[teamForSlot(record, 'morning')].handoverMinutes += handover.handedOverMinutes;
     teams[teamForSlot(record, 'afternoon')].recoveredMinutes += handover.recoveredMinutes;
     const dayIndexes: Partial<Record<TeamId, number>> = {};
@@ -235,7 +249,7 @@ export function buildReport(records: ProductionRecord[], month: string) {
       const team = teamForSlot(record, slot);
       const shift = record[slot];
       const stoppageMinutes = shiftStoppageMinutes(shift);
-      const hours = slot === 'morning' ? handover.morningEvaluationHours : handover.afternoonEvaluationHours;
+      const hours = slot === 'morning' ? handover.morningAvailableHours : handover.afternoonAvailableHours;
       const units = shiftUnits(shift);
       const standardHours = shiftStandardHours(shift);
       const report = teams[team];
@@ -245,6 +259,11 @@ export function buildReport(records: ProductionRecord[], month: string) {
       report.units += units;
       report.hours += hours;
       report.standardHours += standardHours;
+      if (handover.challengeComparable) {
+        report.challengeHours += hours;
+        report.challengeStandardHours += standardHours;
+      }
+      report.timeBalanceMinutes += slot === 'morning' ? handover.morningBalanceMinutes : handover.afternoonBalanceMinutes;
       report.personHours += hours * shift.staffCount;
       report.shifts += 1;
       if (shift.pauseTaken) report.pauses += 1;
@@ -254,27 +273,32 @@ export function buildReport(records: ProductionRecord[], month: string) {
       dayIndexes[team] = slot === 'morning' ? handover.morningProductionIndex : handover.afternoonProductionIndex;
     }
 
-    const msIndex = dayIndexes.ms ?? 0;
-    const gaIndex = dayIndexes.ga ?? 0;
-    if (Math.abs(msIndex - gaIndex) < 0.01) draws += 1;
-    else if (msIndex > gaIndex) teams.ms.wins += 1;
-    else teams.ga.wins += 1;
+    if (handover.challengeComparable) {
+      const msIndex = dayIndexes.ms ?? 0;
+      const gaIndex = dayIndexes.ga ?? 0;
+      if (Math.abs(msIndex - gaIndex) < 0.01) draws += 1;
+      else if (msIndex > gaIndex) teams.ms.wins += 1;
+      else teams.ga.wins += 1;
+    }
   }
 
   for (const team of Object.values(teams)) {
     team.productionIndex = team.hours > 0 ? (team.standardHours / team.hours) * 100 : 0;
-    team.timeBalanceMinutes = (team.standardHours - team.hours) * 60;
+    team.challengeProductionIndex = team.challengeHours > 0 ? (team.challengeStandardHours / team.challengeHours) * 100 : 0;
   }
 
-  const winner: TeamId | null = teams.ms.productionIndex === teams.ga.productionIndex
+  const winner: TeamId | null = !challengeCount || teams.ms.challengeProductionIndex === teams.ga.challengeProductionIndex
     ? null
-    : teams.ms.productionIndex > teams.ga.productionIndex ? 'ms' : 'ga';
+    : teams.ms.challengeProductionIndex > teams.ga.challengeProductionIndex ? 'ms' : 'ga';
   const loser: TeamId | null = winner === 'ms' ? 'ga' : winner === 'ga' ? 'ms' : null;
   const advantage = winner && loser
-    ? teams[loser].productionIndex > 0
-      ? ((teams[winner].productionIndex / teams[loser].productionIndex) - 1) * 100
+    ? teams[loser].challengeProductionIndex > 0
+      ? ((teams[winner].challengeProductionIndex / teams[loser].challengeProductionIndex) - 1) * 100
       : Number.POSITIVE_INFINITY
     : 0;
+  const volumeLeader: TeamId | null = teams.ms.standardHours === teams.ga.standardHours
+    ? null
+    : teams.ms.standardHours > teams.ga.standardHours ? 'ms' : 'ga';
 
   return {
     relevant,
@@ -283,6 +307,9 @@ export function buildReport(records: ProductionRecord[], month: string) {
     teams,
     winner,
     advantage,
+    volumeLeader,
+    challengeCount,
+    unbalanced,
     draws,
   };
 }

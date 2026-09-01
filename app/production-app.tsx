@@ -240,12 +240,16 @@ export function ProductionApp() {
     const ga = report.teams.ga;
     const winnerLine = report.winner
       ? `${TEAMS[report.winner].name}: +${formatNumber(report.advantage, 1)}% nell’indice ponderato.`
-      : 'Indice ponderato in parità.';
+      : report.challengeCount === 0
+        ? report.volumeLeader
+          ? `${TEAMS[report.volumeLeader].name} ha prodotto più lavoro, ma senza una sfida diretta confrontabile.`
+          : 'Le squadre hanno prodotto lo stesso lavoro, senza una sfida diretta confrontabile.'
+        : 'Sfide valide in parità.';
     const text = [
       `Turno Reale · ${formatMonth(month)}`,
-      `${report.compared.length} giornate confrontate`,
-      `M&S: ${formatNumber(ms.units)} pezzi · indice ${formatNumber(ms.productionIndex, 1)} · ${balanceLabel(ms.timeBalanceMinutes)} · ${ms.stoppageCount} fermate (${formatMinutes(ms.stoppageMinutes)})`,
-      `G&A: ${formatNumber(ga.units)} pezzi · indice ${formatNumber(ga.productionIndex, 1)} · ${balanceLabel(ga.timeBalanceMinutes)} · ${ga.stoppageCount} fermate (${formatMinutes(ga.stoppageMinutes)})`,
+      `${report.compared.length} ${report.compared.length === 1 ? 'giornata registrata' : 'giornate registrate'} · ${report.challengeCount} ${report.challengeCount === 1 ? 'sfida valida' : 'sfide valide'}`,
+      `M&S: ${formatNumber(ms.units)} pezzi · produzione ${formatNumber(ms.productionIndex, 1)}% del tempo disponibile · ${balanceLabel(ms.timeBalanceMinutes)} · ${ms.stoppageCount} fermate (${formatMinutes(ms.stoppageMinutes)})`,
+      `G&A: ${formatNumber(ga.units)} pezzi · produzione ${formatNumber(ga.productionIndex, 1)}% del tempo disponibile · ${balanceLabel(ga.timeBalanceMinutes)} · ${ga.stoppageCount} fermate (${formatMinutes(ga.stoppageMinutes)})`,
       winnerLine,
       `Turni unici esclusi: ${report.excluded}`,
     ].join('\n');
@@ -359,8 +363,8 @@ function TodayView({ report, lastRecord, onNew, onOpenReport, onBackup }: {
           <button onClick={onOpenReport} className="glass-panel w-full rounded-[28px] p-5 text-left">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[13px] font-medium text-white/65">Questo mese · {report.compared.length} giornate</p>
-                <p className="mt-1 text-[25px] font-semibold tracking-[-0.04em]">{winner ? TEAMS[winner].name : report.compared.length ? 'Situazione in parità' : 'Pronto al primo confronto'}</p>
+                <p className="text-[13px] font-medium text-white/65">Questo mese · {report.compared.length} {report.compared.length === 1 ? 'giornata' : 'giornate'}</p>
+                <p className="mt-1 text-[25px] font-semibold tracking-[-0.04em]">{winner ? TEAMS[winner].name : report.compared.length ? report.challengeCount === 0 && report.volumeLeader ? `${TEAMS[report.volumeLeader].short} più produzione` : 'Situazione in parità' : 'Pronto al primo confronto'}</p>
               </div>
               <BarChart3 className="size-5 shrink-0 text-cyan-200" />
             </div>
@@ -370,8 +374,8 @@ function TodayView({ report, lastRecord, onNew, onOpenReport, onBackup }: {
                 <p className="mt-1 text-xl font-semibold">{formatNumber(report.teams.ms.units + report.teams.ga.units)} pz</p>
               </div>
               <div className="rounded-2xl bg-cyan-300/15 px-4 py-3 ring-1 ring-cyan-200/15">
-                <p className="text-xs text-cyan-100/65">Vantaggio ponderato</p>
-                <p className="mt-1 text-xl font-semibold text-cyan-100">{winner ? `+${formatNumber(report.advantage, 1)}%` : '—'}</p>
+                <p className="text-xs text-cyan-100/65">Sfide dirette valide</p>
+                <p className="mt-1 text-xl font-semibold text-cyan-100">{report.challengeCount}</p>
               </div>
             </div>
           </button>
@@ -424,11 +428,19 @@ function LastDayCard({ record }: { record: ProductionRecord }) {
   const handover = recordHandover(record);
   const morningIndex = handover.morningProductionIndex;
   const afternoonIndex = handover.afternoonProductionIndex;
-  const tied = Math.abs(morningIndex - afternoonIndex) < 0.01;
+  const comparable = handover.challengeComparable;
+  const tied = comparable && Math.abs(morningIndex - afternoonIndex) < 0.01;
   const morningWon = morningIndex > afternoonIndex;
-  const winner = morningWon ? record.morningTeam : record.morningTeam === 'ms' ? 'ga' : 'ms';
+  const challengeWinner = morningWon ? record.morningTeam : record.morningTeam === 'ms' ? 'ga' : 'ms';
+  const volumeLeader = handover.morningStandardHours === handover.afternoonStandardHours
+    ? null
+    : handover.morningStandardHours > handover.afternoonStandardHours ? record.morningTeam : teamForSlot(record, 'afternoon');
   const loserIndex = morningWon ? afternoonIndex : morningIndex;
   const advantage = loserIndex > 0 ? ((Math.max(morningIndex, afternoonIndex) / loserIndex) - 1) * 100 : 0;
+  const totalStandardHours = handover.morningStandardHours + handover.afternoonStandardHours;
+  const barWidth = comparable
+    ? Math.max(12, Math.min(88, 50 + advantage / 2))
+    : totalStandardHours > 0 ? (handover.morningStandardHours / totalStandardHours) * 100 : 50;
   return (
     <section className="surface-card rounded-[24px] p-5">
       <div className="flex items-center justify-between">
@@ -436,9 +448,14 @@ function LastDayCard({ record }: { record: ProductionRecord }) {
         <CalendarDays className="size-5 text-muted-foreground" />
       </div>
       <div className="mt-4 flex items-center gap-3">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(12, Math.min(88, 50 + advantage / 2))}%` }} /></div>
-        <span className="text-sm font-semibold text-primary">{tied ? 'Parità' : `${TEAMS[winner].short} +${formatNumber(advantage, 1)}%`}</span>
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${barWidth}%` }} /></div>
+        <span className="text-sm font-semibold text-primary">{!comparable ? 'Nessuna sfida' : tied ? 'Parità' : `${TEAMS[challengeWinner].short} +${formatNumber(advantage, 1)}%`}</span>
       </div>
+      {!comparable && (
+        <div className="mt-3 rounded-2xl bg-primary/7 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+          {volumeLeader ? `${TEAMS[volumeLeader].name} ha prodotto più lavoro, ma il carico dell’altro turno era troppo basso per decretare un vincitore.` : 'Il carico dei turni non permette un confronto diretto.'}
+        </div>
+      )}
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="rounded-2xl bg-muted/70 px-3 py-2.5">
           <p className="text-[10px] font-semibold text-muted-foreground">MATTINA · {TEAMS[record.morningTeam].short}</p>
@@ -514,24 +531,27 @@ function HistoryCard({ record, onEdit, onDelete }: { record: ProductionRecord; o
   const results = (['morning', 'afternoon'] as const).map((slot) => ({
     team: teamForSlot(record, slot),
     productionIndex: slot === 'morning' ? handover.morningProductionIndex : handover.afternoonProductionIndex,
+    standardHours: slot === 'morning' ? handover.morningStandardHours : handover.afternoonStandardHours,
     timeBalanceMinutes: slot === 'morning' ? handover.morningBalanceMinutes : handover.afternoonBalanceMinutes,
     stoppageMinutes: shiftStoppageMinutes(record[slot]),
     stoppageCount: shiftStoppages(record[slot]).length,
     isCleaningRemainder: slot === 'afternoon' && handover.afternoonStandardHours < handover.afternoonAvailableHours,
     units: shiftUnits(record[slot]),
   }));
-  const tied = Math.abs(results[0].productionIndex - results[1].productionIndex) < 0.01;
-  const top = results[0].productionIndex >= results[1].productionIndex ? results[0] : results[1];
+  const tied = handover.challengeComparable && Math.abs(results[0].productionIndex - results[1].productionIndex) < 0.01;
+  const top = handover.challengeComparable
+    ? results[0].productionIndex >= results[1].productionIndex ? results[0] : results[1]
+    : results[0].standardHours >= results[1].standardHours ? results[0] : results[1];
   return (
     <article className="surface-card rounded-[22px] p-4">
       <div className="flex items-center gap-3">
         <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Package className="size-5" /></div>
-        <div className="min-w-0 flex-1"><h2 className="font-semibold capitalize">{formatDate(record.date)}</h2><p className="mt-0.5 text-xs text-muted-foreground">{isFriday(record.date) ? 'Venerdì corto · ' : ''}{tied ? 'parità' : `${TEAMS[top.team].short} davanti`}</p></div>
+        <div className="min-w-0 flex-1"><h2 className="font-semibold capitalize">{formatDate(record.date)}</h2><p className="mt-0.5 text-xs text-muted-foreground">{isFriday(record.date) ? 'Venerdì corto · ' : ''}{!handover.challengeComparable ? `${TEAMS[top.team].short} più produzione · nessuna sfida` : tied ? 'parità' : `${TEAMS[top.team].short} davanti`}</p></div>
         <IconActions onEdit={onEdit} onDelete={onDelete} />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         {results.map((item) => (
-          <div key={item.team} className={`rounded-2xl px-3 py-2.5 ${!tied && item.team === top.team ? 'bg-primary/8' : 'bg-muted/70'}`}>
+          <div key={item.team} className={`rounded-2xl px-3 py-2.5 ${item.team === top.team && (!tied || !handover.challengeComparable) ? 'bg-primary/8' : 'bg-muted/70'}`}>
             <div className="flex items-center justify-between"><span className="text-xs font-semibold">{TEAMS[item.team].short}</span><span className="text-[10px] text-muted-foreground">{item.units} pz</span></div>
             <p className="mt-1 text-lg font-semibold tracking-[-0.03em]">{formatNumber(item.productionIndex, 1)} <span className="text-[10px] font-medium text-muted-foreground">indice</span></p>
             <p className={`mt-0.5 text-[11px] font-semibold ${balanceTone(item.timeBalanceMinutes)}`}>{balanceLabel(item.timeBalanceMinutes, true)}</p>
@@ -561,7 +581,9 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
   onShare: () => Promise<void>;
   onBackup: () => void;
 }) {
-  const maxIndex = Math.max(report.teams.ms.productionIndex, report.teams.ga.productionIndex, 1);
+  const hasChallenge = report.challengeCount > 0;
+  const indexFor = (team: TeamId) => hasChallenge ? report.teams[team].challengeProductionIndex : report.teams[team].productionIndex;
+  const maxIndex = Math.max(indexFor('ms'), indexFor('ga'), 1);
   return (
     <div className="mx-auto max-w-md px-5 pt-[max(1.5rem,env(safe-area-inset-top))]">
       <div className="flex items-start justify-between gap-4">
@@ -586,24 +608,25 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
         <>
           <section className="report-hero mt-4 rounded-[26px] p-5 text-white">
             <p className="text-xs font-medium text-white/60">RISULTATO DEL MESE</p>
-            <h2 className="mt-2 text-[26px] font-semibold tracking-[-0.04em]">{report.winner ? `${TEAMS[report.winner].name} davanti` : 'Perfetta parità'}</h2>
-            <p className="mt-1 text-sm text-white/70">{report.winner ? `+${formatNumber(report.advantage, 1)}% nell’indice di produzione` : 'Stesso indice di produzione ponderato'}</p>
-            <div className="mt-5 flex gap-2 text-xs">
-              <span className="rounded-full bg-white/10 px-3 py-1.5">{report.compared.length} giornate valide</span>
-              <span className="rounded-full bg-white/10 px-3 py-1.5">{report.excluded} escluse</span>
+            <h2 className="mt-2 text-[26px] font-semibold tracking-[-0.04em]">{hasChallenge ? report.winner ? `${TEAMS[report.winner].name} davanti` : 'Sfide valide in parità' : report.volumeLeader ? `${TEAMS[report.volumeLeader].name} ha prodotto di più` : 'Stessa produzione'}</h2>
+            <p className="mt-1 text-sm text-white/70">{hasChallenge ? report.winner ? `+${formatNumber(report.advantage, 1)}% nelle sfide confrontabili` : 'Stesso risultato nelle sfide confrontabili' : 'Nessun vincitore: il carico dei due turni era troppo diverso'}</p>
+            <div className="mt-5 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-white/10 px-3 py-1.5">{report.challengeCount} {report.challengeCount === 1 ? 'sfida valida' : 'sfide valide'}</span>
+              <span className="rounded-full bg-white/10 px-3 py-1.5">{report.unbalanced} {report.unbalanced === 1 ? 'carico sbilanciato' : 'carichi sbilanciati'}</span>
+              <span className="rounded-full bg-white/10 px-3 py-1.5">{report.excluded} {report.excluded === 1 ? 'esclusa' : 'escluse'}</span>
             </div>
           </section>
 
           <section className="surface-card mt-4 rounded-[24px] p-5">
-            <div className="flex items-center gap-2"><Gauge className="size-4 text-primary" /><h2 className="font-semibold">Indice di produzione ponderato</h2></div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">Rende confrontabili formati con velocità molto diverse, oltre a ore, venerdì, pause e personale.</p>
+            <div className="flex items-center gap-2"><Gauge className="size-4 text-primary" /><h2 className="font-semibold">{hasChallenge ? 'Indice sulle sfide valide' : 'Produzione sul tempo disponibile'}</h2></div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{hasChallenge ? 'Il vincitore usa soltanto le giornate in cui entrambi i turni avevano almeno metà del proprio tempo occupato dalla produzione.' : 'Le pulizie non aggiungono produzione: i valori mostrano soltanto il lavoro prodotto rispetto alle ore disponibili.'}</p>
             <div className="mt-5 space-y-4">
               {(['ms', 'ga'] as TeamId[]).map((team) => {
-                const item = report.teams[team];
+                const displayIndex = indexFor(team);
                 return (
                   <div key={team}>
-                    <div className="mb-2 flex items-end justify-between"><span className="text-sm font-semibold">{TEAMS[team].short}</span><span className="text-xl font-semibold tracking-[-0.03em]">{formatNumber(item.productionIndex, 1)} <small className="text-xs font-medium text-muted-foreground">indice</small></span></div>
-                    <div className="h-2.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${team === 'ms' ? 'bg-primary' : 'bg-cyan-500'}`} style={{ width: `${Math.max(5, (item.productionIndex / maxIndex) * 100)}%` }} /></div>
+                    <div className="mb-2 flex items-end justify-between"><span className="text-sm font-semibold">{TEAMS[team].short}</span><span className="text-xl font-semibold tracking-[-0.03em]">{formatNumber(displayIndex, 1)} <small className="text-xs font-medium text-muted-foreground">{hasChallenge ? 'indice' : '% produttivo'}</small></span></div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${team === 'ms' ? 'bg-primary' : 'bg-cyan-500'}`} style={{ width: `${Math.max(5, (displayIndex / maxIndex) * 100)}%` }} /></div>
                   </div>
                 );
               })}
@@ -617,7 +640,7 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
                 <div key={team} className="surface-card rounded-[22px] p-4">
                   <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${team === 'ms' ? 'bg-primary/10 text-primary' : 'bg-cyan-500/10 text-cyan-700'}`}>{TEAMS[team].short}</span>
                   <p className="mt-3 text-2xl font-semibold tracking-[-0.04em]">{formatNumber(item.units)} <small className="text-xs font-medium text-muted-foreground">pz</small></p>
-                  <p className="mt-1 text-xs text-muted-foreground">{formatNumber(item.hours, 1)} ore valutate · {item.wins} vittorie</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatNumber(item.hours, 1)} ore disponibili · {item.wins} vittorie valide</p>
                 </div>
               );
             })}
@@ -653,7 +676,7 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
 
           <section className="mt-4 flex items-start gap-3 rounded-2xl border border-primary/10 bg-primary/7 px-4 py-3 text-xs leading-5 text-muted-foreground">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-primary" />
-            Per il pomeriggio, il tempo senza produzione viene considerato automaticamente dedicato alle pulizie. L’eventuale produzione lasciata indietro dal mattino resta invece attribuita al mattino e viene mostrata come recupero del pomeriggio. Pause, fermate e cambi vengono sottratti. Riferimenti: 25 L 120/h, una testa 65/h, 20 L 33/h, bag 260/h.
+            Le pulizie non contano come produzione e non danno punti; evitano soltanto di segnare un falso ritardo al pomeriggio. Se il carico di uno dei turni occupa meno della metà del tempo disponibile, la giornata non assegna una vittoria. L’arretrato del mattino resta comunque visibile. Riferimenti: 25 L 120/h, una testa 65/h, 20 L 33/h, bag 260/h.
           </section>
 
           <div className="mt-4 grid grid-cols-2 gap-3">

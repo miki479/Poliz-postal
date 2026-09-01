@@ -29,6 +29,7 @@ export type TeamReport = ProductCounts & {
   hours: number;
   standardHours: number;
   productionIndex: number;
+  timeBalanceMinutes: number;
   personHours: number;
   shifts: number;
   pauses: number;
@@ -113,6 +114,27 @@ export function shiftProductionIndex(shift: ShiftEntry, netHours: number) {
   return netHours > 0 ? (shiftStandardHours(shift) / netHours) * 100 : 0;
 }
 
+export function shiftTimeBalanceMinutes(shift: ShiftEntry, netHours: number) {
+  return (shiftStandardHours(shift) - netHours) * 60;
+}
+
+export function recordHandover(record: ProductionRecord) {
+  const morningHours = shiftHours('morning', record.date, record.morning.pauseTaken);
+  const afternoonHours = shiftHours('afternoon', record.date, record.afternoon.pauseTaken);
+  const morningBalanceMinutes = shiftTimeBalanceMinutes(record.morning, morningHours);
+  const afternoonBalanceMinutes = shiftTimeBalanceMinutes(record.afternoon, afternoonHours);
+  const handedOverMinutes = Math.max(0, -morningBalanceMinutes);
+  const recoveredMinutes = Math.min(handedOverMinutes, Math.max(0, afternoonBalanceMinutes));
+
+  return {
+    morningBalanceMinutes,
+    afternoonBalanceMinutes,
+    handedOverMinutes,
+    recoveredMinutes,
+    remainingMinutes: Math.max(0, handedOverMinutes - recoveredMinutes),
+  };
+}
+
 export function teamForSlot(record: ProductionRecord, slot: ShiftSlot): TeamId {
   if (slot === 'morning') return record.morningTeam;
   return record.morningTeam === 'ms' ? 'ga' : 'ms';
@@ -128,6 +150,7 @@ function emptyReport(team: TeamId): TeamReport {
     hours: 0,
     standardHours: 0,
     productionIndex: 0,
+    timeBalanceMinutes: 0,
     personHours: 0,
     shifts: 0,
     pauses: 0,
@@ -173,6 +196,7 @@ export function buildReport(records: ProductionRecord[], month: string) {
 
   for (const team of Object.values(teams)) {
     team.productionIndex = team.hours > 0 ? (team.standardHours / team.hours) * 100 : 0;
+    team.timeBalanceMinutes = (team.standardHours - team.hours) * 60;
   }
 
   const winner: TeamId | null = teams.ms.productionIndex === teams.ga.productionIndex
@@ -198,6 +222,14 @@ export function buildReport(records: ProductionRecord[], month: string) {
 
 export function formatNumber(value: number, maximumFractionDigits = 0) {
   return new Intl.NumberFormat('it-IT', { maximumFractionDigits }).format(value);
+}
+
+export function formatMinutes(value: number) {
+  const rounded = Math.round(Math.abs(value));
+  const hours = Math.floor(rounded / 60);
+  const minutes = rounded % 60;
+  if (!hours) return `${minutes} min`;
+  return minutes ? `${hours} h ${minutes} min` : `${hours} h`;
 }
 
 export function formatDate(date: string, style: 'long' | 'short' = 'long') {

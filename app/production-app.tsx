@@ -38,6 +38,7 @@ import {
   buildReport,
   createRecord,
   formatDate,
+  formatMinutes,
   formatMonth,
   formatNumber,
   isFriday,
@@ -46,10 +47,12 @@ import {
   localMonthInput,
   PRODUCTS,
   PRODUCTION_TARGETS,
+  recordHandover,
   recordIsValid,
   shiftHours,
   shiftProductionIndex,
   shiftStandardHours,
+  shiftTimeBalanceMinutes,
   shiftUnits,
   teamForSlot,
   TEAMS,
@@ -76,6 +79,19 @@ function cloneRecord(record: ProductionRecord) {
 
 function emptyStatus(month: string) {
   return `Nessuna giornata a confronto in ${formatMonth(month)}.`;
+}
+
+function balanceLabel(minutes: number, compact = false) {
+  if (Math.abs(minutes) < 0.5) return compact ? 'in linea' : 'In linea con il ritmo';
+  const duration = formatMinutes(minutes);
+  if (minutes > 0) return compact ? `+${duration}` : `${duration} guadagnati`;
+  return compact ? `−${duration}` : `${duration} di ritardo`;
+}
+
+function balanceTone(minutes: number) {
+  if (minutes > 0.5) return 'text-emerald-700';
+  if (minutes < -0.5) return 'text-amber-700';
+  return 'text-muted-foreground';
 }
 
 export function ProductionApp() {
@@ -170,9 +186,10 @@ export function ProductionApp() {
   }
 
   function exportCsv() {
-    const header = ['Data', 'Turno', 'Squadra', 'Acciaio 25L', 'Plastica 20L', 'Bag 10L', 'Totale pezzi', 'Ore nette', 'Ore standard prodotte', 'Indice ponderato', 'Pausa 30m', 'Addetti', 'Confrontabile'];
+    const header = ['Data', 'Turno', 'Squadra', 'Acciaio 25L', 'Plastica 20L', 'Bag 10L', 'Totale pezzi', 'Ore nette', 'Ore standard prodotte', 'Indice ponderato', 'Bilancio minuti', 'Pausa 30m', 'Addetti', 'Confrontabile'];
     const rows = report.relevant.flatMap((record) => (['morning', 'afternoon'] as const).map((slot) => {
       const shift = record[slot];
+      const netHours = shiftHours(slot, record.date, shift.pauseTaken);
       return [
         record.date,
         slot === 'morning' ? 'Mattina' : 'Pomeriggio',
@@ -181,9 +198,10 @@ export function ProductionApp() {
         shift.plastic20,
         shift.bib10,
         shiftUnits(shift),
-        shiftHours(slot, record.date, shift.pauseTaken).toFixed(2).replace('.', ','),
+        netHours.toFixed(2).replace('.', ','),
         shiftStandardHours(shift).toFixed(2).replace('.', ','),
-        shiftProductionIndex(shift, shiftHours(slot, record.date, shift.pauseTaken)).toFixed(1).replace('.', ','),
+        shiftProductionIndex(shift, netHours).toFixed(1).replace('.', ','),
+        Math.round(shiftTimeBalanceMinutes(shift, netHours)),
         shift.pauseTaken ? 'Sì' : 'No',
         shift.staffCount,
         record.isSingleShift ? 'No' : 'Sì',
@@ -212,8 +230,8 @@ export function ProductionApp() {
     const text = [
       `Turno Reale · ${formatMonth(month)}`,
       `${report.compared.length} giornate confrontate`,
-      `M&S: ${formatNumber(ms.units)} pezzi · indice ${formatNumber(ms.productionIndex, 1)}`,
-      `G&A: ${formatNumber(ga.units)} pezzi · indice ${formatNumber(ga.productionIndex, 1)}`,
+      `M&S: ${formatNumber(ms.units)} pezzi · indice ${formatNumber(ms.productionIndex, 1)} · ${balanceLabel(ms.timeBalanceMinutes)}`,
+      `G&A: ${formatNumber(ga.units)} pezzi · indice ${formatNumber(ga.productionIndex, 1)} · ${balanceLabel(ga.timeBalanceMinutes)}`,
       winnerLine,
       `Turni unici esclusi: ${report.excluded}`,
     ].join('\n');
@@ -391,6 +409,7 @@ function LastDayCard({ record }: { record: ProductionRecord }) {
   }
   const morningIndex = shiftProductionIndex(record.morning, shiftHours('morning', record.date, record.morning.pauseTaken));
   const afternoonIndex = shiftProductionIndex(record.afternoon, shiftHours('afternoon', record.date, record.afternoon.pauseTaken));
+  const handover = recordHandover(record);
   const tied = Math.abs(morningIndex - afternoonIndex) < 0.01;
   const morningWon = morningIndex > afternoonIndex;
   const winner = morningWon ? record.morningTeam : record.morningTeam === 'ms' ? 'ga' : 'ms';
@@ -406,6 +425,29 @@ function LastDayCard({ record }: { record: ProductionRecord }) {
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(12, Math.min(88, 50 + advantage / 2))}%` }} /></div>
         <span className="text-sm font-semibold text-primary">{tied ? 'Parità' : `${TEAMS[winner].short} +${formatNumber(advantage, 1)}%`}</span>
       </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="rounded-2xl bg-muted/70 px-3 py-2.5">
+          <p className="text-[10px] font-semibold text-muted-foreground">MATTINA · {TEAMS[record.morningTeam].short}</p>
+          <p className={`mt-1 text-sm font-semibold ${balanceTone(handover.morningBalanceMinutes)}`}>{balanceLabel(handover.morningBalanceMinutes)}</p>
+        </div>
+        <div className="rounded-2xl bg-muted/70 px-3 py-2.5">
+          <p className="text-[10px] font-semibold text-muted-foreground">POMERIGGIO · {TEAMS[teamForSlot(record, 'afternoon')].short}</p>
+          <p className={`mt-1 text-sm font-semibold ${balanceTone(handover.afternoonBalanceMinutes)}`}>{balanceLabel(handover.afternoonBalanceMinutes)}</p>
+        </div>
+      </div>
+      {handover.handedOverMinutes > 0 && (
+        <div className="mt-3 flex items-start gap-2 rounded-2xl bg-amber-500/10 px-3 py-2.5 text-xs leading-5 text-amber-800">
+          <Clock3 className="mt-0.5 size-4 shrink-0" />
+          <span>
+            Il mattino ha passato {formatMinutes(handover.handedOverMinutes)} di arretrato.{' '}
+            {handover.remainingMinutes < 0.5
+              ? `Il pomeriggio lo ha recuperato${handover.recoveredMinutes > 0 ? ` (${formatMinutes(handover.recoveredMinutes)})` : ''}.`
+              : handover.recoveredMinutes > 0
+                ? `Recuperati ${formatMinutes(handover.recoveredMinutes)}; ne restano ${formatMinutes(handover.remainingMinutes)}.`
+                : `Restano ${formatMinutes(handover.remainingMinutes)} da recuperare.`}
+          </span>
+        </div>
+      )}
       <p className="mt-3 text-xs text-muted-foreground">Risultato ponderato per formato, ore nette e numero di teste.</p>
     </section>
   );
@@ -454,6 +496,7 @@ function HistoryCard({ record, onEdit, onDelete }: { record: ProductionRecord; o
   const results = (['morning', 'afternoon'] as const).map((slot) => ({
     team: teamForSlot(record, slot),
     productionIndex: shiftProductionIndex(record[slot], shiftHours(slot, record.date, record[slot].pauseTaken)),
+    timeBalanceMinutes: shiftTimeBalanceMinutes(record[slot], shiftHours(slot, record.date, record[slot].pauseTaken)),
     units: shiftUnits(record[slot]),
   }));
   const tied = Math.abs(results[0].productionIndex - results[1].productionIndex) < 0.01;
@@ -470,6 +513,7 @@ function HistoryCard({ record, onEdit, onDelete }: { record: ProductionRecord; o
           <div key={item.team} className={`rounded-2xl px-3 py-2.5 ${!tied && item.team === top.team ? 'bg-primary/8' : 'bg-muted/70'}`}>
             <div className="flex items-center justify-between"><span className="text-xs font-semibold">{TEAMS[item.team].short}</span><span className="text-[10px] text-muted-foreground">{item.units} pz</span></div>
             <p className="mt-1 text-lg font-semibold tracking-[-0.03em]">{formatNumber(item.productionIndex, 1)} <span className="text-[10px] font-medium text-muted-foreground">indice</span></p>
+            <p className={`mt-0.5 text-[11px] font-semibold ${balanceTone(item.timeBalanceMinutes)}`}>{balanceLabel(item.timeBalanceMinutes, true)}</p>
           </div>
         ))}
       </div>
@@ -576,12 +620,13 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
               <ConditionRow label="Pause da 30 min" ms={report.teams.ms.pauses} ga={report.teams.ga.pauses} />
               <ConditionRow label="Turni con meno di 4" ms={report.teams.ms.reducedStaff} ga={report.teams.ga.reducedStaff} />
               <ConditionRow label="Ore standard prodotte" ms={report.teams.ms.standardHours} ga={report.teams.ga.standardHours} decimal />
+              <TimeBalanceRow ms={report.teams.ms.timeBalanceMinutes} ga={report.teams.ga.timeBalanceMinutes} />
             </div>
           </section>
 
           <section className="mt-4 flex items-start gap-3 rounded-2xl border border-primary/10 bg-primary/7 px-4 py-3 text-xs leading-5 text-muted-foreground">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-primary" />
-            Indice 100 = una linea al ritmo standard per tutto il turno. Può superare 100 quando due linee lavorano insieme. Riferimenti: 25 L 120/h, una testa 65/h, 20 L 33/h, bag 260/h.
+            Indice 100 = una linea al ritmo standard per tutto il turno. Il ritardo del mattino diventa arretrato passato al pomeriggio; l’eventuale anticipo del secondo turno lo recupera. Riferimenti: 25 L 120/h, una testa 65/h, 20 L 33/h, bag 260/h.
           </section>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -600,6 +645,16 @@ function ConditionRow({ label, ms, ga, decimal = false }: { label: string; ms: n
       <span className="text-muted-foreground">{label}</span>
       <span className="text-right font-semibold">{formatNumber(ms, decimal ? 1 : 0)}</span>
       <span className="text-right font-semibold">{formatNumber(ga, decimal ? 1 : 0)}</span>
+    </div>
+  );
+}
+
+function TimeBalanceRow({ ms, ga }: { ms: number; ga: number }) {
+  return (
+    <div className="grid grid-cols-[1fr_72px_72px] items-center gap-2 py-3 text-sm">
+      <span className="text-muted-foreground">Bilancio tempo</span>
+      <span className={`text-right text-xs font-semibold ${balanceTone(ms)}`}>{balanceLabel(ms, true)}</span>
+      <span className={`text-right text-xs font-semibold ${balanceTone(ga)}`}>{balanceLabel(ga, true)}</span>
     </div>
   );
 }

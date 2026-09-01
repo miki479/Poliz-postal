@@ -12,6 +12,8 @@ Web app mobile per confrontare la produzione dei turni **Michele & Simone** e **
 - personale predefinito: 4 addetti; sotto 4 il turno viene segnalato come personale ridotto;
 - confronto principale: indice ponderato sulle velocità di riferimento (25 L: 120/h con due teste o 65/h con una testa; 20 L: 33/h; bag: 260/h), con i conteggi reali sempre mostrati separatamente;
 - indice 100: una linea lavora al proprio ritmo standard per l'intero turno; l'indice può superare 100 quando più linee lavorano contemporaneamente.
+- bilancio tempo automatico: lo scarto dal ritmo standard viene espresso in minuti guadagnati o di ritardo;
+- passaggio consegne: l'eventuale ritardo del mattino è mostrato come arretrato affidato al pomeriggio, insieme ai minuti recuperati o ancora mancanti.
 
 ## Pubblicazione su Render
 

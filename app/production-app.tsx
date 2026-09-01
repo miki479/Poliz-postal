@@ -50,11 +50,9 @@ import {
   recordHandover,
   recordIsValid,
   shiftHours,
-  shiftProductionIndex,
-  shiftShortMinutes,
   shiftStoppageMinutes,
+  shiftStoppages,
   shiftStandardHours,
-  shiftTimeBalanceMinutes,
   shiftUnits,
   teamForSlot,
   TEAMS,
@@ -153,8 +151,8 @@ export function ProductionApp() {
         clean[slot][key] = Math.max(0, Math.round(Number(clean[slot][key]) || 0));
       }
       clean[slot].staffCount = Math.min(8, Math.max(1, Math.round(Number(clean[slot].staffCount) || 4)));
-      clean[slot].stoppageMinutes = Math.max(0, Math.round(Number(clean[slot].stoppageMinutes) || 0));
-      clean[slot].shortShiftMinutes = Math.max(0, Math.round(Number(clean[slot].shortShiftMinutes) || 0));
+      clean[slot].stoppages = shiftStoppages(clean[slot]);
+      clean[slot].stoppageMinutes = 0;
     }
     if (!clean.isSingleShift && shiftUnits(clean.morning) + shiftUnits(clean.afternoon) === 0) {
       setNotice('Inserisci almeno una quantità prima di salvare.');
@@ -190,31 +188,39 @@ export function ProductionApp() {
   }
 
   function exportCsv() {
-    const header = ['Data', 'Turno', 'Squadra', 'Acciaio 25L', 'Plastica 20L', 'Bag 10L', 'Totale pezzi', 'Ore nette', 'Turno ridotto (min)', 'Fermate macchina (min)', 'Ore standard prodotte', 'Indice ponderato', 'Bilancio minuti', 'Pausa 30m', 'Addetti', 'Confrontabile'];
-    const rows = report.relevant.flatMap((record) => (['morning', 'afternoon'] as const).map((slot) => {
-      const shift = record[slot];
-      const stoppageMinutes = shiftStoppageMinutes(shift);
-      const shortShiftMinutes = shiftShortMinutes(shift);
-      const netHours = shiftHours(slot, record.date, shift.pauseTaken, stoppageMinutes, shortShiftMinutes);
-      return [
-        record.date,
-        slot === 'morning' ? 'Mattina' : 'Pomeriggio',
-        TEAMS[teamForSlot(record, slot)].name,
-        shift.steel25,
-        shift.plastic20,
-        shift.bib10,
-        shiftUnits(shift),
-        netHours.toFixed(2).replace('.', ','),
-        shortShiftMinutes,
-        stoppageMinutes,
-        shiftStandardHours(shift).toFixed(2).replace('.', ','),
-        shiftProductionIndex(shift, netHours).toFixed(1).replace('.', ','),
-        Math.round(shiftTimeBalanceMinutes(shift, netHours)),
-        shift.pauseTaken ? 'Sì' : 'No',
-        shift.staffCount,
-        record.isSingleShift ? 'No' : 'Sì',
-      ];
-    }));
+    const header = ['Data', 'Turno', 'Squadra', 'Acciaio 25L', 'Plastica 20L', 'Bag 10L', 'Totale pezzi', 'Ore disponibili', 'Ore produzione valutate', 'Numero fermate', 'Fermate e cambi (min)', 'Dettaglio fermate', 'Ore standard prodotte', 'Indice ponderato', 'Bilancio minuti', 'Pausa 30m', 'Addetti', 'Confrontabile'];
+    const rows = report.relevant.flatMap((record) => {
+      const handover = recordHandover(record);
+      return (['morning', 'afternoon'] as const).map((slot) => {
+        const shift = record[slot];
+        const stoppages = shiftStoppages(shift);
+        const stoppageMinutes = shiftStoppageMinutes(shift);
+        const availableHours = slot === 'morning' ? handover.morningAvailableHours : handover.afternoonAvailableHours;
+        const evaluationHours = slot === 'morning' ? handover.morningEvaluationHours : handover.afternoonEvaluationHours;
+        const productionIndex = slot === 'morning' ? handover.morningProductionIndex : handover.afternoonProductionIndex;
+        const timeBalanceMinutes = slot === 'morning' ? handover.morningBalanceMinutes : handover.afternoonBalanceMinutes;
+        return [
+          record.date,
+          slot === 'morning' ? 'Mattina' : 'Pomeriggio',
+          TEAMS[teamForSlot(record, slot)].name,
+          shift.steel25,
+          shift.plastic20,
+          shift.bib10,
+          shiftUnits(shift),
+          availableHours.toFixed(2).replace('.', ','),
+          evaluationHours.toFixed(2).replace('.', ','),
+          stoppages.length,
+          stoppageMinutes,
+          stoppages.map((entry) => `${entry.label}: ${entry.minutes} min`).join(' | '),
+          shiftStandardHours(shift).toFixed(2).replace('.', ','),
+          productionIndex.toFixed(1).replace('.', ','),
+          Math.round(timeBalanceMinutes),
+          shift.pauseTaken ? 'Sì' : 'No',
+          shift.staffCount,
+          record.isSingleShift ? 'No' : 'Sì',
+        ];
+      });
+    });
     const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(';')).join('\n');
     const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -238,8 +244,8 @@ export function ProductionApp() {
     const text = [
       `Turno Reale · ${formatMonth(month)}`,
       `${report.compared.length} giornate confrontate`,
-      `M&S: ${formatNumber(ms.units)} pezzi · indice ${formatNumber(ms.productionIndex, 1)} · ${balanceLabel(ms.timeBalanceMinutes)} · fermate ${formatMinutes(ms.stoppageMinutes)}`,
-      `G&A: ${formatNumber(ga.units)} pezzi · indice ${formatNumber(ga.productionIndex, 1)} · ${balanceLabel(ga.timeBalanceMinutes)} · fermate ${formatMinutes(ga.stoppageMinutes)}`,
+      `M&S: ${formatNumber(ms.units)} pezzi · indice ${formatNumber(ms.productionIndex, 1)} · ${balanceLabel(ms.timeBalanceMinutes)} · ${ms.stoppageCount} fermate (${formatMinutes(ms.stoppageMinutes)})`,
+      `G&A: ${formatNumber(ga.units)} pezzi · indice ${formatNumber(ga.productionIndex, 1)} · ${balanceLabel(ga.timeBalanceMinutes)} · ${ga.stoppageCount} fermate (${formatMinutes(ga.stoppageMinutes)})`,
       winnerLine,
       `Turni unici esclusi: ${report.excluded}`,
     ].join('\n');
@@ -415,9 +421,9 @@ function LastDayCard({ record }: { record: ProductionRecord }) {
       </section>
     );
   }
-  const morningIndex = shiftProductionIndex(record.morning, shiftHours('morning', record.date, record.morning.pauseTaken, shiftStoppageMinutes(record.morning), shiftShortMinutes(record.morning)));
-  const afternoonIndex = shiftProductionIndex(record.afternoon, shiftHours('afternoon', record.date, record.afternoon.pauseTaken, shiftStoppageMinutes(record.afternoon), shiftShortMinutes(record.afternoon)));
   const handover = recordHandover(record);
+  const morningIndex = handover.morningProductionIndex;
+  const afternoonIndex = handover.afternoonProductionIndex;
   const tied = Math.abs(morningIndex - afternoonIndex) < 0.01;
   const morningWon = morningIndex > afternoonIndex;
   const winner = morningWon ? record.morningTeam : record.morningTeam === 'ms' ? 'ga' : 'ms';
@@ -437,21 +443,20 @@ function LastDayCard({ record }: { record: ProductionRecord }) {
         <div className="rounded-2xl bg-muted/70 px-3 py-2.5">
           <p className="text-[10px] font-semibold text-muted-foreground">MATTINA · {TEAMS[record.morningTeam].short}</p>
           <p className={`mt-1 text-sm font-semibold ${balanceTone(handover.morningBalanceMinutes)}`}>{balanceLabel(handover.morningBalanceMinutes)}</p>
-          {shiftStoppageMinutes(record.morning) > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">{formatMinutes(shiftStoppageMinutes(record.morning))} di fermate escluse</p>}
-          {shiftShortMinutes(record.morning) > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">Turno ridotto di {formatMinutes(shiftShortMinutes(record.morning))}</p>}
+          {shiftStoppageMinutes(record.morning) > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">{shiftStoppages(record.morning).length} fermate · {formatMinutes(shiftStoppageMinutes(record.morning))} escluse</p>}
         </div>
         <div className="rounded-2xl bg-muted/70 px-3 py-2.5">
           <p className="text-[10px] font-semibold text-muted-foreground">POMERIGGIO · {TEAMS[teamForSlot(record, 'afternoon')].short}</p>
           <p className={`mt-1 text-sm font-semibold ${balanceTone(handover.afternoonBalanceMinutes)}`}>{balanceLabel(handover.afternoonBalanceMinutes)}</p>
-          {shiftStoppageMinutes(record.afternoon) > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">{formatMinutes(shiftStoppageMinutes(record.afternoon))} di fermate escluse</p>}
-          {shiftShortMinutes(record.afternoon) > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">Turno ridotto di {formatMinutes(shiftShortMinutes(record.afternoon))}</p>}
+          {shiftStoppageMinutes(record.afternoon) > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">{shiftStoppages(record.afternoon).length} fermate · {formatMinutes(shiftStoppageMinutes(record.afternoon))} escluse</p>}
+          {handover.afternoonStandardHours < handover.afternoonAvailableHours && <p className="mt-0.5 text-[10px] text-muted-foreground">Tempo restante considerato pulizie</p>}
         </div>
       </div>
       {handover.handedOverMinutes > 0 && (
         <div className="mt-3 flex items-start gap-2 rounded-2xl bg-amber-500/10 px-3 py-2.5 text-xs leading-5 text-amber-800">
           <Clock3 className="mt-0.5 size-4 shrink-0" />
           <span>
-            Il mattino ha passato {formatMinutes(handover.handedOverMinutes)} di arretrato{handover.machineDelayMinutes > 0 ? `, di cui ${formatMinutes(handover.machineDelayMinutes)} dovuti a fermate macchina` : ''}.{' '}
+            Il mattino ha passato {formatMinutes(handover.handedOverMinutes)} di arretrato{handover.machineDelayMinutes > 0 ? `, di cui ${formatMinutes(handover.machineDelayMinutes)} dovuti a fermate o cambi` : ''}.{' '}
             {handover.remainingMinutes < 0.5
               ? `Il pomeriggio lo ha recuperato${handover.recoveredMinutes > 0 ? ` (${formatMinutes(handover.recoveredMinutes)})` : ''}.`
               : handover.recoveredMinutes > 0
@@ -460,7 +465,7 @@ function LastDayCard({ record }: { record: ProductionRecord }) {
           </span>
         </div>
       )}
-      <p className="mt-3 text-xs text-muted-foreground">Risultato ponderato per formato, ore nette e numero di teste.</p>
+      <p className="mt-3 text-xs text-muted-foreground">Il tempo non produttivo del pomeriggio viene considerato pulizia; fermate e cambi restano separati.</p>
     </section>
   );
 }
@@ -505,12 +510,14 @@ function HistoryCard({ record, onEdit, onDelete }: { record: ProductionRecord; o
       </article>
     );
   }
+  const handover = recordHandover(record);
   const results = (['morning', 'afternoon'] as const).map((slot) => ({
     team: teamForSlot(record, slot),
-    productionIndex: shiftProductionIndex(record[slot], shiftHours(slot, record.date, record[slot].pauseTaken, shiftStoppageMinutes(record[slot]), shiftShortMinutes(record[slot]))),
-    timeBalanceMinutes: shiftTimeBalanceMinutes(record[slot], shiftHours(slot, record.date, record[slot].pauseTaken, shiftStoppageMinutes(record[slot]), shiftShortMinutes(record[slot]))),
+    productionIndex: slot === 'morning' ? handover.morningProductionIndex : handover.afternoonProductionIndex,
+    timeBalanceMinutes: slot === 'morning' ? handover.morningBalanceMinutes : handover.afternoonBalanceMinutes,
     stoppageMinutes: shiftStoppageMinutes(record[slot]),
-    shortShiftMinutes: shiftShortMinutes(record[slot]),
+    stoppageCount: shiftStoppages(record[slot]).length,
+    isCleaningRemainder: slot === 'afternoon' && handover.afternoonStandardHours < handover.afternoonAvailableHours,
     units: shiftUnits(record[slot]),
   }));
   const tied = Math.abs(results[0].productionIndex - results[1].productionIndex) < 0.01;
@@ -528,8 +535,8 @@ function HistoryCard({ record, onEdit, onDelete }: { record: ProductionRecord; o
             <div className="flex items-center justify-between"><span className="text-xs font-semibold">{TEAMS[item.team].short}</span><span className="text-[10px] text-muted-foreground">{item.units} pz</span></div>
             <p className="mt-1 text-lg font-semibold tracking-[-0.03em]">{formatNumber(item.productionIndex, 1)} <span className="text-[10px] font-medium text-muted-foreground">indice</span></p>
             <p className={`mt-0.5 text-[11px] font-semibold ${balanceTone(item.timeBalanceMinutes)}`}>{balanceLabel(item.timeBalanceMinutes, true)}</p>
-            {item.stoppageMinutes > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">Fermate {formatMinutes(item.stoppageMinutes)}</p>}
-            {item.shortShiftMinutes > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">Turno ridotto {formatMinutes(item.shortShiftMinutes)}</p>}
+            {item.stoppageMinutes > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">{item.stoppageCount} fermate · {formatMinutes(item.stoppageMinutes)}</p>}
+            {item.isCleaningRemainder && <p className="mt-0.5 text-[10px] text-muted-foreground">Resto pulizie</p>}
           </div>
         ))}
       </div>
@@ -558,7 +565,7 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
   return (
     <div className="mx-auto max-w-md px-5 pt-[max(1.5rem,env(safe-area-inset-top))]">
       <div className="flex items-start justify-between gap-4">
-        <div><p className="eyebrow text-primary">NUMERI REALI</p><h1 className="mt-1 text-[30px] font-semibold tracking-[-0.045em]">Report</h1><p className="mt-1 text-sm text-muted-foreground">Confronto mensile corretto per ore nette</p></div>
+        <div><p className="eyebrow text-primary">NUMERI REALI</p><h1 className="mt-1 text-[30px] font-semibold tracking-[-0.045em]">Report</h1><p className="mt-1 text-sm text-muted-foreground">Confronto mensile corretto per lavoro disponibile</p></div>
         <button onClick={onBackup} className="flex size-11 items-center justify-center rounded-2xl bg-card text-muted-foreground shadow-sm" aria-label="Backup dati"><Database className="size-5" /></button>
       </div>
 
@@ -610,7 +617,7 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
                 <div key={team} className="surface-card rounded-[22px] p-4">
                   <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${team === 'ms' ? 'bg-primary/10 text-primary' : 'bg-cyan-500/10 text-cyan-700'}`}>{TEAMS[team].short}</span>
                   <p className="mt-3 text-2xl font-semibold tracking-[-0.04em]">{formatNumber(item.units)} <small className="text-xs font-medium text-muted-foreground">pz</small></p>
-                  <p className="mt-1 text-xs text-muted-foreground">{formatNumber(item.hours, 1)} ore nette · {item.wins} vittorie</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatNumber(item.hours, 1)} ore valutate · {item.wins} vittorie</p>
                 </div>
               );
             })}
@@ -634,8 +641,10 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
             <div className="flex items-center gap-2"><Users className="size-4 text-primary" /><h2 className="font-semibold">Condizioni di lavoro</h2></div>
             <div className="mt-4 divide-y">
               <ConditionRow label="Pause da 30 min" ms={report.teams.ms.pauses} ga={report.teams.ga.pauses} />
-              <ConditionRow label="Turni ridotti (min)" ms={report.teams.ms.shortShiftMinutes} ga={report.teams.ga.shortShiftMinutes} />
-              <ConditionRow label="Fermate macchina (min)" ms={report.teams.ms.stoppageMinutes} ga={report.teams.ga.stoppageMinutes} />
+              <ConditionRow label="Numero fermate/cambi" ms={report.teams.ms.stoppageCount} ga={report.teams.ga.stoppageCount} />
+              <ConditionRow label="Fermate e cambi (min)" ms={report.teams.ms.stoppageMinutes} ga={report.teams.ga.stoppageMinutes} />
+              <ConditionRow label="Arretrato lasciato (min)" ms={report.teams.ms.handoverMinutes} ga={report.teams.ga.handoverMinutes} />
+              <ConditionRow label="Arretrato recuperato (min)" ms={report.teams.ms.recoveredMinutes} ga={report.teams.ga.recoveredMinutes} />
               <ConditionRow label="Turni con meno di 4" ms={report.teams.ms.reducedStaff} ga={report.teams.ga.reducedStaff} />
               <ConditionRow label="Ore standard prodotte" ms={report.teams.ms.standardHours} ga={report.teams.ga.standardHours} decimal />
               <TimeBalanceRow ms={report.teams.ms.timeBalanceMinutes} ga={report.teams.ga.timeBalanceMinutes} />
@@ -644,7 +653,7 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
 
           <section className="mt-4 flex items-start gap-3 rounded-2xl border border-primary/10 bg-primary/7 px-4 py-3 text-xs leading-5 text-muted-foreground">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-primary" />
-            Indice 100 = una linea al ritmo standard per tutto il tempo realmente disponibile. Pause, fermate macchina e turni terminati prima vengono sottratti; l’arretrato operativo resta visibile ma non viene attribuito alla squadra. Riferimenti: 25 L 120/h, una testa 65/h, 20 L 33/h, bag 260/h.
+            Per il pomeriggio, il tempo senza produzione viene considerato automaticamente dedicato alle pulizie. L’eventuale produzione lasciata indietro dal mattino resta invece attribuita al mattino e viene mostrata come recupero del pomeriggio. Pause, fermate e cambi vengono sottratti. Riferimenti: 25 L 120/h, una testa 65/h, 20 L 33/h, bag 260/h.
           </section>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -762,15 +771,25 @@ function ShiftForm({ slot, date, team, shift, onChange }: {
   onChange: (shift: ShiftEntry) => void;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [customStopMinutes, setCustomStopMinutes] = useState('');
+  const stoppages = shiftStoppages(shift);
   const stoppageMinutes = shiftStoppageMinutes(shift);
-  const shortShiftMinutes = shiftShortMinutes(shift);
-  const hours = shiftHours(slot, date, shift.pauseTaken, stoppageMinutes, shortShiftMinutes);
+  const hours = shiftHours(slot, date, shift.pauseTaken, stoppageMinutes);
+
+  function updateStoppages(next: ShiftEntry['stoppages']) {
+    onChange({ ...shift, stoppages: next, stoppageMinutes: 0 });
+  }
+
+  function addStoppage(label: string, minutes: number) {
+    if (minutes <= 0) return;
+    updateStoppages([...stoppages, { id: crypto.randomUUID(), label, minutes: Math.round(minutes) }]);
+  }
   return (
     <section className="mt-6">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2"><span className={`shift-dot ${slot === 'morning' ? 'bg-amber-400' : 'bg-indigo-500'}`} /><h3 className="text-lg font-semibold">{slot === 'morning' ? 'Mattina' : 'Pomeriggio'}</h3></div>
-          <p className="mt-1 text-xs text-muted-foreground">{TEAMS[team].name} · {formatNumber(hours, 2)} ore nette</p>
+          <p className="mt-1 text-xs text-muted-foreground">{TEAMS[team].name} · {formatNumber(hours, 2)} ore disponibili</p>
         </div>
         <span className="rounded-full bg-primary/8 px-3 py-1 text-[11px] font-bold text-primary">{TEAMS[team].short}</span>
       </div>
@@ -804,47 +823,57 @@ function ShiftForm({ slot, date, team, shift, onChange }: {
       {detailsOpen && (
         <div className="mt-1 space-y-3 rounded-2xl border bg-card p-4">
           <div>
-            <div className="flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><Clock3 className="size-4" /></span>
-              <label htmlFor={`${slot}-short-shift`} className="min-w-0 flex-1"><span className="block text-sm font-semibold">Turno finito prima</span><span className="block text-[11px] text-muted-foreground">Minuti non previsti perché la giornata era corta</span></label>
-              <Input
-                id={`${slot}-short-shift`}
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                placeholder="0"
-                value={shortShiftMinutes || ''}
-                onChange={(event) => onChange({ ...shift, shortShiftMinutes: Math.max(0, Number(event.target.value)) })}
-                className="h-11 w-20 rounded-xl bg-muted/70 text-right text-base font-semibold tabular-nums focus:bg-card"
-                aria-label={`Minuti di riduzione del turno ${slot === 'morning' ? 'mattina' : 'pomeriggio'}`}
-              />
-            </div>
-            <div className="mt-2 grid grid-cols-4 gap-1.5 pl-12">
-              {[0, 30, 60, 120].map((minutes) => <button key={minutes} type="button" onClick={() => onChange({ ...shift, shortShiftMinutes: minutes })} className={`rounded-xl py-1.5 text-xs font-semibold ${shortShiftMinutes === minutes ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{minutes}</button>)}
-            </div>
-          </div>
-          <div className="h-px bg-border" />
-          <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <span className="flex size-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700"><Clock3 className="size-4" /></span>
-              <label htmlFor={`${slot}-stoppage`} className="min-w-0 flex-1"><span className="block text-sm font-semibold">Fermate macchina</span><span className="block text-[11px] text-muted-foreground">Minuti totali persi per guasti o blocchi</span></label>
+              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Fermate e cambi</p><p className="text-[11px] text-muted-foreground">Aggiungine anche più di uno: il totale si calcola da solo</p></div>
+              {stoppageMinutes > 0 && <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-800">{stoppageMinutes} min</span>}
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-1.5">
+              {[
+                ['Cambio vino fermo', 15],
+                ['Cambio vino frizzante', 15],
+                ['Cambio vino frizzante', 30],
+                ['Cambio macchina', 15],
+                ['Cambio linea', 15],
+                ['Cambio linea', 30],
+              ].map(([label, minutes]) => (
+                <button key={`${label}-${minutes}`} type="button" onClick={() => addStoppage(String(label), Number(minutes))} className="flex items-center justify-between rounded-xl bg-muted px-3 py-2 text-left text-xs font-semibold text-foreground">
+                  <span className="min-w-0 leading-4">{label}</span><span className="ml-2 shrink-0 text-amber-700">+{minutes}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-2 flex gap-2">
               <Input
-                id={`${slot}-stoppage`}
+                id={`${slot}-custom-stop`}
                 type="number"
                 inputMode="numeric"
-                min="0"
+                min="1"
                 step="1"
-                placeholder="0"
-                value={stoppageMinutes || ''}
-                onChange={(event) => onChange({ ...shift, stoppageMinutes: Math.max(0, Number(event.target.value)) })}
-                className="h-11 w-20 rounded-xl bg-muted/70 text-right text-base font-semibold tabular-nums focus:bg-card"
-                aria-label={`Minuti di fermata macchina, turno ${slot === 'morning' ? 'mattina' : 'pomeriggio'}`}
+                placeholder="Minuti guasto/altro"
+                value={customStopMinutes}
+                onChange={(event) => setCustomStopMinutes(event.target.value)}
+                className="h-10 min-w-0 flex-1 rounded-xl bg-muted/70 text-sm tabular-nums focus:bg-card"
+                aria-label={`Minuti di guasto o altra fermata, turno ${slot === 'morning' ? 'mattina' : 'pomeriggio'}`}
               />
+              <Button type="button" variant="outline" className="h-10 rounded-xl px-3" onClick={() => {
+                addStoppage('Guasto / altro', Number(customStopMinutes));
+                setCustomStopMinutes('');
+              }}>Aggiungi</Button>
             </div>
-            <div className="mt-2 grid grid-cols-4 gap-1.5 pl-12">
-              {[0, 15, 30, 60].map((minutes) => <button key={minutes} type="button" onClick={() => onChange({ ...shift, stoppageMinutes: minutes })} className={`rounded-xl py-1.5 text-xs font-semibold ${stoppageMinutes === minutes ? 'bg-amber-500/15 text-amber-800' : 'bg-muted text-muted-foreground'}`}>{minutes}</button>)}
-            </div>
+
+            {stoppages.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                {stoppages.map((entry) => (
+                  <div key={entry.id} className="flex items-center gap-2 rounded-xl border bg-background/70 px-3 py-2 text-xs">
+                    <span className="min-w-0 flex-1 truncate font-medium">{entry.label}</span>
+                    <span className="font-semibold text-muted-foreground">{entry.minutes} min</span>
+                    <button type="button" onClick={() => updateStoppages(stoppages.filter((item) => item.id !== entry.id))} className="flex size-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label={`Rimuovi ${entry.label}`}><X className="size-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="h-px bg-border" />
           <div className="flex items-center gap-3">

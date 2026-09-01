@@ -8,13 +8,13 @@ Web app mobile per confrontare la produzione dei turni **Michele & Simone** e **
 - pomeriggio: 6 ore e 45 minuti produttivi;
 - venerdì: 1 ora in meno per entrambi;
 - pausa effettuata: 30 minuti sottratti al turno;
-- fermate macchina: minuti totali inseriti per turno e sottratti dal tempo produttivo, con il loro impatto operativo mantenuto visibile nel passaggio consegne;
-- turno finito prima: riduzione eccezionale inserita in minuti e sottratta dal tempo previsto, senza generare un ritardo fittizio;
+- fermate e cambi: si possono aggiungere più eventi per turno scegliendo tipo e minuti; il totale viene sottratto dal tempo produttivo e resta visibile nel passaggio consegne;
+- pomeriggio con poca produzione: il tempo restante viene considerato automaticamente dedicato alle pulizie, senza generare un ritardo fittizio;
 - turno unico: salvato nello storico ma escluso dal confronto;
 - personale predefinito: 4 addetti; sotto 4 il turno viene segnalato come personale ridotto;
 - confronto principale: indice ponderato sulle velocità di riferimento (25 L: 120/h con due teste o 65/h con una testa; 20 L: 33/h; bag: 260/h), con i conteggi reali sempre mostrati separatamente;
 - indice 100: una linea lavora al proprio ritmo standard per l'intero turno; l'indice può superare 100 quando più linee lavorano contemporaneamente.
-- bilancio tempo automatico: lo scarto dal ritmo standard viene espresso in minuti guadagnati o di ritardo;
+- bilancio tempo automatico: il mattino viene valutato sul lavoro giornaliero disponibile fino alla propria capacità; il pomeriggio completa il resto e il tempo rimanente è considerato pulizia;
 - passaggio consegne: l'eventuale ritardo del mattino è mostrato come arretrato affidato al pomeriggio, insieme ai minuti recuperati o ancora mancanti.
 
 ## Pubblicazione su Render

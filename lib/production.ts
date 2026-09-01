@@ -27,9 +27,9 @@ export type TeamReport = ProductCounts & {
   team: TeamId;
   units: number;
   hours: number;
-  rate: number;
+  standardHours: number;
+  productionIndex: number;
   personHours: number;
-  perPersonHour: number;
   shifts: number;
   pauses: number;
   reducedStaff: number;
@@ -42,10 +42,17 @@ export const TEAMS: Record<TeamId, { name: string; short: string; people: string
 };
 
 export const PRODUCTS = [
-  { key: 'steel25' as const, label: 'Acciaio', detail: '25 litri', accent: 'steel' },
-  { key: 'plastic20' as const, label: 'Plastica', detail: '20 litri', accent: 'plastic' },
-  { key: 'bib10' as const, label: 'Bag in box', detail: '10 litri', accent: 'bag' },
+  { key: 'steel25' as const, label: 'Acciaio', detail: '25 litri', target: 120, accent: 'steel' },
+  { key: 'plastic20' as const, label: 'Plastica', detail: '20 litri', target: 33, accent: 'plastic' },
+  { key: 'bib10' as const, label: 'Bag in box', detail: '10 litri', target: 260, accent: 'bag' },
 ];
+
+export const PRODUCTION_TARGETS = {
+  steel25TwoHeads: 120,
+  steel25OneHead: 65,
+  plastic20: 33,
+  bib10: 260,
+} as const;
 
 export const EMPTY_SHIFT: ShiftEntry = {
   steel25: 0,
@@ -91,6 +98,21 @@ export function shiftUnits(shift: ProductCounts) {
   return shift.steel25 + shift.plastic20 + shift.bib10;
 }
 
+export function shiftStandardHours(shift: ShiftEntry) {
+  const steel25Target = shift.staffCount < 4
+    ? PRODUCTION_TARGETS.steel25OneHead
+    : PRODUCTION_TARGETS.steel25TwoHeads;
+  return (
+    shift.steel25 / steel25Target
+    + shift.plastic20 / PRODUCTION_TARGETS.plastic20
+    + shift.bib10 / PRODUCTION_TARGETS.bib10
+  );
+}
+
+export function shiftProductionIndex(shift: ShiftEntry, netHours: number) {
+  return netHours > 0 ? (shiftStandardHours(shift) / netHours) * 100 : 0;
+}
+
 export function teamForSlot(record: ProductionRecord, slot: ShiftSlot): TeamId {
   if (slot === 'morning') return record.morningTeam;
   return record.morningTeam === 'ms' ? 'ga' : 'ms';
@@ -104,9 +126,9 @@ function emptyReport(team: TeamId): TeamReport {
     bib10: 0,
     units: 0,
     hours: 0,
-    rate: 0,
+    standardHours: 0,
+    productionIndex: 0,
     personHours: 0,
-    perPersonHour: 0,
     shifts: 0,
     pauses: 0,
     reducedStaff: 0,
@@ -121,42 +143,45 @@ export function buildReport(records: ProductionRecord[], month: string) {
   let draws = 0;
 
   for (const record of compared) {
-    const dayRates: Partial<Record<TeamId, number>> = {};
+    const dayIndexes: Partial<Record<TeamId, number>> = {};
     for (const slot of ['morning', 'afternoon'] as const) {
       const team = teamForSlot(record, slot);
       const shift = record[slot];
       const hours = shiftHours(slot, record.date, shift.pauseTaken);
       const units = shiftUnits(shift);
+      const standardHours = shiftStandardHours(shift);
       const report = teams[team];
       report.steel25 += shift.steel25;
       report.plastic20 += shift.plastic20;
       report.bib10 += shift.bib10;
       report.units += units;
       report.hours += hours;
+      report.standardHours += standardHours;
       report.personHours += hours * shift.staffCount;
       report.shifts += 1;
       if (shift.pauseTaken) report.pauses += 1;
       if (shift.staffCount < 4) report.reducedStaff += 1;
-      dayRates[team] = hours > 0 ? units / hours : 0;
+      dayIndexes[team] = shiftProductionIndex(shift, hours);
     }
 
-    const msRate = dayRates.ms ?? 0;
-    const gaRate = dayRates.ga ?? 0;
-    if (Math.abs(msRate - gaRate) < 0.01) draws += 1;
-    else if (msRate > gaRate) teams.ms.wins += 1;
+    const msIndex = dayIndexes.ms ?? 0;
+    const gaIndex = dayIndexes.ga ?? 0;
+    if (Math.abs(msIndex - gaIndex) < 0.01) draws += 1;
+    else if (msIndex > gaIndex) teams.ms.wins += 1;
     else teams.ga.wins += 1;
   }
 
   for (const team of Object.values(teams)) {
-    team.rate = team.hours > 0 ? team.units / team.hours : 0;
-    team.perPersonHour = team.personHours > 0 ? team.units / team.personHours : 0;
+    team.productionIndex = team.hours > 0 ? (team.standardHours / team.hours) * 100 : 0;
   }
 
-  const winner: TeamId | null = teams.ms.rate === teams.ga.rate ? null : teams.ms.rate > teams.ga.rate ? 'ms' : 'ga';
+  const winner: TeamId | null = teams.ms.productionIndex === teams.ga.productionIndex
+    ? null
+    : teams.ms.productionIndex > teams.ga.productionIndex ? 'ms' : 'ga';
   const loser: TeamId | null = winner === 'ms' ? 'ga' : winner === 'ga' ? 'ms' : null;
   const advantage = winner && loser
-    ? teams[loser].rate > 0
-      ? ((teams[winner].rate / teams[loser].rate) - 1) * 100
+    ? teams[loser].productionIndex > 0
+      ? ((teams[winner].productionIndex / teams[loser].productionIndex) - 1) * 100
       : Number.POSITIVE_INFINITY
     : 0;
 

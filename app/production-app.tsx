@@ -45,8 +45,11 @@ import {
   localDateInput,
   localMonthInput,
   PRODUCTS,
+  PRODUCTION_TARGETS,
   recordIsValid,
   shiftHours,
+  shiftProductionIndex,
+  shiftStandardHours,
   shiftUnits,
   teamForSlot,
   TEAMS,
@@ -167,7 +170,7 @@ export function ProductionApp() {
   }
 
   function exportCsv() {
-    const header = ['Data', 'Turno', 'Squadra', 'Acciaio 25L', 'Plastica 20L', 'Bag 10L', 'Totale pezzi', 'Ore nette', 'Pausa 30m', 'Addetti', 'Confrontabile'];
+    const header = ['Data', 'Turno', 'Squadra', 'Acciaio 25L', 'Plastica 20L', 'Bag 10L', 'Totale pezzi', 'Ore nette', 'Ore standard prodotte', 'Indice ponderato', 'Pausa 30m', 'Addetti', 'Confrontabile'];
     const rows = report.relevant.flatMap((record) => (['morning', 'afternoon'] as const).map((slot) => {
       const shift = record[slot];
       return [
@@ -179,6 +182,8 @@ export function ProductionApp() {
         shift.bib10,
         shiftUnits(shift),
         shiftHours(slot, record.date, shift.pauseTaken).toFixed(2).replace('.', ','),
+        shiftStandardHours(shift).toFixed(2).replace('.', ','),
+        shiftProductionIndex(shift, shiftHours(slot, record.date, shift.pauseTaken)).toFixed(1).replace('.', ','),
         shift.pauseTaken ? 'Sì' : 'No',
         shift.staffCount,
         record.isSingleShift ? 'No' : 'Sì',
@@ -202,13 +207,13 @@ export function ProductionApp() {
     const ms = report.teams.ms;
     const ga = report.teams.ga;
     const winnerLine = report.winner
-      ? `${TEAMS[report.winner].name}: +${formatNumber(report.advantage, 1)}% nelle uscite per ora.`
-      : 'Uscite per ora in parità.';
+      ? `${TEAMS[report.winner].name}: +${formatNumber(report.advantage, 1)}% nell’indice ponderato.`
+      : 'Indice ponderato in parità.';
     const text = [
       `Turno Reale · ${formatMonth(month)}`,
       `${report.compared.length} giornate confrontate`,
-      `M&S: ${formatNumber(ms.units)} pezzi · ${formatNumber(ms.rate, 1)} pz/h`,
-      `G&A: ${formatNumber(ga.units)} pezzi · ${formatNumber(ga.rate, 1)} pz/h`,
+      `M&S: ${formatNumber(ms.units)} pezzi · indice ${formatNumber(ms.productionIndex, 1)}`,
+      `G&A: ${formatNumber(ga.units)} pezzi · indice ${formatNumber(ga.productionIndex, 1)}`,
       winnerLine,
       `Turni unici esclusi: ${report.excluded}`,
     ].join('\n');
@@ -333,7 +338,7 @@ function TodayView({ report, lastRecord, onNew, onOpenReport, onBackup }: {
                 <p className="mt-1 text-xl font-semibold">{formatNumber(report.teams.ms.units + report.teams.ga.units)} pz</p>
               </div>
               <div className="rounded-2xl bg-cyan-300/15 px-4 py-3 ring-1 ring-cyan-200/15">
-                <p className="text-xs text-cyan-100/65">Vantaggio reale</p>
+                <p className="text-xs text-cyan-100/65">Vantaggio ponderato</p>
                 <p className="mt-1 text-xl font-semibold text-cyan-100">{winner ? `+${formatNumber(report.advantage, 1)}%` : '—'}</p>
               </div>
             </div>
@@ -365,7 +370,7 @@ function TodayView({ report, lastRecord, onNew, onOpenReport, onBackup }: {
 
         <div className="flex items-start gap-3 rounded-2xl bg-primary/7 px-4 py-3 text-xs leading-5 text-muted-foreground">
           <Gauge className="mt-0.5 size-4 shrink-0 text-primary" />
-          Il confronto usa fusti + bag per ora netta. I turni unici restano nello storico, ma valgono zero nel confronto.
+          Il confronto pesa ogni formato sul suo ritmo reale: 25 L 120/h, 20 L 33/h e bag 260/h. I turni unici restano esclusi.
         </div>
       </div>
     </>
@@ -384,12 +389,13 @@ function LastDayCard({ record }: { record: ProductionRecord }) {
       </section>
     );
   }
-  const morningRate = shiftUnits(record.morning) / shiftHours('morning', record.date, record.morning.pauseTaken);
-  const afternoonRate = shiftUnits(record.afternoon) / shiftHours('afternoon', record.date, record.afternoon.pauseTaken);
-  const morningWon = morningRate > afternoonRate;
+  const morningIndex = shiftProductionIndex(record.morning, shiftHours('morning', record.date, record.morning.pauseTaken));
+  const afternoonIndex = shiftProductionIndex(record.afternoon, shiftHours('afternoon', record.date, record.afternoon.pauseTaken));
+  const tied = Math.abs(morningIndex - afternoonIndex) < 0.01;
+  const morningWon = morningIndex > afternoonIndex;
   const winner = morningWon ? record.morningTeam : record.morningTeam === 'ms' ? 'ga' : 'ms';
-  const loserRate = morningWon ? afternoonRate : morningRate;
-  const advantage = loserRate > 0 ? ((Math.max(morningRate, afternoonRate) / loserRate) - 1) * 100 : 0;
+  const loserIndex = morningWon ? afternoonIndex : morningIndex;
+  const advantage = loserIndex > 0 ? ((Math.max(morningIndex, afternoonIndex) / loserIndex) - 1) * 100 : 0;
   return (
     <section className="surface-card rounded-[24px] p-5">
       <div className="flex items-center justify-between">
@@ -398,9 +404,9 @@ function LastDayCard({ record }: { record: ProductionRecord }) {
       </div>
       <div className="mt-4 flex items-center gap-3">
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(12, Math.min(88, 50 + advantage / 2))}%` }} /></div>
-        <span className="text-sm font-semibold text-primary">{TEAMS[winner].short} +{formatNumber(advantage, 1)}%</span>
+        <span className="text-sm font-semibold text-primary">{tied ? 'Parità' : `${TEAMS[winner].short} +${formatNumber(advantage, 1)}%`}</span>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">Risultato corretto per le ore nette dei due turni.</p>
+      <p className="mt-3 text-xs text-muted-foreground">Risultato ponderato per formato, ore nette e numero di teste.</p>
     </section>
   );
 }
@@ -445,24 +451,25 @@ function HistoryCard({ record, onEdit, onDelete }: { record: ProductionRecord; o
       </article>
     );
   }
-  const rates = (['morning', 'afternoon'] as const).map((slot) => ({
+  const results = (['morning', 'afternoon'] as const).map((slot) => ({
     team: teamForSlot(record, slot),
-    rate: shiftUnits(record[slot]) / shiftHours(slot, record.date, record[slot].pauseTaken),
+    productionIndex: shiftProductionIndex(record[slot], shiftHours(slot, record.date, record[slot].pauseTaken)),
     units: shiftUnits(record[slot]),
   }));
-  const top = rates[0].rate >= rates[1].rate ? rates[0] : rates[1];
+  const tied = Math.abs(results[0].productionIndex - results[1].productionIndex) < 0.01;
+  const top = results[0].productionIndex >= results[1].productionIndex ? results[0] : results[1];
   return (
     <article className="surface-card rounded-[22px] p-4">
       <div className="flex items-center gap-3">
         <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Package className="size-5" /></div>
-        <div className="min-w-0 flex-1"><h2 className="font-semibold capitalize">{formatDate(record.date)}</h2><p className="mt-0.5 text-xs text-muted-foreground">{isFriday(record.date) ? 'Venerdì corto · ' : ''}{TEAMS[top.team].short} davanti</p></div>
+        <div className="min-w-0 flex-1"><h2 className="font-semibold capitalize">{formatDate(record.date)}</h2><p className="mt-0.5 text-xs text-muted-foreground">{isFriday(record.date) ? 'Venerdì corto · ' : ''}{tied ? 'parità' : `${TEAMS[top.team].short} davanti`}</p></div>
         <IconActions onEdit={onEdit} onDelete={onDelete} />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        {rates.map((item) => (
-          <div key={item.team} className={`rounded-2xl px-3 py-2.5 ${item.team === top.team ? 'bg-primary/8' : 'bg-muted/70'}`}>
+        {results.map((item) => (
+          <div key={item.team} className={`rounded-2xl px-3 py-2.5 ${!tied && item.team === top.team ? 'bg-primary/8' : 'bg-muted/70'}`}>
             <div className="flex items-center justify-between"><span className="text-xs font-semibold">{TEAMS[item.team].short}</span><span className="text-[10px] text-muted-foreground">{item.units} pz</span></div>
-            <p className="mt-1 text-lg font-semibold tracking-[-0.03em]">{formatNumber(item.rate, 1)} <span className="text-[10px] font-medium text-muted-foreground">pz/h</span></p>
+            <p className="mt-1 text-lg font-semibold tracking-[-0.03em]">{formatNumber(item.productionIndex, 1)} <span className="text-[10px] font-medium text-muted-foreground">indice</span></p>
           </div>
         ))}
       </div>
@@ -487,7 +494,7 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
   onShare: () => Promise<void>;
   onBackup: () => void;
 }) {
-  const maxRate = Math.max(report.teams.ms.rate, report.teams.ga.rate, 1);
+  const maxIndex = Math.max(report.teams.ms.productionIndex, report.teams.ga.productionIndex, 1);
   return (
     <div className="mx-auto max-w-md px-5 pt-[max(1.5rem,env(safe-area-inset-top))]">
       <div className="flex items-start justify-between gap-4">
@@ -513,7 +520,7 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
           <section className="report-hero mt-4 rounded-[26px] p-5 text-white">
             <p className="text-xs font-medium text-white/60">RISULTATO DEL MESE</p>
             <h2 className="mt-2 text-[26px] font-semibold tracking-[-0.04em]">{report.winner ? `${TEAMS[report.winner].name} davanti` : 'Perfetta parità'}</h2>
-            <p className="mt-1 text-sm text-white/70">{report.winner ? `+${formatNumber(report.advantage, 1)}% nei fusti + bag per ora` : 'Stesse uscite medie per ora netta'}</p>
+            <p className="mt-1 text-sm text-white/70">{report.winner ? `+${formatNumber(report.advantage, 1)}% nell’indice di produzione` : 'Stesso indice di produzione ponderato'}</p>
             <div className="mt-5 flex gap-2 text-xs">
               <span className="rounded-full bg-white/10 px-3 py-1.5">{report.compared.length} giornate valide</span>
               <span className="rounded-full bg-white/10 px-3 py-1.5">{report.excluded} escluse</span>
@@ -521,15 +528,15 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
           </section>
 
           <section className="surface-card mt-4 rounded-[24px] p-5">
-            <div className="flex items-center gap-2"><Gauge className="size-4 text-primary" /><h2 className="font-semibold">Fusti + bag per ora netta</h2></div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">Normalizza il mattino più lungo, il pomeriggio più corto, il venerdì e le pause.</p>
+            <div className="flex items-center gap-2"><Gauge className="size-4 text-primary" /><h2 className="font-semibold">Indice di produzione ponderato</h2></div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Rende confrontabili formati con velocità molto diverse, oltre a ore, venerdì, pause e personale.</p>
             <div className="mt-5 space-y-4">
               {(['ms', 'ga'] as TeamId[]).map((team) => {
                 const item = report.teams[team];
                 return (
                   <div key={team}>
-                    <div className="mb-2 flex items-end justify-between"><span className="text-sm font-semibold">{TEAMS[team].short}</span><span className="text-xl font-semibold tracking-[-0.03em]">{formatNumber(item.rate, 1)} <small className="text-xs font-medium text-muted-foreground">pz/h</small></span></div>
-                    <div className="h-2.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${team === 'ms' ? 'bg-primary' : 'bg-cyan-500'}`} style={{ width: `${Math.max(5, (item.rate / maxRate) * 100)}%` }} /></div>
+                    <div className="mb-2 flex items-end justify-between"><span className="text-sm font-semibold">{TEAMS[team].short}</span><span className="text-xl font-semibold tracking-[-0.03em]">{formatNumber(item.productionIndex, 1)} <small className="text-xs font-medium text-muted-foreground">indice</small></span></div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${team === 'ms' ? 'bg-primary' : 'bg-cyan-500'}`} style={{ width: `${Math.max(5, (item.productionIndex / maxIndex) * 100)}%` }} /></div>
                   </div>
                 );
               })}
@@ -568,13 +575,13 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
             <div className="mt-4 divide-y">
               <ConditionRow label="Pause da 30 min" ms={report.teams.ms.pauses} ga={report.teams.ga.pauses} />
               <ConditionRow label="Turni con meno di 4" ms={report.teams.ms.reducedStaff} ga={report.teams.ga.reducedStaff} />
-              <ConditionRow label="Pezzi per addetto/ora" ms={report.teams.ms.perPersonHour} ga={report.teams.ga.perPersonHour} decimal />
+              <ConditionRow label="Ore standard prodotte" ms={report.teams.ms.standardHours} ga={report.teams.ga.standardHours} decimal />
             </div>
           </section>
 
           <section className="mt-4 flex items-start gap-3 rounded-2xl border border-primary/10 bg-primary/7 px-4 py-3 text-xs leading-5 text-muted-foreground">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-primary" />
-            L’indice orario rende eque le durate, ma il report lascia sempre separati acciaio, plastica e bag per non nascondere il mix prodotto.
+            Indice 100 = una linea al ritmo standard per tutto il turno. Può superare 100 quando due linee lavorano insieme. Riferimenti: 25 L 120/h, una testa 65/h, 20 L 33/h, bag 260/h.
           </section>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -697,7 +704,7 @@ function ShiftForm({ slot, date, team, shift, onChange }: {
         {PRODUCTS.map((product) => (
           <label key={product.key} htmlFor={`${slot}-${product.key}`} className="product-row surface-card flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl p-3">
             <span className={`product-icon product-${product.accent}`}><Package className="size-4" /></span>
-            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{product.label}</span><span className="block text-[11px] text-muted-foreground">{product.detail}</span></span>
+            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{product.label}</span><span className="block text-[11px] text-muted-foreground">{product.detail} · circa {product.key === 'steel25' && shift.staffCount < 4 ? PRODUCTION_TARGETS.steel25OneHead : product.target}/h</span></span>
             <Input
               id={`${slot}-${product.key}`}
               type="number"

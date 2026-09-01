@@ -110,9 +110,7 @@
 }
 
 .app-header {
-  background:
-    radial-gradient(circle at 86% 4%, rgb(36 207 237 / 22%), transparent 32%),
-    linear-gradient(145deg, #0a2d67 0%, #123f94 48%, #0a63c9 100%);
+  background: #0d3f84;
 }
 
 .glass-panel {

@@ -352,7 +352,7 @@ function TodayView({ report, lastRecord, onNew, onOpenReport, onBackup }: {
         <div className="mx-auto max-w-md">
           <div className="mb-7 flex items-center justify-between">
             <div>
-              <p className="eyebrow text-white/60">{formatDate(localDateInput()).toLocaleUpperCase('it-IT')}</p>
+              <p className="eyebrow text-white/90">{formatDate(localDateInput()).toLocaleUpperCase('it-IT')}</p>
               <h1 className="mt-1 text-[30px] font-semibold tracking-[-0.045em]">{currentGreeting()}, Michele</h1>
             </div>
             <button onClick={onBackup} className="flex size-11 items-center justify-center rounded-2xl bg-white/12 ring-1 ring-white/15 backdrop-blur-xl" aria-label="Backup dati">

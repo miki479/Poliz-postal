@@ -5,10 +5,11 @@ Web app mobile per confrontare la produzione dei turni **Michele & Simone** e **
 ## Regole già impostate
 
 - mattina: 8 ore produttive;
-- pomeriggio: 6 ore e 45 minuti produttivi;
+- pomeriggio: 7 ore produttive più 1 ora di lavaggio;
 - venerdì: 1 ora in meno per entrambi;
 - pausa effettuata: 30 minuti sottratti al turno;
 - fermate e cambi: si possono aggiungere più eventi per turno scegliendo tipo e minuti; il totale viene sottratto dal tempo produttivo e resta visibile nel passaggio consegne;
+- movimentazione 25 L: quando il turno contiene fusti da 25 L vengono sottratti automaticamente 15 minuti al mattino per il carico e 15 minuti al pomeriggio per lo scarico;
 - pomeriggio con poca produzione: il tempo restante viene considerato automaticamente dedicato alle pulizie, senza generare un ritardo fittizio e senza aggiungere punti alla produzione;
 - turno unico: salvato nello storico ma escluso dal confronto;
 - personale predefinito: 4 addetti; sotto 4 il turno viene segnalato come personale ridotto;

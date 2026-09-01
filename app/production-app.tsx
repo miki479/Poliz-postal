@@ -52,6 +52,7 @@ import {
   shiftHours,
   shiftStoppageMinutes,
   shiftStoppages,
+  shiftSteel25HandlingMinutes,
   shiftStandardHours,
   shiftUnits,
   teamForSlot,
@@ -188,7 +189,7 @@ export function ProductionApp() {
   }
 
   function exportCsv() {
-    const header = ['Data', 'Turno', 'Squadra', 'Acciaio 25L', 'Plastica 20L', 'Bag 10L', 'Totale pezzi', 'Ore disponibili', 'Ore produzione valutate', 'Numero fermate', 'Fermate e cambi (min)', 'Dettaglio fermate', 'Ore standard prodotte', 'Indice ponderato', 'Bilancio minuti', 'Pausa 30m', 'Addetti', 'Confrontabile'];
+    const header = ['Data', 'Turno', 'Squadra', 'Acciaio 25L', 'Plastica 20L', 'Bag 10L', 'Totale pezzi', 'Ore disponibili', 'Ore produzione valutate', 'Carico/scarico 25L (min)', 'Numero fermate', 'Fermate e cambi (min)', 'Dettaglio fermate', 'Ore standard prodotte', 'Indice ponderato', 'Bilancio minuti', 'Pausa 30m', 'Addetti', 'Confrontabile'];
     const rows = report.relevant.flatMap((record) => {
       const handover = recordHandover(record);
       return (['morning', 'afternoon'] as const).map((slot) => {
@@ -209,6 +210,7 @@ export function ProductionApp() {
           shiftUnits(shift),
           availableHours.toFixed(2).replace('.', ','),
           evaluationHours.toFixed(2).replace('.', ','),
+          shiftSteel25HandlingMinutes(shift),
           stoppages.length,
           stoppageMinutes,
           stoppages.map((entry) => `${entry.label}: ${entry.minutes} min`).join(' | '),
@@ -460,11 +462,13 @@ function LastDayCard({ record }: { record: ProductionRecord }) {
         <div className="rounded-2xl bg-muted/70 px-3 py-2.5">
           <p className="text-[10px] font-semibold text-muted-foreground">MATTINA · {TEAMS[record.morningTeam].short}</p>
           <p className={`mt-1 text-sm font-semibold ${balanceTone(handover.morningBalanceMinutes)}`}>{balanceLabel(handover.morningBalanceMinutes)}</p>
+          {handover.morningSteel25Handling > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">15 min carico 25 L esclusi</p>}
           {shiftStoppageMinutes(record.morning) > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">{shiftStoppages(record.morning).length} fermate · {formatMinutes(shiftStoppageMinutes(record.morning))} escluse</p>}
         </div>
         <div className="rounded-2xl bg-muted/70 px-3 py-2.5">
           <p className="text-[10px] font-semibold text-muted-foreground">POMERIGGIO · {TEAMS[teamForSlot(record, 'afternoon')].short}</p>
           <p className={`mt-1 text-sm font-semibold ${balanceTone(handover.afternoonBalanceMinutes)}`}>{balanceLabel(handover.afternoonBalanceMinutes)}</p>
+          {handover.afternoonSteel25Handling > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">15 min scarico 25 L esclusi</p>}
           {shiftStoppageMinutes(record.afternoon) > 0 && <p className="mt-0.5 text-[10px] text-muted-foreground">{shiftStoppages(record.afternoon).length} fermate · {formatMinutes(shiftStoppageMinutes(record.afternoon))} escluse</p>}
           {handover.afternoonStandardHours < handover.afternoonAvailableHours && <p className="mt-0.5 text-[10px] text-muted-foreground">Tempo restante considerato pulizie</p>}
         </div>
@@ -666,6 +670,7 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
               <ConditionRow label="Pause da 30 min" ms={report.teams.ms.pauses} ga={report.teams.ga.pauses} />
               <ConditionRow label="Numero fermate/cambi" ms={report.teams.ms.stoppageCount} ga={report.teams.ga.stoppageCount} />
               <ConditionRow label="Fermate e cambi (min)" ms={report.teams.ms.stoppageMinutes} ga={report.teams.ga.stoppageMinutes} />
+              <ConditionRow label="Carico/scarico 25 L (min)" ms={report.teams.ms.steel25HandlingMinutes} ga={report.teams.ga.steel25HandlingMinutes} />
               <ConditionRow label="Arretrato lasciato (min)" ms={report.teams.ms.handoverMinutes} ga={report.teams.ga.handoverMinutes} />
               <ConditionRow label="Arretrato recuperato (min)" ms={report.teams.ms.recoveredMinutes} ga={report.teams.ga.recoveredMinutes} />
               <ConditionRow label="Turni con meno di 4" ms={report.teams.ms.reducedStaff} ga={report.teams.ga.reducedStaff} />
@@ -676,7 +681,7 @@ function ReportView({ report, month, onMonth, onCsv, onShare, onBackup }: {
 
           <section className="mt-4 flex items-start gap-3 rounded-2xl border border-primary/10 bg-primary/7 px-4 py-3 text-xs leading-5 text-muted-foreground">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-primary" />
-            Le pulizie non contano come produzione e non danno punti; evitano soltanto di segnare un falso ritardo al pomeriggio. Se il carico di uno dei turni occupa meno della metà del tempo disponibile, la giornata non assegna una vittoria. L’arretrato del mattino resta comunque visibile. Riferimenti: 25 L 120/h, una testa 65/h, 20 L 33/h, bag 260/h.
+            Le pulizie non contano come produzione e non danno punti; evitano soltanto di segnare un falso ritardo al pomeriggio. Il pomeriggio parte da 7 ore produttive; quando ci sono 25 L, l’app sottrae automaticamente 15 minuti per il carico al mattino e 15 per lo scarico al pomeriggio. Se il carico di uno dei turni occupa meno della metà del tempo disponibile, la giornata non assegna una vittoria.
           </section>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -797,7 +802,8 @@ function ShiftForm({ slot, date, team, shift, onChange }: {
   const [customStopMinutes, setCustomStopMinutes] = useState('');
   const stoppages = shiftStoppages(shift);
   const stoppageMinutes = shiftStoppageMinutes(shift);
-  const hours = shiftHours(slot, date, shift.pauseTaken, stoppageMinutes);
+  const steel25HandlingMinutes = shiftSteel25HandlingMinutes(shift);
+  const hours = shiftHours(slot, date, shift.pauseTaken, stoppageMinutes, steel25HandlingMinutes);
 
   function updateStoppages(next: ShiftEntry['stoppages']) {
     onChange({ ...shift, stoppages: next, stoppageMinutes: 0 });
@@ -812,7 +818,7 @@ function ShiftForm({ slot, date, team, shift, onChange }: {
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2"><span className={`shift-dot ${slot === 'morning' ? 'bg-amber-400' : 'bg-indigo-500'}`} /><h3 className="text-lg font-semibold">{slot === 'morning' ? 'Mattina' : 'Pomeriggio'}</h3></div>
-          <p className="mt-1 text-xs text-muted-foreground">{TEAMS[team].name} · {formatNumber(hours, 2)} ore disponibili</p>
+          <p className="mt-1 text-xs text-muted-foreground">{TEAMS[team].name} · {formatNumber(hours, 2)} ore disponibili{steel25HandlingMinutes ? ` · 15 min ${slot === 'morning' ? 'carico' : 'scarico'} 25 L` : ''}</p>
         </div>
         <span className="rounded-full bg-primary/8 px-3 py-1 text-[11px] font-bold text-primary">{TEAMS[team].short}</span>
       </div>

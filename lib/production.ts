@@ -10,6 +10,8 @@ export type ProductCounts = {
 export type ShiftEntry = ProductCounts & {
   pauseTaken: boolean;
   staffCount: number;
+  stoppageMinutes?: number;
+  shortShiftMinutes?: number;
 };
 
 export type ProductionRecord = {
@@ -33,6 +35,8 @@ export type TeamReport = ProductCounts & {
   personHours: number;
   shifts: number;
   pauses: number;
+  stoppageMinutes: number;
+  shortShiftMinutes: number;
   reducedStaff: number;
   wins: number;
 };
@@ -61,6 +65,8 @@ export const EMPTY_SHIFT: ShiftEntry = {
   bib10: 0,
   pauseTaken: false,
   staffCount: 4,
+  stoppageMinutes: 0,
+  shortShiftMinutes: 0,
 };
 
 export function localDateInput(date = new Date()) {
@@ -88,11 +94,21 @@ export function isWeekend(date: string) {
   return day === 0 || day === 6;
 }
 
-export function shiftHours(slot: ShiftSlot, date: string, pauseTaken: boolean) {
+export function shiftStoppageMinutes(shift: ShiftEntry) {
+  return Math.max(0, Math.round(Number(shift.stoppageMinutes) || 0));
+}
+
+export function shiftShortMinutes(shift: ShiftEntry) {
+  return Math.max(0, Math.round(Number(shift.shortShiftMinutes) || 0));
+}
+
+export function shiftHours(slot: ShiftSlot, date: string, pauseTaken: boolean, stoppageMinutes = 0, shortShiftMinutes = 0) {
   const base = slot === 'morning' ? 8 : 6.75;
   const fridayReduction = isFriday(date) ? 1 : 0;
   const pauseReduction = pauseTaken ? 0.5 : 0;
-  return Math.max(0, base - fridayReduction - pauseReduction);
+  const stoppageReduction = Math.max(0, Number(stoppageMinutes) || 0) / 60;
+  const shortShiftReduction = Math.max(0, Number(shortShiftMinutes) || 0) / 60;
+  return Math.max(0, base - fridayReduction - pauseReduction - stoppageReduction - shortShiftReduction);
 }
 
 export function shiftUnits(shift: ProductCounts) {
@@ -119,19 +135,30 @@ export function shiftTimeBalanceMinutes(shift: ShiftEntry, netHours: number) {
 }
 
 export function recordHandover(record: ProductionRecord) {
-  const morningHours = shiftHours('morning', record.date, record.morning.pauseTaken);
-  const afternoonHours = shiftHours('afternoon', record.date, record.afternoon.pauseTaken);
+  const morningStops = shiftStoppageMinutes(record.morning);
+  const afternoonStops = shiftStoppageMinutes(record.afternoon);
+  const morningShort = shiftShortMinutes(record.morning);
+  const afternoonShort = shiftShortMinutes(record.afternoon);
+  const morningScheduledHours = shiftHours('morning', record.date, record.morning.pauseTaken, 0, morningShort);
+  const afternoonScheduledHours = shiftHours('afternoon', record.date, record.afternoon.pauseTaken, 0, afternoonShort);
+  const morningHours = shiftHours('morning', record.date, record.morning.pauseTaken, morningStops, morningShort);
+  const afternoonHours = shiftHours('afternoon', record.date, record.afternoon.pauseTaken, afternoonStops, afternoonShort);
   const morningBalanceMinutes = shiftTimeBalanceMinutes(record.morning, morningHours);
   const afternoonBalanceMinutes = shiftTimeBalanceMinutes(record.afternoon, afternoonHours);
-  const handedOverMinutes = Math.max(0, -morningBalanceMinutes);
-  const recoveredMinutes = Math.min(handedOverMinutes, Math.max(0, afternoonBalanceMinutes));
+  const morningScheduleBalanceMinutes = shiftTimeBalanceMinutes(record.morning, morningScheduledHours);
+  const afternoonScheduleBalanceMinutes = shiftTimeBalanceMinutes(record.afternoon, afternoonScheduledHours);
+  const handedOverMinutes = Math.max(0, -morningScheduleBalanceMinutes);
+  const recoveredMinutes = Math.min(handedOverMinutes, Math.max(0, afternoonScheduleBalanceMinutes));
 
   return {
     morningBalanceMinutes,
     afternoonBalanceMinutes,
+    morningScheduleBalanceMinutes,
+    afternoonScheduleBalanceMinutes,
     handedOverMinutes,
     recoveredMinutes,
     remainingMinutes: Math.max(0, handedOverMinutes - recoveredMinutes),
+    machineDelayMinutes: Math.min(handedOverMinutes, morningStops),
   };
 }
 
@@ -154,6 +181,8 @@ function emptyReport(team: TeamId): TeamReport {
     personHours: 0,
     shifts: 0,
     pauses: 0,
+    stoppageMinutes: 0,
+    shortShiftMinutes: 0,
     reducedStaff: 0,
     wins: 0,
   };
@@ -170,7 +199,9 @@ export function buildReport(records: ProductionRecord[], month: string) {
     for (const slot of ['morning', 'afternoon'] as const) {
       const team = teamForSlot(record, slot);
       const shift = record[slot];
-      const hours = shiftHours(slot, record.date, shift.pauseTaken);
+      const stoppageMinutes = shiftStoppageMinutes(shift);
+      const shortShiftMinutes = shiftShortMinutes(shift);
+      const hours = shiftHours(slot, record.date, shift.pauseTaken, stoppageMinutes, shortShiftMinutes);
       const units = shiftUnits(shift);
       const standardHours = shiftStandardHours(shift);
       const report = teams[team];
@@ -183,6 +214,8 @@ export function buildReport(records: ProductionRecord[], month: string) {
       report.personHours += hours * shift.staffCount;
       report.shifts += 1;
       if (shift.pauseTaken) report.pauses += 1;
+      report.stoppageMinutes += stoppageMinutes;
+      report.shortShiftMinutes += shortShiftMinutes;
       if (shift.staffCount < 4) report.reducedStaff += 1;
       dayIndexes[team] = shiftProductionIndex(shift, hours);
     }
@@ -254,6 +287,7 @@ export function recordIsValid(value: unknown): value is ProductionRecord {
     const shift = record[slot as ShiftSlot];
     return Boolean(shift)
       && ['steel25', 'plastic20', 'bib10', 'staffCount'].every((key) => Number.isFinite(shift?.[key as keyof ShiftEntry]))
+      && ['stoppageMinutes', 'shortShiftMinutes'].every((key) => shift?.[key as keyof ShiftEntry] === undefined || Number.isFinite(shift?.[key as keyof ShiftEntry]))
       && typeof shift?.pauseTaken === 'boolean';
   });
 }

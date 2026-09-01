@@ -8,6 +8,8 @@ Web app mobile per confrontare la produzione dei turni **Michele & Simone** e **
 - pomeriggio: 6 ore e 45 minuti produttivi;
 - venerdì: 1 ora in meno per entrambi;
 - pausa effettuata: 30 minuti sottratti al turno;
+- fermate macchina: minuti totali inseriti per turno e sottratti dal tempo produttivo, con il loro impatto operativo mantenuto visibile nel passaggio consegne;
+- turno finito prima: riduzione eccezionale inserita in minuti e sottratta dal tempo previsto, senza generare un ritardo fittizio;
 - turno unico: salvato nello storico ma escluso dal confronto;
 - personale predefinito: 4 addetti; sotto 4 il turno viene segnalato come personale ridotto;
 - confronto principale: indice ponderato sulle velocità di riferimento (25 L: 120/h con due teste o 65/h con una testa; 20 L: 33/h; bag: 260/h), con i conteggi reali sempre mostrati separatamente;

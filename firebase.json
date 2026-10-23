@@ -1,0 +1,11 @@
+{
+  "firestore": { "rules": "firestore.rules" },
+  "hosting": {
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/api/**", "run": { "serviceId": "podismo-social", "region": "europe-west1" } },
+      { "source": "**", "run": { "serviceId": "podismo-social", "region": "europe-west1" } }
+    ]
+  }
+}

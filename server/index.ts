@@ -1,17 +1,17 @@
 import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
-import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { call, PUBLIC_METHODS, READ_ONLY_METHODS, type MethodName } from '../shared/api.ts';
-import { AppError, createUser, deleteAccount, emptyDb, suggestUsername, usernameAvailable, type Ctx } from '../shared/engine.ts';
-import type { DbState } from '../shared/types.ts';
+import { AppError, createUser, deleteAccount, suggestUsername, usernameAvailable, type Ctx } from '../shared/engine.ts';
 import { HANDLE_RE, normalizeEmail, validateEmailPassword } from '../shared/validation.ts';
 import { mailConfigFromEnv, mailEnabled, sendMail } from './mail.ts';
+import { storageFromEnv, type Account, type Persisted, type Storage, type TokenRec } from './storage.ts';
 import { APPLE, GOOGLE, verifyIdToken, type OidcProvider } from './oidc.ts';
-import { aiConfig, aiStatus, buildContext, buildMessages, callWorker, PRESETS, refund, reserve, type AiStore, type Preset } from './ai.ts';
+import { aiConfig, aiStatus, buildContext, buildMessages, callWorker, PRESETS, refund, reserve, type Preset } from './ai.ts';
 import { geocode, geoConfig, route as routeFn } from './geo.ts';
-import { authorizeUrl, deauthorize, exchangeCode, stravaConfig, stravaPublicStatus, syncActivities, verifyState, type StravaLink } from './strava.ts';
+import { authorizeUrl, deauthorize, exchangeCode, stravaConfig, stravaPublicStatus, syncActivities, verifyState } from './strava.ts';
 import { forecast, weatherConfig } from './weather.ts';
 
 /* ---------- configurazione (variabili d'ambiente, nessun segreto nel frontend) ---------- */
@@ -24,6 +24,9 @@ const STATIC_DIR = resolve(process.env.STATIC_DIR || join(here, '..', 'dist'));
 const REGISTRATION_CODE = process.env.REGISTRATION_CODE || '';
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 const SESSION_DAYS = 30;
+/** Dietro Firebase Hosting passa solo il cookie "__session": imposta SESSION_COOKIE_NAME=__session. */
+const COOKIE = process.env.SESSION_COOKIE_NAME || 'ps_session';
+const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS || '').split(',').map((h) => h.trim()).filter(Boolean);
 const MAX_BODY = 250_000;
 const REGISTER_LIMIT = Number(process.env.REGISTER_LIMIT_PER_HOUR) || 10;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
@@ -37,54 +40,18 @@ const ai = aiConfig(process.env);
 const SYNC_COOLDOWN_MS = process.env.STRAVA_SYNC_COOLDOWN_MS !== undefined ? Number(process.env.STRAVA_SYNC_COOLDOWN_MS) : 300_000;
 const aiBusy = new Set<string>();
 
-/* ---------- persistenza su file (scrittura atomica) ---------- */
+/* ---------- persistenza (file JSON o Firestore, vedi server/storage.ts) ---------- */
 
-/** Credenziali e contatti: restano SOLO qui, mai nel database applicativo né nelle viste. */
-interface Account {
-  userId: string;
-  email: string;
-  emailVerified: boolean;
-  salt?: string;
-  hash?: string;
-  google?: string;
-  apple?: string;
-  /** Collegamento Strava: token cifrati a riposo, mai esposti al client. */
-  strava?: StravaLink;
-  createdAt: string;
-}
-interface TokenRec {
-  userId: string;
-  type: 'reset' | 'verify';
-  expires: number;
-}
-interface Persisted {
-  db: DbState;
-  accounts: Record<string, Account>; // chiave: userId
-  sessions: Record<string, { userId: string; expires: number }>; // chiave: sha256(token)
-  tokens: Record<string, TokenRec>; // chiave: sha256(token)
-  /** Utilizzo AI per account/giorno (quota verificata lato server). */
-  ai: AiStore;
-}
+const storage: Storage = await storageFromEnv(process.env, DATA_FILE);
+const store: Persisted = await storage.load();
+console.log(`Archivio dati: ${storage.kind}`);
 
-function load(): Persisted {
-  if (existsSync(DATA_FILE)) {
-    try {
-      const p = JSON.parse(readFileSync(DATA_FILE, 'utf8')) as Partial<Persisted>;
-      return { db: { ...emptyDb(), ...(p.db ?? {}) }, accounts: p.accounts ?? {}, sessions: p.sessions ?? {}, tokens: p.tokens ?? {}, ai: p.ai ?? { usage: {}, global: { day: '', count: 0 } } };
-    } catch (err) {
-      throw new Error(`Impossibile leggere ${DATA_FILE}: ${(err as Error).message}`);
-    }
-  }
-  return { db: emptyDb(), accounts: {}, sessions: {}, tokens: {}, ai: { usage: {}, global: { day: '', count: 0 } } };
-}
-
-const store: Persisted = load();
-
-function persist() {
-  mkdirSync(dirname(DATA_FILE), { recursive: true });
-  const tmp = `${DATA_FILE}.${process.pid}.tmp`;
-  writeFileSync(tmp, JSON.stringify(store), { mode: 0o600 });
-  renameSync(tmp, DATA_FILE);
+let flushing: Promise<void> = Promise.resolve();
+/** Salva in modo serializzato. Le richieste che modificano dati attendono l'esito prima di rispondere. */
+function persist(): Promise<void> {
+  const p = flushing.then(() => storage.save(store));
+  flushing = p.catch((e) => console.error('Salvataggio fallito:', (e as Error).message));
+  return p;
 }
 
 /* ---------- password, sessioni, token ---------- */
@@ -120,7 +87,7 @@ function dropSessions(userId: string, except?: string | null) {
 }
 
 function sessionUser(req: IncomingMessage): { userId: string | null; token: string | null } {
-  const m = /(?:^|;\s*)ps_session=([^;]+)/.exec(req.headers.cookie ?? '');
+  const m = new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`).exec(req.headers.cookie ?? '');
   if (!m) return { userId: null, token: null };
   const key = sha(m[1]);
   const s = store.sessions[key];
@@ -131,14 +98,14 @@ function sessionUser(req: IncomingMessage): { userId: string | null; token: stri
   }
   if (s.expires - Date.now() < (SESSION_DAYS / 2) * 86_400_000) {
     s.expires = Date.now() + SESSION_DAYS * 86_400_000; // sessione scorrevole
-    persist();
+    void persist().catch(() => {});
   }
   return { userId: s.userId, token: m[1] };
 }
 
 function cookieHeader(req: IncomingMessage, token: string | null): string {
   const secure = req.headers['x-forwarded-proto'] === 'https' || (req.socket as { encrypted?: boolean }).encrypted ? '; Secure' : '';
-  const base = `ps_session=${token ?? ''}; Path=/; HttpOnly; SameSite=Lax${secure}`;
+  const base = `${COOKIE}=${token ?? ''}; Path=/; HttpOnly; SameSite=Lax${secure}`;
   return token ? `${base}; Max-Age=${SESSION_DAYS * 86400}` : `${base}; Max-Age=0`;
 }
 
@@ -247,7 +214,10 @@ function sameOrigin(req: IncomingMessage): boolean {
   const origin = req.headers.origin;
   if (!origin) return true; // richieste non-browser
   try {
-    return new URL(origin).host === req.headers.host;
+    const host = new URL(origin).host;
+    // Dietro un proxy (Cloud Run / Firebase Hosting) l'host originale arriva in X-Forwarded-Host.
+    const fwd = TRUST_PROXY ? String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim() : '';
+    return host === req.headers.host || (!!fwd && host === fwd) || ALLOWED_HOSTS.includes(host);
   } catch {
     return false;
   }
@@ -260,9 +230,9 @@ function hueFor(seed: string): number {
 const nameFromEmail = (email: string) =>
   email.split('@')[0].replace(/[._-]+/g, ' ').trim().split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ').slice(0, 30) || 'Runner';
 
-function startSession(req: IncomingMessage, res: ServerResponse, userId: string, extra: Record<string, unknown> = {}) {
+async function startSession(req: IncomingMessage, res: ServerResponse, userId: string, extra: Record<string, unknown> = {}) {
   const session = createSession(userId);
-  persist();
+  await persist();
   return send(res, 200, { user: store.db.users[userId], ...extra }, { 'Set-Cookie': cookieHeader(req, session) });
 }
 
@@ -270,7 +240,7 @@ async function sendVerification(userId: string) {
   const acc = store.accounts[userId];
   if (!mailEnabled(mail) || !acc || acc.emailVerified) return;
   const token = newTokenFor(userId, 'verify', 48 * 3_600_000);
-  persist();
+  await persist();
   await sendMail(mail, {
     to: acc.email,
     subject: 'Conferma il tuo indirizzo email — PODISMO SOCIAL',
@@ -335,7 +305,7 @@ async function stravaCallback(req: IncomingMessage, res: ServerResponse) {
     const taken = Object.values(store.accounts).find((a) => a.userId !== userId && a.strava && a.strava.athleteId === link.athleteId && link.athleteId !== 0);
     if (taken) return back('already_linked');
     store.accounts[userId].strava = link;
-    persist();
+    await persist();
     return back('ok');
   } catch (e) {
     return back((e as Error).message === 'scope_missing' ? 'scope_missing' : 'error'); // nessun token o codice nei log
@@ -412,7 +382,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
 
     case '/api/auth/logout': {
       if (token) delete store.sessions[sha(token)];
-      persist();
+      await persist();
       return send(res, 200, { ok: true }, { 'Set-Cookie': cookieHeader(req, null) });
     }
 
@@ -429,7 +399,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       const acc = accountByEmail(email);
       if (acc) {
         const t = newTokenFor(acc.userId, 'reset', 3_600_000);
-        persist();
+        await persist();
         try {
           await sendMail(mail, { to: acc.email, subject: 'Reimposta la tua password — PODISMO SOCIAL', text: `Hai chiesto di reimpostare la password.\n\nApri questo link (valido 1 ora, utilizzabile una volta):\n${mail.appUrl}/reimposta-password?token=${t}\n\nSe non sei stato tu, ignora questo messaggio: la tua password resta invariata.` });
         } catch (e) {
@@ -449,14 +419,14 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       const acc = store.accounts[rec.userId];
       Object.assign(acc, await hashPassword(pw));
       dropSessions(rec.userId); // chiude tutte le sessioni esistenti
-      persist();
+      await persist();
       return send(res, 200, { ok: true });
     }
 
     case '/api/auth/verify': {
       const rec = consumeToken(body.token, 'verify');
       store.accounts[rec.userId].emailVerified = true;
-      persist();
+      await persist();
       return send(res, 200, { ok: true });
     }
   }
@@ -491,7 +461,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       if (errors.password) throw fieldErr('password', errors.password);
       Object.assign(acc, await hashPassword(String(body.password)));
       dropSessions(userId!, token ? sha(token) : null);
-      persist();
+      await persist();
       return send(res, 200, { ok: true });
     }
     case '/api/auth/delete': {
@@ -504,7 +474,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       delete store.accounts[userId!];
       dropSessions(userId!);
       for (const [k, t] of Object.entries(store.tokens)) if (t.userId === userId) delete store.tokens[k];
-      persist();
+      await persist();
       return send(res, 200, { ok: true }, { 'Set-Cookie': cookieHeader(req, null) });
     }
     case '/api/strava/status':
@@ -522,7 +492,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       if (SYNC_COOLDOWN_MS > 0 && limited(`stravasync:${userId}`, 1, SYNC_COOLDOWN_MS)) throw new AppError('rate_limited', 'Hai sincronizzato da poco. Riprova tra qualche minuto (Strava limita le richieste).');
       const summary = await syncActivities(strava, acc.strava, store.db, userId!);
       acc.strava.lastSync = summary;
-      persist();
+      await persist();
       return send(res, 200, { summary, status: stravaPublicStatus(strava, acc.strava) });
     }
 
@@ -534,7 +504,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       if (body.deleteData !== false) {
         for (const a of Object.values(store.db.activities)) if (a.userId === userId && a.source === 'strava') { delete store.db.activities[a.id]; deleted++; }
       }
-      persist();
+      await persist();
       return send(res, 200, { ok: true, deleted, status: stravaPublicStatus(strava, undefined) });
     }
 
@@ -563,13 +533,13 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       aiBusy.add(userId!);
       try {
         reserve(ai, store.ai, userId!);
-        persist();
+        await persist();
         try {
           const out = await callWorker(ai, buildMessages(preset, prompt, useData ? buildContext(store.db, userId!) : null));
           return send(res, 200, { text: out.text, generic: !useData, simulated: out.simulated, remaining: aiStatus(ai, store.ai, userId!).remaining });
         } catch (e) {
           refund(store.ai, userId!); // la richiesta fallita non consuma la quota dell'utente
-          persist();
+          await persist();
           throw e;
         }
       } finally {
@@ -582,7 +552,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       const args = Array.isArray(body.args) ? body.args : [];
       const ctx: Ctx = { db: store.db, now: new Date(), actorId: userId };
       const result = call(ctx, method, args);
-      if (!READ_ONLY_METHODS.has(method) || ctx.dirty) persist();
+      if (!READ_ONLY_METHODS.has(method) || ctx.dirty) await persist();
       return send(res, 200, { result: result === undefined ? null : result });
     }
   }
@@ -652,6 +622,7 @@ server.listen(PORT, HOST, () => {
   console.log(`PODISMO SOCIAL API pronta su http://${HOST}:${PORT} (dati: ${DATA_FILE})`);
 });
 
-const stop = () => server.close(() => process.exit(0));
+// All'arresto (es. Cloud Run) si attende l'ultimo salvataggio in corso.
+const stop = () => server.close(() => void flushing.finally(() => process.exit(0)));
 process.on('SIGTERM', stop);
 process.on('SIGINT', stop);

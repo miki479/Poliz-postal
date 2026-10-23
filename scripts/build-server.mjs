@@ -8,5 +8,7 @@ await build({
   format: 'esm',
   target: 'node22',
   sourcemap: false,
+  // Le librerie Google restano esterne (installate con npm ci --omit=dev nell'immagine).
+  external: ['@google-cloud/firestore'],
   logLevel: 'info',
 });

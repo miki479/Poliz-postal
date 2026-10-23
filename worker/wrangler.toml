@@ -1,0 +1,15 @@
+# Worker del Coach AI di PODISMO SOCIAL.
+# Deploy: cd worker && npx wrangler deploy   (serve un account Cloudflare; il piano Free basta)
+# Segreto: npx wrangler secret put SHARED_SECRET   (lo stesso valore di AI_WORKER_SECRET sul server)
+# NON attivare il piano "Workers Paid": oltre i 10.000 Neuron/giorno gratuiti si pagherebbe a consumo.
+name = "podismo-ai"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[ai]
+binding = "AI"
+
+[vars]
+# Verifica che il modello sia disponibile nel tuo account: https://developers.cloudflare.com/workers-ai/models/
+AI_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+MAX_TOKENS_CAP = "400"

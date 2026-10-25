@@ -14,7 +14,8 @@ import { SectionTitle } from '@/components/event/SectionTitle';
 import { TypeCards, TypeTiles } from '@/components/event/TypePicker';
 import { DistanceDial, LevelBar, PaceDial } from '@/components/EventDials';
 import { PlacePicker, shortPlace } from '@/components/PlacePicker';
-import { Banner, DateField, Empty, Field, Loading, Row, useReduceMotion } from '@/components/ui';
+import { Banner, Button, DateField, Empty, Field, Loading, Row, useReduceMotion } from '@/components/ui';
+import { loadEventForEdit } from '@/lib/eventEdit';
 import { ChoiceRow, GroupLabel } from '@/components/Wizard';
 import { clubTint, eventSportStyle, FEATURE_ICONS, PACT_ICON, PACT_ICONS, PACT_MODES, PACT_TINT, pactBlocker, pactModes, VISIBILITY_ICONS, type PactMode } from '@/constants/eventStyle';
 import { color, S, type } from '@/constants/theme';
@@ -79,6 +80,7 @@ export default function EventoForm() {
   const [noteSport, setNoteSport] = useState<SportId>('running');
   const [pacedSport, setPacedSport] = useState<PacedSport>('running');
   const [loadErr, setLoadErr] = useState('');
+  const [loadAttempt, setLoadAttempt] = useState(0);
   // null = stima automatica; un valore = scelta dell'utente (o livello già salvato), che la stima non sovrascrive.
   const [manualLevel, setManualLevel] = useState<UiLevel | null>(null);
   const [when, setWhen] = useState(() => {
@@ -111,7 +113,9 @@ export default function EventoForm() {
   useEffect(() => {
     call<ClubView[]>('listMyClubs').then(setClubs, () => {});
     if (!id) return;
-    call<EventView>('getEvent', id, null).then(
+    setLoadErr('');
+    setReady(false);
+    return loadEventForEdit(() => call<EventView>('getEvent', id, null),
       (e) => {
         setVersion(e.version);
         setTitle(e.title);
@@ -138,9 +142,9 @@ export default function EventoForm() {
         setReady(true);
       },
       // Senza l'uscita da modificare il modulo non si apre (salvare partirebbe da dati vuoti): si spiega il motivo.
-      (e) => setLoadErr(humanError(e, 'Non riesco ad aprire l’uscita. Riprova tra poco.')),
+      setLoadErr,
     );
-  }, [id]);
+  }, [id, loadAttempt]);
 
   // Titolo suggerito finché l'utente non lo scrive da sé.
   useEffect(() => {
@@ -291,6 +295,8 @@ export default function EventoForm() {
         <Stack.Screen options={{ headerShown: true, title: 'Modifica l’uscita' }} />
         <View style={{ flex: 1, backgroundColor: color.bg, padding: S.xl }}>
           <Empty title="Uscita non disponibile" text={loadErr} iconName="cloud-offline-outline" />
+          <Button title="Riprova" onPress={() => setLoadAttempt((n) => n + 1)} />
+          <Button title="Torna indietro" variant="soft" onPress={close} />
         </View>
       </>
     );

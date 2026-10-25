@@ -133,19 +133,16 @@ export function estimateLevel(input: { sport: EventSport | SportId; km: number |
   return { level: DEFAULT_LEVEL[sport], basis: 'default' };
 }
 
-/** Cinque livelli dell'app → tre del server: 0-1 easy, 2 medium, 3-4 hard. */
+/** I cinque livelli si conservano senza perdita; i tre codici storici restano validi. */
+const SERVER_LEVELS: Level[] = ['beginner', 'easy', 'medium', 'hard', 'advanced'];
 export function toServerLevel(l: UiLevel): Level {
-  const n = clampLevel(l);
-  return n <= 1 ? 'easy' : n === 2 ? 'medium' : 'hard';
+  return SERVER_LEVELS[clampLevel(l)];
 }
 
-/**
- * Tre livelli del server → livello dell'app. Se `near` (per esempio la stima attuale) cade nella stessa fascia
- * del server, si usa quello: si recupera la sfumatura (Principiante/Tranquillo, Sostenuto/Avanzato) senza cambiare il dato salvato.
- */
-export function fromServerLevel(level: Level, near?: UiLevel | null): UiLevel {
-  if (near !== undefined && near !== null && toServerLevel(near) === level) return clampLevel(near);
-  return level === 'easy' ? 1 : level === 'hard' ? 3 : 2;
+/** La stima non deve mai alterare un livello esplicitamente salvato. */
+export function fromServerLevel(level: Level, _near?: UiLevel | null): UiLevel {
+  const index = SERVER_LEVELS.indexOf(level);
+  return index < 0 ? 2 : index as UiLevel;
 }
 
 /* ---------- distanza ---------- */

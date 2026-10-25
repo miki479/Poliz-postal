@@ -5,7 +5,7 @@ export type Id = string;
  * alternate, 'other' = attività diversa (nessun record di prestazione). I valori già salvati restano tutti validi.
  */
 export type SportId = 'running' | 'walking' | 'trail' | 'run_walk' | 'other' | 'cycling' | 'padel' | 'football5';
-export type Level = 'easy' | 'medium' | 'hard';
+export type Level = 'beginner' | 'easy' | 'medium' | 'hard' | 'advanced';
 export type Visibility = 'public' | 'club' | 'private';
 export type EventStatus = 'active' | 'cancelled';
 

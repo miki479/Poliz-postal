@@ -145,20 +145,20 @@ describe('stima del livello: coerenza', () => {
 });
 
 describe('conversione con il server', () => {
-  it('toServerLevel: 0-1 easy, 2 medium, 3-4 hard', () => {
-    expect(([0, 1, 2, 3, 4] as UiLevel[]).map(toServerLevel)).toEqual(['easy', 'easy', 'medium', 'hard', 'hard']);
+  it('toServerLevel: cinque livelli senza perdita', () => {
+    expect(([0, 1, 2, 3, 4] as UiLevel[]).map(toServerLevel)).toEqual(['beginner', 'easy', 'medium', 'hard', 'advanced']);
   });
   it('fromServerLevel: livello centrale della fascia, o la stima se è nella stessa fascia', () => {
     expect(fromServerLevel('easy')).toBe(1);
     expect(fromServerLevel('medium')).toBe(2);
     expect(fromServerLevel('hard')).toBe(3);
-    expect(fromServerLevel('hard', 4)).toBe(4);
-    expect(fromServerLevel('easy', 0)).toBe(0);
+    expect(fromServerLevel('hard', 4)).toBe(3);
+    expect(fromServerLevel('easy', 0)).toBe(1);
     expect(fromServerLevel('easy', 3)).toBe(1); // la stima non sovrascrive il dato salvato
     expect(fromServerLevel('medium', null)).toBe(2);
   });
   it('andata e ritorno non cambia mai il dato salvato', () => {
-    for (const l of ['easy', 'medium', 'hard'] as const) for (const near of [0, 1, 2, 3, 4] as UiLevel[]) expect(toServerLevel(fromServerLevel(l, near))).toBe(l);
+    for (const l of ['beginner', 'easy', 'medium', 'hard', 'advanced'] as const) for (const near of [0, 1, 2, 3, 4] as UiLevel[]) expect(toServerLevel(fromServerLevel(l, near))).toBe(l);
   });
 });
 

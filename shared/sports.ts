@@ -46,6 +46,7 @@ export function sportFamily(id: SportId): SportId {
 export const isRunFamily = (id: SportId): boolean => sportFamily(id) === 'running';
 
 export const LEVELS: Array<{ id: Level; label: string; hint: string }> = [
+  { id: 'beginner', label: 'Principiante', hint: 'Per chi inizia' },
   { id: 'easy', label: 'Tranquillo', hint: 'Si chiacchiera correndo' },
   { id: 'medium', label: 'Intermedio', hint: 'Ritmo costante' },
   { id: 'hard', label: 'Sostenuto', hint: 'Per chi è allenato' },

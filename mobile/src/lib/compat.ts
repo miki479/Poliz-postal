@@ -17,10 +17,10 @@ export function compatibility(e: EventView, s: PlannedSession): { fits: boolean;
     if (r < 0.7 || r > 1.3) fits = false;
   } else reasons.push('Distanza o passo dell’uscita non indicati: durata non stimabile.');
   const intense = s.kind === 'run_intervals' || s.intensity === 'high';
-  if (intense && e.level === 'easy') {
+  if (intense && (e.level === 'easy' || e.level === 'beginner')) {
     fits = false;
     reasons.push('La seduta prevista è intensa, l’uscita ha un ritmo tranquillo.');
-  } else if (!intense && e.level === 'hard') {
+  } else if (!intense && (e.level === 'hard' || e.level === 'advanced')) {
     fits = false;
     reasons.push('L’uscita ha un ritmo sostenuto, la seduta prevista è facile.');
   } else reasons.push('Il livello dell’uscita è coerente con la seduta.');

@@ -6,7 +6,7 @@ import type { ActivityInput, AvatarFrame, ClubInput, EventInput, Level, ProfileA
 export type FieldErrors = Record<string, string>;
 export type Validated<T> = { ok: true; value: T } | { ok: false; errors: FieldErrors };
 
-const LEVELS: Level[] = ['easy', 'medium', 'hard'];
+const LEVELS: Level[] = ['beginner', 'easy', 'medium', 'hard', 'advanced'];
 const VISIBILITIES: Visibility[] = ['public', 'club', 'private'];
 const MAX_IMAGE_CHARS = 120_000;
 

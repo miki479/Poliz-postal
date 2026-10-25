@@ -53,6 +53,13 @@ beforeEach(() => {
 });
 
 describe('creazione uscita', () => {
+  it.each(['beginner', 'easy', 'medium', 'hard', 'advanced'] as const)('conserva il livello %s in creazione, modifica e filtro', (level) => {
+    const event = E.createEvent(as('a'), input({ level }));
+    expect(E.getEvent(as('b'), event.id).level).toBe(level);
+    expect(E.listEvents(as('b'), { level }).map((e) => e.id)).toContain(event.id);
+    const changed = E.updateEvent(as('a'), event.id, input({ level }), event.version);
+    expect(changed.level).toBe(level);
+  });
   it('crea l\'uscita e iscrive l\'organizzatore', () => {
     const v = E.createEvent(as('a'), input());
     expect(v.participantCount).toBe(1);

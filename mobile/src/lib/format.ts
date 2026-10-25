@@ -41,8 +41,9 @@ export function fmtClock(sec: number): string {
 }
 
 export const SPORT_LABEL: Record<SportId, string> = { running: 'Corsa', walking: 'Camminata', trail: 'Trail', run_walk: 'Corsa + camminata', other: 'Altro', cycling: 'Ciclismo', padel: 'Padel', football5: 'Calcetto' };
-export const LEVEL_LABEL: Record<Level, string> = { easy: 'Tranquillo', medium: 'Intermedio', hard: 'Sostenuto' };
+export const LEVEL_LABEL: Record<Level, string> = { beginner: 'Principiante', easy: 'Tranquillo', medium: 'Intermedio', hard: 'Sostenuto', advanced: 'Avanzato' };
 export const LEVELS: Array<{ id: Level; label: string; hint: string }> = [
+  { id: 'beginner', label: 'Principiante', hint: 'Per chi inizia' },
   { id: 'easy', label: 'Tranquillo', hint: 'Si chiacchiera correndo' },
   { id: 'medium', label: 'Intermedio', hint: 'Ritmo costante' },
   { id: 'hard', label: 'Sostenuto', hint: 'Per chi è allenato' },

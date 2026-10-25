@@ -2,7 +2,9 @@
 
 Documento per chi riprende il lavoro (persona o altra AI). Descrive cosa esiste, cosa è stato fatto, cosa manca e come verificare, rilasciare e pubblicare.
 
-> **Ultima revisione del 25 ottobre 2026:** integrato il commit remoto `73e7e43` con onboarding e correzioni registrazione, mantenendo Google compatibile con Expo Go e il replay stabile. Corretti revoca heatmap e statistiche attraverso interruzioni GPS. Codice `f076abc`, server `00022-njl`, Expo iOS gruppo `d72fc5e7-7d22-48f5-945a-086d6357627e`. **406 test in 48 file**, typecheck, build, export ed E2E browser del percorso iniziale passati. [Resoconto completo](REVIEW-2026-10-25.md) e [QR aggiornato](runngo-expo-review-2026-10-25.png).
+> **Ultima modifica del 25 ottobre 2026:** Registra ora è fissa: heatmap in alto, card delle opzioni apribile e Avvia in basso. Codice `54f859f`, Expo iOS gruppo `fc920778-3af1-4973-9135-7613abeb3d0d`, server compatibile invariato `00022-njl`. 410 test/49 file, typecheck, lint mirato, build ed export iOS passati. [Resoconto](RECORDING-LAYOUT-2026-10-25.md), [QR aggiornato](runngo-expo-recording-fixed-2026-10-25.png).
+
+> **Revisione precedente del 25 ottobre 2026:** integrato il commit remoto `73e7e43` con onboarding e correzioni registrazione, mantenendo Google compatibile con Expo Go e il replay stabile. Corretti revoca heatmap e statistiche attraverso interruzioni GPS. Codice `f076abc`, server `00022-njl`, Expo iOS gruppo `d72fc5e7-7d22-48f5-945a-086d6357627e`. **406 test in 48 file**, typecheck, build, export ed E2E browser del percorso iniziale passati. [Resoconto completo](REVIEW-2026-10-25.md) e [QR aggiornato](runngo-expo-review-2026-10-25.png).
 
 > **Aggiornamento UI precedente del 25 ottobre 2026:** corretti crash Integrazioni, figure, wizard e collegamento dei racconti; aggiunti attrezzatura, mappe aggregate con consenso distinto e comando Registra. Server `00021-dq4`, Expo iOS gruppo `4d981c85-1fb8-4cc7-93ed-7339348c0203`. Dettagli, file, test, limiti e QR nel [resoconto UI](RELEASE-UI-2026-10-25.md).
 
@@ -31,7 +33,7 @@ Documento per chi riprende il lavoro (persona o altra AI). Descrive cosa esiste,
 ```bash
 # dalla root C:\Poliz-postal
 npx tsc --noEmit -p .          # typecheck server + shared + web
-npx vitest run                 # tutti i test (ultimo esito: 48 file, 406 test, tutti verdi)
+npx vitest run                 # tutti i test (ultimo esito: 49 file, 410 test, tutti verdi)
 npm run build                  # build web + server
 
 # dentro mobile/
@@ -64,11 +66,11 @@ python -c "import segno; segno.make('exp://u.expo.dev/a4379409-221f-4209-99a9-4e
 ## 2. Cosa è online adesso
 
 - **Server Cloud Run:** revisione `podismo-social-00022-njl`, 100% del traffico. Comprende le nuove API di configurazione iniziale e la revoca condivisa delle heatmap, oltre alle funzioni precedenti.
-- **Expo Go iPhone:** branch `main`, runtime `1.0.0`, gruppo `d72fc5e7-7d22-48f5-945a-086d6357627e`, codice `f076abc`. [QR aggiornato](runngo-expo-review-2026-10-25.png).
-- **Verifiche:** typecheck root/mobile, 406 test in 48 file, build web/server, export iOS e web passati. E2E browser mobile con API simulate: introduzione → registrazione → tutorial → creatore piano, senza errori JavaScript. Non sostituisce la prova nativa su iPhone.
+- **Expo Go iPhone:** branch `main`, runtime `1.0.0`, gruppo `fc920778-3af1-4973-9135-7613abeb3d0d`, codice `54f859f`. [QR aggiornato](runngo-expo-recording-fixed-2026-10-25.png).
+- **Verifiche:** typecheck root/mobile, 410 test in 49 file, build web/server ed export iOS passati. La route con mappe richiede verifica nativa. E2E precedente del percorso iniziale nel browser con API simulate: introduzione → registrazione → tutorial → creatore piano, senza errori JavaScript. Non sostituisce la prova nativa su iPhone.
 - Health e risorse Google 200 prima di Expo. Google rimane HTTPS/Expo Go, consenso In test per i soli utenti di prova; nessun SDK Google nativo aggiunto. Strava conserva scope `read,activity:read,profile:read_all`.
 - Calendario, RouteReplay.tsx e routeGeometry.ts invariati; per tracce interrotte un componente esterno mostra solo i segmenti acquisiti. Apple Salute esclusa. Lint mirato delle nuove schermate pulito; restano le segnalazioni generali preesistenti.
-- [Resoconto revisione](REVIEW-2026-10-25.md), [rilascio UI precedente](RELEASE-UI-2026-10-25.md), [primo rilascio](RELEASE-2026-10-25.md). Commit locali, nessun push GitHub.
+- [Layout registrazione](RECORDING-LAYOUT-2026-10-25.md), [resoconto revisione](REVIEW-2026-10-25.md), [rilascio UI precedente](RELEASE-UI-2026-10-25.md), [primo rilascio](RELEASE-2026-10-25.md). Commit locali, nessun push GitHub.
 
 > Ordine rispettato: server, controlli health/Google, poi Expo. Le sezioni 3 e 4 sotto sono il passaggio storico iniziale; per lo stato attuale fanno fede i resoconti.
 

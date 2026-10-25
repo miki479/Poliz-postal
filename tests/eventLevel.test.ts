@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LEVELS as SAVED_LEVELS, levelLabel as savedLevelLabel } from '../shared/sports.ts';
 import {
   DISTANCE_LIMITS,
   DISTANCE_TICKS,
@@ -28,6 +29,11 @@ const run = (km: number | null, paceSec: number | null) => estimateLevel({ sport
 const walk = (km: number | null, paceSec: number | null) => estimateLevel({ sport: 'walking', km, paceSec });
 
 describe('livelli dell’app', () => {
+  it('anche il catalogo usato dal web espone cinque etichette italiane', () => {
+    expect(SAVED_LEVELS.map((l) => l.id)).toEqual(['beginner', 'easy', 'medium', 'hard', 'advanced']);
+    expect(savedLevelLabel('advanced')).toBe('Avanzato');
+    expect(savedLevelLabel('beginner')).toBe('Principiante');
+  });
   it('sono cinque, in ordine, con etichetta e descrizione brevi', () => {
     expect(UI_LEVELS.map((l) => l.label)).toEqual(['Principiante', 'Tranquillo', 'Intermedio', 'Sostenuto', 'Avanzato']);
     UI_LEVELS.forEach((l, i) => {

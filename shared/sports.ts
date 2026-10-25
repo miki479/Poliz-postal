@@ -50,6 +50,7 @@ export const LEVELS: Array<{ id: Level; label: string; hint: string }> = [
   { id: 'easy', label: 'Tranquillo', hint: 'Si chiacchiera correndo' },
   { id: 'medium', label: 'Intermedio', hint: 'Ritmo costante' },
   { id: 'hard', label: 'Sostenuto', hint: 'Per chi è allenato' },
+  { id: 'advanced', label: 'Avanzato', hint: 'Per chi è molto allenato' },
 ];
 
 export function levelLabel(id: Level): string {

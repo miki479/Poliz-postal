@@ -47,6 +47,7 @@ export const LEVELS: Array<{ id: Level; label: string; hint: string }> = [
   { id: 'easy', label: 'Tranquillo', hint: 'Si chiacchiera correndo' },
   { id: 'medium', label: 'Intermedio', hint: 'Ritmo costante' },
   { id: 'hard', label: 'Sostenuto', hint: 'Per chi è allenato' },
+  { id: 'advanced', label: 'Avanzato', hint: 'Per chi è molto allenato' },
 ];
 /** Tipi selezionabili, nello stesso ordine del server (shared/sports.ts). */
 export const SPORTS_ENABLED: Array<{ id: SportId; label: string }> = (['running', 'walking', 'trail', 'run_walk', 'other'] as const).map((id) => ({ id, label: SPORT_LABEL[id] }));

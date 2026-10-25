@@ -41,6 +41,9 @@ export function SportChips(props: Props) {
                 alignItems: 'center',
                 gap: 6,
                 minHeight: HIT,
+                maxWidth: '100%',
+                flexShrink: 1,
+                paddingVertical: S.sm,
                 paddingHorizontal: S.md,
                 borderRadius: R.pill,
                 borderWidth: 1.5,
@@ -48,7 +51,7 @@ export function SportChips(props: Props) {
                 backgroundColor: on ? st.tint : pressed ? color.surfacePressed : 'transparent',
               })}>
               <ActivityGlyph style={st} size={18} color={on ? st.solid : color.textSecondary} />
-              <Text style={[type.subhead, { color: on ? color.text : color.textSecondary, fontWeight: '600' }]}>{o.label}</Text>
+              <Text style={[type.subhead, { flexShrink: 1, color: on ? color.text : color.textSecondary, fontWeight: '600' }]}>{o.label}</Text>
             </Pressable>
           );
         })}

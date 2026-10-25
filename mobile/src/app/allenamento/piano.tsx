@@ -424,9 +424,14 @@ export default function Piano() {
 
   useEffect(() => {
     if (step !== 'preview') return;
+    let active = true;
     setPreview(null);
     setErr('');
-    call<{ sessions: SessionInput[]; warnings: string[] }>('previewPlan', input()).then(setPreview, (e) => setErr(humanError(e, 'Anteprima non disponibile.')));
+    call<{ sessions: SessionInput[]; warnings: string[] }>('previewPlan', input()).then(
+      (value) => { if (active) setPreview(value); },
+      (e) => { if (active) setErr(humanError(e, 'Anteprima non disponibile.')); },
+    );
+    return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, tone, previewTry]);
 

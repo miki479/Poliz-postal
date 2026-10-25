@@ -312,7 +312,7 @@ export function BriefPanel({ visible, onClose, icon, tint, badge, title, subtitl
     return () => loop.stop();
   }, [visible, reduce, enter, breath]);
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible={visible} transparent animationType={reduce ? 'none' : 'fade'} onRequestClose={onClose} statusBarTranslucent>
       <Animated.View accessibilityViewIsModal style={{ flex: 1, backgroundColor: color.bg, opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }] }}>
         <LinearGradient colors={[mix(tint, color.bg, 0.5), mix(tint, color.bg, 0.86), color.bg]} locations={[0, 0.5, 1]} style={FILL} pointerEvents="none" />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: insets.top + S.xs, paddingHorizontal: S.sm }}>

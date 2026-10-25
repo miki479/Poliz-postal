@@ -22,7 +22,8 @@ function calendar(reduce: boolean) {
   const effects: Array<() => unknown> = [];
   const runs: Array<{ from: number; to: number; duration: number; delay?: number }> = [];
   class Value {
-    constructor(public value: number) { values.push(value); }
+    value: number;
+    constructor(value: number) { this.value = value; values.push(value); }
     setValue(value: number) { this.value = value; }
     interpolate() { return 0; }
   }

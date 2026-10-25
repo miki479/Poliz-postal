@@ -446,6 +446,12 @@ export default function Integrazioni() {
       </View>
 
       {notice ? <Banner tone="info" text={notice} /> : null}
+      {linked && !s?.grantedScope?.split(',').includes('profile:read_all') ? (
+        <View style={{ gap: S.sm }}>
+          <Banner tone="info" text="Per leggere le zone cardiache del tuo profilo serve una nuova autorizzazione Strava. Le attività già importate restano disponibili." />
+          <Button title="Ricollega per le zone cardiache" busy={connecting} onPress={() => void connect()} />
+        </View>
+      ) : null}
 
       {phase === 'loading' || (logs.loading && !logs.data) ? (
         <View style={{ gap: S.lg }}>

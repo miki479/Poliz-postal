@@ -14,6 +14,7 @@ import { styleOfLog } from '@/lib/storyPalette';
 import { elevationOf, splits } from '@shared/track.ts';
 import type { ActivityStreams, WorkoutLog } from '@shared/types.ts';
 import { fileMeasurements } from '@shared/fileMeasurements.ts';
+import { HeartZones } from '@/components/HeartZones';
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
@@ -284,6 +285,7 @@ export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Ca
         </Card>
       ) : null}
 
+      {fromStrava && hasHeart ? <HeartZones /> : null}
       {hasCad || hasElev ? (
         <View style={{ flexDirection: 'row', gap: S.md }}>
           {hasCad ? (

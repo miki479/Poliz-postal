@@ -12,7 +12,7 @@ import { APPLE, GOOGLE, verifyIdToken, type OidcProvider } from './oidc.ts';
 import { analyzeWorkout, factsToContext, factsToText } from '../shared/brief.ts';
 import { aiConfig, aiStatus, buildContext, buildMessages, callWorker, PRESETS, refund, reserve, type Preset } from './ai.ts';
 import { geocode, geoConfig, route as routeFn } from './geo.ts';
-import { authorizeUrl, deauthorize, exchangeCode, fetchStreams, stravaConfig, stravaPublicStatus, syncActivities, verifyState } from './strava.ts';
+import { authorizeUrl, deauthorize, exchangeCode, fetchStreams, fetchHeartZones, stravaConfig, stravaPublicStatus, syncActivities, verifyState } from './strava.ts';
 import { forecast, weatherConfig } from './weather.ts';
 
 /* ---------- configurazione (variabili d'ambiente, nessun segreto nel frontend) ---------- */
@@ -486,6 +486,13 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       return send(res, 200, { url: authorizeUrl(strava, userId!) });
     }
 
+    case '/api/strava/zones': {
+      const link = store.accounts[userId!].strava;
+      if (!strava.enabled || !link) return send(res, 200, { zones: null, needsReconnect: true });
+      const result = await fetchHeartZones(strava, link);
+      await persist();
+      return send(res, 200, result);
+    }
     case '/api/strava/streams': {
       // Serie (cuore, altitudine, cadenza) di un MIO racconto nato da Strava; mai di altri.
       const acc = store.accounts[userId!];

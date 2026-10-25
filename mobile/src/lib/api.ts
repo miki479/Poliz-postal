@@ -1,4 +1,5 @@
 import type { ActivityStreams, Me } from '@shared/types.ts';
+import type { HeartZonesResult } from '@shared/heartZones.ts';
 
 /** Server Runngo. Sovrascrivibile con EXPO_PUBLIC_API_URL (es. per prove in locale). */
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://podismo-social-122967414084.europe-west1.run.app';
@@ -92,6 +93,7 @@ export interface SyncSummary {
   error: 'revoked' | 'strava_error' | 'network' | 'budget' | null;
 }
 export interface StravaStatus {
+  grantedScope?: string | null;
   configured: boolean;
   reason: string | null;
   connected: boolean;
@@ -136,6 +138,7 @@ export interface RouteResult {
 
 export const ext = {
   strava: {
+    zones: () => post<HeartZonesResult>('/api/strava/zones', {}),
     status: () => post<StravaStatus>('/api/strava/status', {}),
     connect: async () => (await post<{ url: string }>('/api/strava/connect', {})).url,
     sync: () => post<{ summary: SyncSummary; status: StravaStatus }>('/api/strava/sync', {}),

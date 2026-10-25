@@ -10,6 +10,7 @@ import type { ActivityStreams, SportId } from '../shared/types.ts';
 import { alignStoryLog, applyMetrics, ensureStoryLog, metricsFromSummary } from '../shared/stravaStories.ts';
 import type { DbState } from '../shared/types.ts';
 import { fetchT, hmac, safeEqual, seal, unseal, parseKey } from './util.ts';
+import { parseHeartZones, type HeartZonesResult } from '../shared/heartZones.ts';
 
 export interface StravaConfig {
   enabled: boolean;
@@ -41,7 +42,7 @@ export function stravaConfig(env: NodeJS.ProcessEnv, appUrl: string): StravaConf
     clientSecret,
     redirectUri: env.STRAVA_REDIRECT_URI || `${appUrl}/api/strava/callback`,
     // Solo gli ambiti necessari: lettura profilo e attività pubbliche/“solo follower”. activity:read_all è opzionale (attività private).
-    scope: env.STRAVA_SCOPE || 'read,activity:read',
+    scope: env.STRAVA_SCOPE || 'read,activity:read,profile:read_all',
     apiBase: (env.STRAVA_API_BASE || 'https://www.strava.com/api/v3').replace(/\/$/, ''),
     oauthBase: (env.STRAVA_OAUTH_BASE || 'https://www.strava.com/oauth').replace(/\/$/, ''),
     maxPages: Math.min(20, Math.max(1, Number(env.STRAVA_MAX_PAGES) || 8)),
@@ -120,7 +121,7 @@ export function verifyState(cfg: StravaConfig, state: string, now = Date.now()):
 }
 
 export function authorizeUrl(cfg: StravaConfig, userId: string): string {
-  const q = new URLSearchParams({ client_id: cfg.clientId, redirect_uri: cfg.redirectUri, response_type: 'code', approval_prompt: 'auto', scope: cfg.scope, state: makeState(cfg, userId) });
+  const q = new URLSearchParams({ client_id: cfg.clientId, redirect_uri: cfg.redirectUri, response_type: 'code', approval_prompt: 'force', scope: cfg.scope, state: makeState(cfg, userId) });
   return `${cfg.oauthBase}/authorize?${q}`;
 }
 
@@ -388,4 +389,27 @@ export async function fetchStreams(cfg: StravaConfig, link: StravaLink, stravaId
   if (streamCache.size > 200) streamCache.delete(streamCache.keys().next().value as string);
   streamCache.set(stravaId, { at: now, data });
   return data;
+}
+
+
+/* Zone del profilo: cache isolata per atleta e collegamento. */
+const zonesCache = new Map<string, { at: number; result: HeartZonesResult }>();
+export async function fetchHeartZones(cfg: StravaConfig, link: StravaLink, now = Date.now()): Promise<HeartZonesResult> {
+  if (link.status !== 'ok') return { zones: null, needsReconnect: true };
+  if (!link.scope.split(',').includes('profile:read_all')) return { zones: null, needsReconnect: true };
+  const key = `${cfg.apiBase}:${link.athleteId}:${link.connectedAt}`;
+  const hit = zonesCache.get(key);
+  if (hit && now - hit.at < 6 * 3600000) return hit.result;
+  if (link.expiresAt - 60 < now / 1000 && !(await refresh(cfg, link))) return { zones: null, needsReconnect: true };
+  if (!takeRequest(cfg)) return { zones: null, unavailable: true };
+  try {
+    const res = await fetchT(`${cfg.apiBase}/athlete/zones`, { headers: { Authorization: `Bearer ${unseal(cfg.key!, link.access)}` } });
+    if (res.status === 401) { link.status = 'revoked'; return { zones: null, needsReconnect: true }; }
+    if (res.status === 403) return { zones: null, needsReconnect: true };
+    if (!res.ok) return { zones: null, unavailable: true };
+    const result = { zones: parseHeartZones(await res.json()) };
+    if (zonesCache.size >= 200) zonesCache.delete(zonesCache.keys().next().value!);
+    zonesCache.set(key, { at: now, result });
+    return result;
+  } catch { return { zones: null, unavailable: true }; }
 }

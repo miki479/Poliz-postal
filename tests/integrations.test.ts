@@ -41,7 +41,7 @@ describe('Strava (server mock): non configurato', () => {
 
   it('i metodi di integrazione richiedono sessione', async () => {
     const anon = new Client(srv.base);
-    for (const p of ['/api/strava/status', '/api/strava/connect', '/api/strava/sync', '/api/strava/disconnect', '/api/geo/search', '/api/geo/route', '/api/ai/status', '/api/ai/chat'])
+    for (const p of ['/api/strava/zones', '/api/strava/status', '/api/strava/connect', '/api/strava/sync', '/api/strava/disconnect', '/api/geo/search', '/api/geo/route', '/api/ai/status', '/api/ai/chat'])
       expect((await anon.post(p, {})).status, p).toBe(401);
   });
 
@@ -62,6 +62,7 @@ describe('Strava (server mock): collegamento, sincronizzazione, rinnovo token, e
 
   beforeAll(async () => {
     strava = await mockServer(({ method, path, search, headers, body }) => {
+      if (path === '/api/v3/athlete/zones') return { json: { heart_rate: { custom: true, zones: [{ min: 0, max: 130 }, { min: 130, max: -1 }] } } };
       if (path === '/oauth/token' && method === 'POST') {
         const p = new URLSearchParams(body);
         if (p.get('client_secret') !== 'segreto-test') return { status: 401, json: {} };
@@ -111,6 +112,23 @@ describe('Strava (server mock): collegamento, sincronizzazione, rinnovo token, e
     return { url, ...r };
   };
 
+  it('zone: richiede nuovo consenso, mantiene attività utilizzabili e isola cache per atleta', async () => {
+    reset();
+    const a = new Client(srv.base); await a.register('zones-a@example.com'); await connect(a);
+    expect((await a.post('/api/strava/zones', {})).json).toEqual({ zones: null, needsReconnect: true });
+    expect(strava.hits.filter((h) => h.path === '/api/v3/athlete/zones')).toHaveLength(0);
+    await connect(a, 'read,activity:read,profile:read_all');
+    expect((await a.post('/api/strava/zones', {})).json.zones).toEqual({ custom: true, zones: [{ min: 0, max: 130 }, { min: 130, max: -1 }] });
+    await a.post('/api/strava/zones', {});
+    expect(strava.hits.filter((h) => h.path === '/api/v3/athlete/zones')).toHaveLength(1);
+    const b = new Client(srv.base); await b.register('zones-b@example.com');
+    expect((await b.post('/api/strava/zones', {})).json.zones).toBeNull();
+    await connect(b, 'read,activity:read,profile:read_all'); await b.post('/api/strava/zones', {});
+    expect(strava.hits.filter((h) => h.path === '/api/v3/athlete/zones')).toHaveLength(2);
+    await a.post('/api/strava/disconnect', { deleteData: false });
+    expect((await a.post('/api/strava/zones', {})).json.zones).toBeNull();
+  });
+
   it('costruisce l\'URL OAuth con soli ambiti necessari e senza segreti', async () => {
     reset();
     const c = new Client(srv.base);
@@ -118,7 +136,7 @@ describe('Strava (server mock): collegamento, sincronizzazione, rinnovo token, e
     const { json } = await c.post('/api/strava/connect', {});
     const u = new URL(json.url);
     expect(u.origin + u.pathname).toBe(`${strava.url}/oauth/authorize`);
-    expect(Object.fromEntries(u.searchParams)).toMatchObject({ client_id: '999', response_type: 'code', scope: 'read,activity:read' });
+    expect(Object.fromEntries(u.searchParams)).toMatchObject({ client_id: '999', response_type: 'code', scope: 'read,activity:read,profile:read_all' });
     expect(u.searchParams.get('redirect_uri')).toMatch(/\/api\/strava\/callback$/);
     expect(json.url).not.toMatch(/segreto-test/);
     expect((await (await fetch(`${srv.base}/api/health`)).json()).features.strava).toBe(true);

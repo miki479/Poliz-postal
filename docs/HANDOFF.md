@@ -59,11 +59,12 @@ python -c "import segno; segno.make('exp://u.expo.dev/a4379409-221f-4209-99a9-4e
 
 ## 2. Cosa è online adesso
 
-- **Server su Cloud Run:** revisione `podismo-social-00015`, cioè il codice del deploy `00014` più `GEO_CONTACT_EMAIL`. La ricerca dei luoghi è attiva (`geocoding: true`).
-  **Non** contiene ancora il nuovo modello dati del §3.3 (Trail, Corsa + camminata, Altro; patto A turno, In coppia, Self pace).
-- **App su Expo Go:** ultimo aggiornamento pubblicato, gruppo `a7527328-fd5a-4032-ad02-6e9546281409` (QR in `runngo-qr-racconti.png`). Contiene il lavoro fino a "racconti nel profilo, mappa con marker, statistiche, uscite guidate, inviti", ma **nessuna** delle modifiche del §3.
+- **Server su Cloud Run:** revisione `podismo-social-00016`, con il codice del commit `67c2c5f` (compreso il nuovo modello dati del §3.3) e `GEO_CONTACT_EMAIL`. La ricerca dei luoghi è attiva (`geocoding: true`).
+- **App su Expo Go:** ultimo aggiornamento pubblicato, gruppo `60391767-ebaa-4658-bfaf-bc47b4e42a3e` (QR in `runngo-qr-backup.png`). Corrisponde al commit `67c2c5f`: tutto il §3, compresi i pezzi parziali del §4.1.
 
-> **Ordine obbligatorio per il prossimo rilascio:** prima il server (altrimenti rifiuta i nuovi tipi e le nuove modalità del patto), poi l'aggiornamento Expo.
+> **Ordine obbligatorio per ogni rilascio che cambia `shared/` o `server/`:** prima il server, poi l'aggiornamento Expo.
+
+Quindi i §3 e §4 qui sotto vanno letti così: il §3 adesso **è** pubblicato, il §4 resta da fare.
 
 ---
 

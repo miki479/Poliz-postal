@@ -10,3 +10,4 @@ docs/
 test-results/
 *-qr*.png
 runngo-qr*.png
+google-services.json

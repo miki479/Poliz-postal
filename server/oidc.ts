@@ -9,6 +9,7 @@ interface Jwk {
   [k: string]: unknown;
 }
 export interface OidcClaims {
+  nonce?: string;
   sub: string;
   email?: string;
   emailVerified: boolean;
@@ -61,6 +62,7 @@ export async function verifyIdToken(token: string, p: OidcProvider, f: FetchLike
   if (!aud.includes(p.audience)) throw new Error('Destinatario non valido');
   if (typeof c.sub !== 'string' || !c.sub) throw new Error('Token senza soggetto');
   return {
+    nonce: typeof c.nonce === 'string' ? c.nonce : undefined,
     sub: c.sub,
     email: typeof c.email === 'string' ? c.email.toLowerCase() : undefined,
     emailVerified: c.email_verified === true || c.email_verified === 'true',

@@ -14,6 +14,8 @@ import { aiConfig, aiStatus, buildContext, buildMessages, callWorker, PRESETS, r
 import { geocode, geoConfig, route as routeFn } from './geo.ts';
 import { authorizeUrl, deauthorize, exchangeCode, fetchStreams, fetchHeartZones, stravaConfig, stravaPublicStatus, syncActivities, verifyState } from './strava.ts';
 import { forecast, weatherConfig } from './weather.ts';
+import { GoogleMobileAttempts, GOOGLE_MOBILE_HTML, GOOGLE_MOBILE_JS } from './googleMobile.ts';
+const googleMobileAttempts = new GoogleMobileAttempts();
 
 /* ---------- configurazione (variabili d'ambiente, nessun segreto nel frontend) ---------- */
 
@@ -256,14 +258,15 @@ function oidcProvider(kind: 'google' | 'apple'): OidcProvider {
 }
 
 /** Accesso/registrazione con provider esterno: collega l'account per sub, oppure per email SOLO se verificata dal provider. */
-async function socialSignIn(req: IncomingMessage, res: ServerResponse, kind: 'google' | 'apple', idToken: unknown, nameHint: unknown) {
-  if (typeof idToken !== 'string' || idToken.length > 4000) throw new AppError('bad_request', 'Token non valido.');
+async function socialAccount(kind: 'google' | 'apple', idToken: unknown, nameHint: unknown, expectedNonce?: string): Promise<string> {
+  if (typeof idToken !== 'string' || idToken.length > 4000) throw new AppError('bad_request', 'Accesso non riuscito. Riprova.');
   let claims;
   try {
     claims = await verifyIdToken(idToken, oidcProvider(kind));
+    if (expectedNonce && claims.nonce !== expectedNonce) throw new Error('Nonce non valido');
   } catch (e) {
     if (e instanceof AppError) throw e;
-    throw new AppError('unauthenticated', 'Accesso non riuscito: token del provider non valido o scaduto.');
+    throw new AppError('unauthenticated', 'Accesso non riuscito. Apri di nuovo il tuo account e riprova.');
   }
   let acc = Object.values(store.accounts).find((a) => a[kind] === claims.sub);
   if (!acc && claims.email && claims.emailVerified) {
@@ -281,7 +284,12 @@ async function socialSignIn(req: IncomingMessage, res: ServerResponse, kind: 'go
     acc = { userId: user.id, email: claims.email, emailVerified: claims.emailVerified, [kind]: claims.sub, createdAt: new Date().toISOString() };
     store.accounts[user.id] = acc;
   }
-  return startSession(req, res, acc.userId, { created: !store.db.users[acc.userId].profileCompleted });
+  return acc.userId;
+}
+
+async function socialSignIn(req: IncomingMessage, res: ServerResponse, kind: 'google' | 'apple', idToken: unknown, nameHint: unknown) {
+  const userId = await socialAccount(kind, idToken, nameHint);
+  return startSession(req, res, userId, { created: !store.db.users[userId].profileCompleted });
 }
 
 /* ---------- OAuth Strava: ritorno dal browser ---------- */
@@ -336,6 +344,11 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       map: { tileUrl: geo.tileUrl, attribution: geo.tileAttribution },
     });
   }
+  if (req.method === 'GET' && (pathname === '/api/auth/google/mobile/page' || pathname === '/api/auth/google/mobile/client.js')) {
+    const script = pathname.endsWith('.js');
+    res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': script ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'Cross-Origin-Opener-Policy': 'same-origin-allow-popups' });
+    return res.end(script ? GOOGLE_MOBILE_JS : GOOGLE_MOBILE_HTML);
+  }
   if (pathname === '/api/strava/callback' && req.method === 'GET') return stravaCallback(req, res);
   if (req.method !== 'POST') return send(res, 405, { error: { code: 'bad_request', message: 'Metodo non consentito.' } });
   if (!sameOrigin(req)) return send(res, 403, { error: { code: 'forbidden', message: 'Origine non consentita.' } });
@@ -375,6 +388,32 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       return startSession(req, res, acc.userId);
     }
 
+    case '/api/auth/google/mobile/start': {
+      if (!GOOGLE_CLIENT_ID) throw new AppError('unavailable', 'L’accesso con Google non è ancora disponibile. Puoi usare email e password.');
+      if (limited(`googlemobile:${ip}`, 15, 600_000)) throw new AppError('rate_limited', 'Troppi tentativi. Riprova tra qualche minuto.');
+      const attempt = googleMobileAttempts.begin();
+      return send(res, 200, { id: attempt.id, pollToken: attempt.pollToken, expiresAt: attempt.expiresAt, path: `/api/auth/google/mobile/page#id=${attempt.id}&key=${attempt.browserToken}` });
+    }
+    case '/api/auth/google/mobile/context': {
+      if (!GOOGLE_CLIENT_ID) throw new AppError('unavailable', 'Google non disponibile.');
+      const nonce = googleMobileAttempts.browser(body.id, body.browserToken);
+      return send(res, 200, { clientId: GOOGLE_CLIENT_ID, nonce });
+    }
+    case '/api/auth/google/mobile/complete': {
+      if (limited(`googlecomplete:${ip}`, 30, 600_000)) throw new AppError('rate_limited', 'Troppi tentativi. Riprova tra qualche minuto.');
+      await googleMobileAttempts.complete(body.id, body.browserToken, (nonce) => socialAccount('google', body.idToken, undefined, nonce));
+      await persist();
+      return send(res, 200, { ok: true });
+    }
+    case '/api/auth/google/mobile/poll': {
+      const accountId = googleMobileAttempts.poll(body.id, body.pollToken);
+      if (!accountId) return send(res, 200, { status: 'pending' });
+      return startSession(req, res, accountId, { status: 'complete' });
+    }
+    case '/api/auth/google/mobile/cancel': {
+      googleMobileAttempts.cancel(body.id, body.pollToken);
+      return send(res, 200, { ok: true });
+    }
     case '/api/auth/google':
     case '/api/auth/apple': {
       if (limited(`social:${ip}`, 30, 900_000)) throw new AppError('rate_limited', 'Troppi tentativi. Riprova tra qualche minuto.');

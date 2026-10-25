@@ -21,6 +21,10 @@ describe('verifica ID token (Google/Apple)', () => {
   it('accetta un token valido', async () => {
     expect(await verifyIdToken(sign(good), P, fakeFetch, now)).toMatchObject({ sub: 'sub-1', email: 'mario@example.com', emailVerified: true });
   });
+  it('restituisce solo il nonce firmato, per legare l’accesso al tentativo mobile', async () => {
+    expect((await verifyIdToken(sign({ ...good, nonce: 'attempt-nonce' }), P, fakeFetch, now)).nonce).toBe('attempt-nonce');
+    expect((await verifyIdToken(sign(good), P, fakeFetch, now)).nonce).toBeUndefined();
+  });
   it('rifiuta firma errata, audience, emittente, scadenza e algoritmo', async () => {
     await expect(verifyIdToken(sign(good, other.privateKey), P, fakeFetch, now)).rejects.toThrow(/Firma/);
     await expect(verifyIdToken(sign({ ...good, aud: 'altro-client' }), P, fakeFetch, now)).rejects.toThrow(/Destinatario/);

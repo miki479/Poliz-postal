@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Banner, Button, Field, LinkText, Segmented, t } from '@/components/ui';
 import { color, GUTTER, R, S } from '@/constants/theme';
-import { auth, ApiError } from '@/lib/api';
+import { auth, ApiError, API_URL, post } from '@/lib/api';
+import { googleLogin, type GoogleAttempt } from '@/lib/googleLogin';
 import { useSession } from '@/lib/session';
 
 import { humanError } from '@/lib/errors';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login() {
-  const { login, register } = useSession();
+  const { login, register, refresh } = useSession();
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -20,6 +22,28 @@ export default function Login() {
   const [fieldErr, setFieldErr] = useState<{ email?: string; password?: string }>({});
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const googleRequest = useRef<{ cancelled: boolean } | null>(null);
+  useEffect(() => () => { if (googleRequest.current) googleRequest.current.cancelled = true; }, []);
+
+  async function withGoogle() {
+    if (busy || googleBusy) return;
+    setGoogleBusy(true); setError(''); setNotice('');
+    const request = { cancelled: false }; googleRequest.current = request;
+    try {
+      const complete = await googleLogin({
+        start: () => post<GoogleAttempt>('/api/auth/google/mobile/start', {}),
+        poll: ({ id, pollToken }) => post('/api/auth/google/mobile/poll', { id, pollToken }),
+        cancel: ({ id, pollToken }) => post('/api/auth/google/mobile/cancel', { id, pollToken }),
+        open: (path) => WebBrowser.openBrowserAsync(API_URL + path),
+        wait: () => new Promise((resolve) => setTimeout(resolve, 1200)),
+        cancelled: () => request.cancelled,
+      });
+      if (complete && !request.cancelled) await refresh();
+    } catch (e) {
+      if (!request.cancelled) setError(humanError(e, 'Accesso con Google non riuscito. Riprova.'));
+    } finally { if (googleRequest.current === request) { googleRequest.current = null; setGoogleBusy(false); } }
+  }
 
   function validate(): boolean {
     const e: typeof fieldErr = {};
@@ -31,7 +55,7 @@ export default function Login() {
   }
 
   async function submit() {
-    if (busy || !validate()) return; // nessun invio doppio
+    if (busy || googleBusy || !validate()) return; // nessun invio doppio
     setBusy(true);
     setError('');
     setNotice('');
@@ -41,7 +65,7 @@ export default function Login() {
       // I dati inseriti restano nei campi; l'errore è quello reale restituito dal server o dalla rete.
       const err = e as ApiError;
       if (err?.fields?.email || err?.fields?.password) setFieldErr({ email: err.fields.email, password: err.fields.password });
-      setError(err?.code === 'network' ? 'Non riesco a raggiungere il server di Runngo. Controlla la connessione e riprova.' : err?.message || 'Accesso non riuscito.');
+      setError(err?.code === 'network' ? 'Non riesco a raggiungere il server di Runngo. Controlla la connessione e riprova.' : humanError(e, 'Accesso non riuscito.'));
     } finally {
       setBusy(false);
     }
@@ -85,7 +109,9 @@ export default function Login() {
           />
           {error ? <Banner tone="error" text={error} /> : null}
           {notice ? <Banner tone="success" text={notice} /> : null}
-          <Button title={mode === 'login' ? 'Accedi' : 'Crea il tuo account'} onPress={submit} busy={busy} />
+          <Button title={mode === 'login' ? 'Accedi' : 'Crea il tuo account'} onPress={submit} busy={busy} disabled={googleBusy} />
+          <Button title="Continua con Google" variant="soft" iconName="logo-google" onPress={() => void withGoogle()} busy={googleBusy} disabled={busy} />
+          {googleBusy ? <LinkText title="Annulla accesso Google" onPress={() => { if (googleRequest.current) googleRequest.current.cancelled = true; setGoogleBusy(false); }} style={{ alignSelf: 'center' }} /> : null}
           {mode === 'login' ? <LinkText title="Password dimenticata?" onPress={forgot} style={{ alignSelf: 'center' }} /> : <Text style={[t.small, { textAlign: 'center' }]}>Dopo l’accesso decidi tu cosa mostrare agli altri dal tuo profilo.</Text>}
         </View>
       </ScrollView>

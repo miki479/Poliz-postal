@@ -21,14 +21,7 @@ export function monthShort(iso: string, tz: string): string {
 export function fmtDateTimeShort(iso: string): string {
   return new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 }
-export function relativeFromNow(iso: string, now = new Date()): string {
-  const diff = (new Date(iso).getTime() - now.getTime()) / 60000;
-  const abs = Math.abs(diff);
-  const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
-  if (abs < 60) return rtf.format(Math.round(diff), 'minute');
-  if (abs < 60 * 24) return rtf.format(Math.round(diff / 60), 'hour');
-  return rtf.format(Math.round(diff / 1440), 'day');
-}
+export { relativeFromNow } from '../shared/relativeTime.ts';
 
 export function fmtKm(km: number): string {
   return `${new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 }).format(km)} km`;

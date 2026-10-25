@@ -14,14 +14,7 @@ export const fmtDateTimeShort = (iso: string) => new Intl.DateTimeFormat(LOCALE,
 export const dayNumber = (iso: string, tz: string) => new Intl.DateTimeFormat(LOCALE, { timeZone: tz, day: 'numeric' }).format(new Date(iso));
 export const monthShort = (iso: string, tz: string) => new Intl.DateTimeFormat(LOCALE, { timeZone: tz, month: 'short' }).format(new Date(iso)).replace('.', '');
 
-export function relativeFromNow(iso: string, now = new Date()): string {
-  const diff = (new Date(iso).getTime() - now.getTime()) / 60000;
-  const abs = Math.abs(diff);
-  const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
-  if (abs < 60) return rtf.format(Math.round(diff), 'minute');
-  if (abs < 60 * 24) return rtf.format(Math.round(diff / 60), 'hour');
-  return rtf.format(Math.round(diff / 1440), 'day');
-}
+export { relativeFromNow } from '@shared/relativeTime.ts';
 
 export const fmtKm = (km: number) => `${new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 }).format(km)} km`;
 export const fmtPace = (sec: number | null) => (sec ? `${formatPace(sec)}/km` : '');

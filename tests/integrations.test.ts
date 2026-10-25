@@ -36,6 +36,9 @@ describe('Strava (server mock): non configurato', () => {
     const r = await c.post('/api/strava/connect', {});
     expect(r.status).toBe(503);
     expect((await c.call('getStats', 'UTC')).status).toBe(200);
+    const logs = await c.call('listWorkoutLogs', null);
+    expect(logs.status).toBe(200);
+    expect(logs.json.result).toEqual([]);
     expect((await (await fetch(`${srv.base}/api/health`)).json()).features).toEqual({ strava: false, geocoding: false, routing: false, weather: false, ai: false });
   });
 

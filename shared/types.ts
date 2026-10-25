@@ -1,6 +1,10 @@
 export type Id = string;
 
-export type SportId = 'running' | 'walking' | 'cycling' | 'padel' | 'football5';
+/**
+ * Tipo di attività o di uscita. 'trail' = corsa su sentieri (il dislivello falsa il passo), 'run_walk' = corsa e camminata
+ * alternate, 'other' = attività diversa (nessun record di prestazione). I valori già salvati restano tutti validi.
+ */
+export type SportId = 'running' | 'walking' | 'trail' | 'run_walk' | 'other' | 'cycling' | 'padel' | 'football5';
 export type Level = 'easy' | 'medium' | 'hard';
 export type Visibility = 'public' | 'club' | 'private';
 export type EventStatus = 'active' | 'cancelled';
@@ -14,6 +18,20 @@ export interface PrivacySettings {
   showUpcoming: boolean;
   /** Le tue attività compaiono nel feed dei compagni di club. */
   shareActivity: boolean;
+  /** Mostra sul profilo le qualità riconosciute dai compagni (consolidate). Assente = sì. */
+  showRecognitions?: boolean;
+}
+
+/** Accento personale: resta confinato al profilo, non cambia i colori semantici dell'app. */
+export type ProfileAccent = 'teal' | 'violet' | 'amber' | 'rose' | 'lime' | 'sky';
+export type AvatarFrame = 'none' | 'ring' | 'double';
+
+/** Personalizzazione pubblica del profilo. */
+export interface ProfileStyle {
+  accent: ProfileAccent;
+  frame: AvatarFrame;
+  /** Fino a 3 distintivi in evidenza (solo id di distintivi davvero ottenuti vengono mostrati). */
+  featuredBadges: string[];
 }
 
 /** Utente memorizzato. Non contiene email né segreti. */
@@ -33,6 +51,8 @@ export interface User {
   /** Località generale (es. "Forlì"), mai un indirizzo. */
   area: string;
   privacy: PrivacySettings;
+  /** Assente per gli utenti creati prima della personalizzazione: si usa lo stile base. */
+  style?: ProfileStyle;
   createdAt: string;
 }
 
@@ -80,6 +100,8 @@ export interface RunEvent {
   visibility: Visibility;
   /** Percorso associato (facoltativo). */
   routeId: Id | null;
+  /** Impegni dichiarati dall'organizzatore (non garanzie di sicurezza). */
+  pact?: RunPact | null;
   status: EventStatus;
   /** Token per accedere alle uscite private tramite link. */
   inviteToken: string;
@@ -120,6 +142,8 @@ export interface Activity {
   /** "shared": può contare in sfide/classifiche/feed. "private": solo personale (es. dati Strava). */
   visibility: 'shared' | 'private';
   planSessionId: Id | null;
+  /** L'utente ha detto "no" alla proposta di associarla a una seduta. */
+  planLinkDismissed?: boolean;
   importedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -131,7 +155,10 @@ export type NotificationType =
   | 'participant_joined'
   | 'club_member_joined'
   | 'challenge_joined'
-  | 'challenge_ended';
+  | 'challenge_ended'
+  | 'new_follower'
+  | 'new_comment'
+  | 'club_invite';
 
 export interface Notification {
   id: Id;
@@ -162,6 +189,17 @@ export interface DbState {
   sessions: Record<Id, PlannedSession>;
   workoutLogs: Record<Id, WorkoutLog>;
   routines: Record<Id, ExerciseRoutine>;
+  checkins: Record<Id, CheckIn>;
+  planStates: Record<Id, PlanState>;
+  planChanges: Record<Id, PlanChange>;
+  goals: Record<Id, Goal>;
+  recognitions: Record<string, Recognition>;
+  recognitionRounds: Record<string, RecognitionRound>;
+  reports: Record<Id, UserReport>;
+  follows: Record<string, import('./social.ts').Follow>;
+  clubInvites: Record<string, import('./invites.ts').ClubInvite>;
+  sparks: Record<string, import('./social.ts').Spark>;
+  comments: Record<Id, import('./social.ts').Comment>;
 }
 
 /* ---------- Viste restituite al client ---------- */
@@ -238,8 +276,10 @@ export interface Stats {
 }
 
 export interface ProfileView {
-  user: UserPublic & { username: string; bio: string; sports: SportId[]; area: string; createdAt: string };
+  user: UserPublic & { username: string; bio: string; sports: SportId[]; area: string; createdAt: string; style: ProfileStyle };
   isSelf: boolean;
+  /** Distintivi in evidenza (già filtrati: solo ottenuti) e conteggio; null se l'utente nasconde le statistiche. */
+  badges: { featured: BadgeView[]; earned: number; total: number } | null;
   stats: Stats | null;
   clubs: Array<{ id: Id; name: string }> | null;
   upcoming: EventView[] | null;
@@ -298,6 +338,27 @@ export interface EventInput {
   visibility: Visibility;
   clubId: Id | null;
   routeId: Id | null;
+  pact?: RunPact | null;
+}
+
+/**
+ * Patto di corsa: impegni dichiarati da chi organizza.
+ * takeTurns, pairs e selfPace sono arrivati dopo: assenti = false, così i patti già salvati restano validi.
+ * selfPace non si combina con noDrop né con inclusivePace (il server rifiuta la combinazione).
+ */
+export interface RunPact {
+  /** Nessuno resta indietro: il gruppo aspetta. */
+  noDrop: boolean;
+  /** Il passo si adatta a chi è più lento. */
+  inclusivePace: boolean;
+  /** Punti di ricompattamento, testo libero breve. */
+  regroupPoints: string;
+  /** A turno: ci si alterna a guidare il gruppo. */
+  takeTurns?: boolean;
+  /** In coppia: si corre a coppie di ritmo simile. */
+  pairs?: boolean;
+  /** Self pace: ognuno al proprio ritmo, ci si ritrova all'arrivo. */
+  selfPace?: boolean;
 }
 
 export interface ClubInput {
@@ -316,6 +377,30 @@ export interface ProfileInput {
   sports: SportId[];
   area: string;
   privacy: PrivacySettings;
+  /** Facoltativo: se assente resta lo stile già salvato. */
+  style?: ProfileStyle;
+}
+
+/* ---------- Distintivi ---------- */
+
+export type BadgeCategory = 'community' | 'organize' | 'distance' | 'consistency' | 'club' | 'goal';
+
+/** Distintivo calcolato dal server sui dati reali: nessun premio viene assegnato dal client. */
+export interface BadgeView {
+  id: string;
+  name: string;
+  /** Come si ottiene, in parole semplici. */
+  criterion: string;
+  category: BadgeCategory;
+  earned: boolean;
+  earnedAt: string | null;
+  /** Avanzamento 0–1 se calcolabile, altrimenti null. */
+  progress: number | null;
+  current: number | null;
+  target: number | null;
+  unit: string | null;
+  /** Origine dei dati usati per il calcolo. */
+  source: string;
 }
 
 export interface ActivityInput {
@@ -442,7 +527,7 @@ export interface PersonalStats {
     bestWeekKm: { value: number; weekStart: string } | null;
     bestMonthKm: { value: number; month: string } | null;
     mostRunsInWeek: { value: number; weekStart: string } | null;
-    /** Ritmo medio più veloce su attività di almeno 3 km con durata dichiarata. */
+    /** Ritmo medio più veloce su attività di almeno 3 km con durata dichiarata (escluse trail, corsa + camminata e "Altro"). */
     fastestPace: { secPerKm: number; date: string; distanceKm: number } | null;
   };
   monthly: Array<{ month: string; label: string; runs: number; distanceKm: number }>;
@@ -542,7 +627,8 @@ export type SessionKind =
   | 'recovery_active'
   | 'mobility';
 
-export type SessionStatus = 'planned' | 'completed' | 'skipped' | 'rescheduled';
+/** 'paused' = sospesa da pausa o vacanza (non è un fallimento). 'Non svolta' e 'in attesa di sincronizzazione' sono stati derivati, mai salvati. */
+export type SessionStatus = 'planned' | 'completed' | 'skipped' | 'rescheduled' | 'paused';
 export type Intensity = 'low' | 'moderate' | 'high';
 export type MuscleGroup = 'legs' | 'glutes' | 'core' | 'back' | 'upper' | 'full';
 export type EquipmentId = 'bodyweight' | 'dumbbells' | 'barbell' | 'machines' | 'bands' | 'kettlebell';
@@ -590,6 +676,10 @@ export interface PlannedSession {
   /** Uscita di gruppo collegata (se organizzata a partire da questa sessione). */
   eventId: Id | null;
   logId: Id | null;
+  /** Attività reale (Strava, file, uscita) associata dall'utente a questa seduta. */
+  linkedActivityId?: Id | null;
+  /** Ultima modifica adattiva confermata dall'utente (sostituita, ridotta, spostata). */
+  adjustment?: { action: AdjustAction; at: string; from: { kind: SessionKind; title: string; durationMin: number; date: string } } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -612,7 +702,7 @@ export interface SessionInput {
   notes: string;
 }
 
-export type PlanGoal = 'start_running' | 'endurance' | 'distance' | 'pace' | 'strength_support';
+export type PlanGoal = 'start_running' | 'endurance' | 'distance' | 'pace' | 'strength_support' | 'general_fitness' | 'race_5k' | 'race_10k' | 'half_marathon';
 export type PlanLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export interface TrainingPlan {
@@ -644,6 +734,8 @@ export interface PlanWizardInput {
   equipment: EquipmentId[];
   preference: 'solo' | 'group' | 'mixed';
   includeStrength: boolean;
+  /** Aggiunge brevi sessioni facoltative di mobilità/flessibilità. */
+  includeMobility?: boolean;
   startDate: string;
   weeks: number;
 }
@@ -654,6 +746,40 @@ export interface LoggedSet {
   reps: number;
   loadKg: number | null;
   done: boolean;
+}
+
+/** Punto del tracciato GPS: coordinate e secondi trascorsi dall'inizio dell'allenamento. */
+export interface TrackPoint {
+  lat: number;
+  lng: number;
+  t: number;
+  /** Altitudine GPS in metri, quando il telefono la fornisce (rumorosa: il dislivello è una stima). */
+  alt?: number;
+}
+
+/**
+ * Misure di un'attività quando la FONTE le fornisce davvero (riepilogo Strava). Un campo assente è `null`: mai un valore
+ * predefinito. Frequenza cardiaca, dislivello e cadenza non arrivano da registrazioni dell'app (nessun sensore collegato).
+ */
+export interface ActivityMetrics {
+  movingSec: number | null;
+  elapsedSec: number | null;
+  hrAvg: number | null;
+  hrMax: number | null;
+  elevGainM: number | null;
+  maxSpeedKmh: number | null;
+  /** Passi al minuto (Strava indica una gamba sola per la corsa: qui è già raddoppiata). */
+  cadenceSpm: number | null;
+  calories: number | null;
+  avgWatts: number | null;
+}
+
+/** Riepilogo scritto dal Coach AI (o generato dalle regole se l'AI non è disponibile) per un allenamento concluso. */
+export interface WorkoutBrief {
+  text: string;
+  at: string;
+  /** true se prodotto dal Coach AI; false se è il riepilogo automatico basato sulle regole. */
+  ai: boolean;
 }
 
 export interface WorkoutLog {
@@ -676,6 +802,30 @@ export interface WorkoutLog {
   activityId: Id | null;
   /** L'utente ha scelto di condividere il completamento con i compagni di club. */
   shared: boolean;
+  /** Tracciato registrato dal GPS dell'app (semplificato). Assente per i log inseriti a mano. */
+  track?: TrackPoint[] | null;
+  /** Contesto della registrazione nell'app. */
+  sport?: 'running' | 'walking';
+  /**
+   * Corsa su sentieri (trail), con sport 'running': oggi arriva solo dalle attività Strava "TrailRun".
+   * Il dislivello falsa passo e tempi, quindi ha record propri di distanza e durata. Assente = corsa su strada o pista.
+   */
+  trail?: boolean;
+  environment?: 'outdoor' | 'treadmill';
+  /** Da dove viene la distanza: GPS dell'app, inserita a mano, o nessuna. */
+  distanceSource?: 'gps' | 'manual' | null;
+  /** Interruzioni del segnale o dell'app durante la registrazione: la traccia non copre quei tratti. */
+  gpsQuality?: { gaps: number; lostSec: number } | null;
+  /** Uscita di gruppo corsa insieme (presenza confermata dalla registrazione). */
+  eventId?: Id | null;
+  /** Distanza o durata corrette a mano dopo la registrazione: esclusa dai record calcolati sulla traccia. */
+  edited?: boolean;
+  /** 'strava' = nato da un'attività importata: tracciato senza tempi, sempre privato. */
+  origin?: 'app' | 'strava';
+  /** Briefing dopo l'allenamento. */
+  brief?: WorkoutBrief | null;
+  /** Misure fornite dalla fonte (Strava): vedi ActivityMetrics. */
+  metrics?: ActivityMetrics | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -694,6 +844,12 @@ export interface WorkoutLogInput {
   mode: 'manual' | 'timer';
   shared: boolean;
   timezone: string;
+  track?: TrackPoint[] | null;
+  sport?: 'running' | 'walking';
+  environment?: 'outdoor' | 'treadmill';
+  distanceSource?: 'gps' | 'manual' | null;
+  gpsQuality?: { gaps: number; lostSec: number } | null;
+  eventId?: Id | null;
 }
 
 export interface ExerciseRoutine {
@@ -704,3 +860,120 @@ export interface ExerciseRoutine {
   createdAt: string;
   updatedAt: string;
 }
+
+/* ---------- Piano adattivo ---------- */
+
+export type CheckInKind = 'feeling' | 'time' | 'pain' | 'illness';
+
+/** Check-in facoltativo e privato: mai condiviso con club, feed o Fama. */
+export interface CheckIn {
+  id: Id;
+  userId: Id;
+  /** Giorno locale "YYYY-MM-DD". */
+  date: string;
+  kind: CheckInKind;
+  /** Stanchezza percepita 1 (molto stanco) – 5 (in forma). Non è dolore né motivazione. */
+  energy: number | null;
+  /** Minuti disponibili oggi. */
+  minutes: number | null;
+  pain: { area: string; level: 'mild' | 'moderate' | 'severe'; trend: 'new' | 'persistent' | 'worse'; urgent: boolean } | null;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PlanMode = 'active' | 'paused' | 'vacation';
+
+export interface PlanState {
+  userId: Id;
+  mode: PlanMode;
+  from: string | null;
+  until: string | null;
+  vacation: { style: 'pause' | 'reduced'; maxMinutes: number | null } | null;
+  updatedAt: string;
+}
+
+export type AdjustAction = 'swap_easy' | 'shorten' | 'move' | 'skip' | 'pause' | 'vacation' | 'resume';
+
+export interface SessionChangePreview {
+  sessionId: Id;
+  label: string;
+  before: { date: string; title: string; kind: SessionKind; durationMin: number; status: SessionStatus };
+  after: { date: string; title: string; kind: SessionKind; durationMin: number; status: SessionStatus };
+}
+
+/** Modifica confermata: conserva lo stato precedente per poterla annullare. */
+export interface PlanChange {
+  id: Id;
+  userId: Id;
+  action: AdjustAction;
+  requestId: string;
+  createdAt: string;
+  undone: boolean;
+  /** Copie complete delle sedute prima e dopo (per l'annullamento sicuro). */
+  sessions: Array<{ before: PlannedSession; afterUpdatedAt: string }>;
+  stateBefore: PlanState | null;
+  stateAfter: PlanState | null;
+}
+
+export type GoalType = 'consistency' | 'weekly_minutes' | 'weekly_km' | 'group';
+
+export interface Goal {
+  id: Id;
+  userId: Id;
+  type: GoalType;
+  /** Uscite/settimana, minuti/settimana, km/settimana, uscite di gruppo/mese. */
+  target: number;
+  /** Da dove viene il valore (storico o risposte dell'utente). */
+  basis: string;
+  status: 'active' | 'archived';
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ---------- Fama: riconoscimenti post-corsa ---------- */
+
+export type RecognitionCategory = 'teamwork' | 'keeps_group' | 'organization' | 'shares_experience' | 'pace_setter';
+
+export interface Recognition {
+  id: string;
+  eventId: Id;
+  fromId: Id;
+  toId: Id;
+  category: RecognitionCategory;
+  createdAt: string;
+}
+
+/** Turno di riconoscimenti di una persona per un'uscita: una sola volta, anche se sceglie "non ho elementi". */
+export interface RecognitionRound {
+  id: string;
+  eventId: Id;
+  userId: Id;
+  skipped: boolean;
+  createdAt: string;
+}
+
+/** Segnalazione privata: canale separato, non tocca la Fama. */
+export interface UserReport {
+  id: Id;
+  fromId: Id;
+  aboutId: Id | null;
+  eventId: Id | null;
+  reason: 'conduct' | 'harassment' | 'organization' | 'dispute' | 'other';
+  text: string;
+  status: 'open' | 'closed';
+  createdAt: string;
+}
+
+/** Serie temporali di un'attività (da Strava, a richiesta): sempre dalla fonte, mai ricostruite. */
+export interface ActivityStreams {
+  /** Distanza cumulata in km per ogni punto (asse comune dei grafici). */
+  distKm: number[];
+  hr: number[] | null;
+  alt: number[] | null;
+  cadence: number[] | null;
+  /** Dislivello positivo/negativo calcolato dall'altitudine della fonte (soglia 3 m). */
+  elevGainM: number | null;
+  elevLossM: number | null;
+}
+

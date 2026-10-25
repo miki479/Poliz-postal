@@ -6,6 +6,7 @@
 import { newId, newInviteCode, newToken, normalizeInviteCode } from './ids.ts';
 import { haversineKm } from './time.ts';
 import { findDuplicate, newActivity } from './activities.ts';
+import { computeBadges } from './badges.ts';
 import type {
   Activity,
   ActivityInput,
@@ -28,6 +29,7 @@ import type {
   PrivacySettings,
   ProfileInput,
   ProfileView,
+  BadgeView,
   RunEvent,
   Stats,
   User,
@@ -39,6 +41,7 @@ import {
   validateClubInput,
   validateEventInput,
   validateProfileInput,
+  DEFAULT_STYLE,
 } from './validation.ts';
 
 export type ErrorCode =
@@ -113,6 +116,17 @@ export function emptyDb(): DbState {
     sessions: {},
     workoutLogs: {},
     routines: {},
+    checkins: {},
+    planStates: {},
+    planChanges: {},
+    goals: {},
+    recognitions: {},
+    recognitionRounds: {},
+    reports: {},
+    clubInvites: {},
+    follows: {},
+    sparks: {},
+    comments: {},
   };
 }
 
@@ -135,12 +149,23 @@ function requireActor(ctx: Ctx): User {
 
 const DELETED_USER: UserPublic = { id: 'deleted', displayName: 'Utente eliminato', hue: 210, avatar: null };
 
+/** Distintivi di un utente: completi per sé stessi; per gli altri solo se mostrano le statistiche. */
+export function listBadges(ctx: Ctx, userId?: Id | null): BadgeView[] | null {
+  const actor = requireActor(ctx);
+  const target = ctx.db.users[userId ?? actor.id];
+  if (!target) throw new AppError('not_found', 'Profilo non trovato.');
+  if (target.id !== actor.id && !target.privacy.showStats) return null;
+  const all = computeBadges(ctx.db, target.id, ctx.now);
+  // Per gli altri: solo i distintivi ottenuti, senza avanzamenti parziali.
+  return target.id === actor.id ? all : all.filter((b) => b.earned);
+}
+
 export function toPublic(db: DbState, id: Id): UserPublic {
   const u = db.users[id];
   return u ? { id: u.id, displayName: u.displayName, hue: u.hue, avatar: u.avatar ?? null } : DELETED_USER;
 }
 
-function isMember(db: DbState, clubId: Id | null, userId: Id | null): boolean {
+export function isMember(db: DbState, clubId: Id | null, userId: Id | null): boolean {
   return !!clubId && !!userId && !!db.memberships[mKey(clubId, userId)];
 }
 
@@ -539,15 +564,21 @@ export function createClub(ctx: Ctx, input: ClubInput): ClubView {
   return clubView(ctx, c, false);
 }
 
+/** Aggiunge una persona a un club (se non c'è già) e avvisa il fondatore. Usato da codice invito e inviti tra amici. */
+export function addClubMember(ctx: Ctx, c: Club, userId: Id): void {
+  if (isMember(ctx.db, c.id, userId)) return;
+  ctx.db.memberships[mKey(c.id, userId)] = { id: newId('mem'), clubId: c.id, userId, role: 'member', joinedAt: iso(ctx.now) };
+  if (c.ownerId !== userId) notify(ctx, c.ownerId, 'club_member_joined', `${ctx.db.users[userId]?.displayName ?? 'Qualcuno'} è entrato in "${c.name}".`, { clubId: c.id });
+}
+
+export const requireActorOf = (ctx: Ctx): User => requireActor(ctx);
+
 export function joinClub(ctx: Ctx, code: string): ClubView {
   const actor = requireActor(ctx);
   const norm = normalizeInviteCode(String(code ?? ''));
   const c = Object.values(ctx.db.clubs).find((x) => x.inviteCode === norm);
   if (!c) throw new AppError('not_found', 'Codice non valido. Controlla di averlo scritto correttamente.');
-  if (!isMember(ctx.db, c.id, actor.id)) {
-    ctx.db.memberships[mKey(c.id, actor.id)] = { id: newId('mem'), clubId: c.id, userId: actor.id, role: 'member', joinedAt: iso(ctx.now) };
-    if (c.ownerId !== actor.id) notify(ctx, c.ownerId, 'club_member_joined', `${actor.displayName} è entrato in "${c.name}".`, { clubId: c.id });
-  }
+  addClubMember(ctx, c, actor.id);
   return clubView(ctx, c, false);
 }
 
@@ -647,9 +678,13 @@ export function getProfile(ctx: Ctx, userId?: Id | null): ProfileView {
     .filter((e) => self || canViewFull(ctx, e))
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
     .map((e) => eventView(ctx, e));
+  const showStats = self || target.privacy.showStats;
+  const all = showStats ? computeBadges(ctx.db, target.id, ctx.now) : null;
+  const style = target.style ?? DEFAULT_STYLE;
   return {
-    user: { ...toPublic(ctx.db, target.id), username: target.username, bio: target.bio, sports: target.sports, area: target.area, createdAt: target.createdAt },
+    user: { ...toPublic(ctx.db, target.id), username: target.username, bio: target.bio, sports: target.sports, area: target.area, createdAt: target.createdAt, style },
     isSelf: self,
+    badges: all ? { featured: style.featuredBadges.map((id) => all.find((b) => b.id === id && b.earned)).filter((b): b is BadgeView => !!b), earned: all.filter((b) => b.earned).length, total: all.length } : null,
     stats: self || target.privacy.showStats ? statsFor(ctx, target.id) : null,
     clubs: self || target.privacy.showClubs ? clubs : null,
     upcoming: self || target.privacy.showUpcoming ? upcoming : null,
@@ -705,6 +740,7 @@ export function deleteAccount(ctx: Ctx): { deleted: true } {
   for (const p of Object.values(db.participations)) if (p.userId === actor.id) delete db.participations[pKey(p.eventId, p.userId)];
   for (const a of Object.values(db.activities)) if (a.userId === actor.id) delete db.activities[a.id];
   for (const n of Object.values(db.notifications)) if (n.userId === actor.id) delete db.notifications[n.id];
+  for (const i of Object.values(db.clubInvites ?? {})) if (i.fromId === actor.id || i.toId === actor.id) delete db.clubInvites[i.id];
   purgeUserData(ctx, actor.id);
   delete db.users[actor.id];
   ctx.cache = undefined;
@@ -730,6 +766,8 @@ export function getFeed(ctx: Ctx, limit = 40): FeedItem[] {
   for (const m of Object.values(db.memberships)) {
     if (m.userId !== actor.id && mine.has(m.clubId) && db.users[m.userId]?.privacy.shareActivity) mates.add(m.userId);
   }
+  // Anche le persone che segui, se condividono le attività.
+  for (const f of Object.values(db.follows ?? {})) if (f.fromId === actor.id && db.users[f.toId]?.privacy.shareActivity) mates.add(f.toId);
   const items: FeedItem[] = [];
   const recent = now.getTime() - 14 * 86_400_000;
   for (const e of Object.values(db.events)) {
@@ -808,6 +846,7 @@ export { haversineKm };
 /** Metodi di base; il registro completo è in shared/api.ts. */
 export const coreMethods = {
   me,
+  listBadges,
   listEvents,
   getEvent,
   createEvent,

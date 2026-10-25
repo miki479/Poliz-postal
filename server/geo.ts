@@ -28,7 +28,7 @@ export function geoConfig(env: NodeJS.ProcessEnv): GeoConfig {
     searchEnabled: env.GEO_ENABLED !== '0' && !!contact,
     routingProvider: env.GEO_ENABLED === '0' ? 'none' : provider,
     nominatimUrl: (env.NOMINATIM_URL || 'https://nominatim.openstreetmap.org').replace(/\/$/, ''),
-    userAgent: `PodismoSocial/0.1 (${contact || 'contatto non configurato'})`,
+    userAgent: `Runngo/0.1 (${contact || 'contatto non configurato'})`,
     orsUrl: (env.ORS_URL || 'https://api.openrouteservice.org').replace(/\/$/, ''),
     orsKey: env.ORS_API_KEY || '',
     osrmUrl: (env.OSRM_URL || '').replace(/\/$/, ''),

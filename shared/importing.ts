@@ -72,6 +72,7 @@ export function deleteImported(ctx: Ctx, source: 'file' | 'strava'): { deleted: 
       n++;
     }
   }
+  if (source === 'strava') for (const l of Object.values(ctx.db.workoutLogs)) if (l.userId === uid && l.origin === 'strava') delete ctx.db.workoutLogs[l.id];
   return { deleted: n };
 }
 

@@ -1,5 +1,6 @@
 import { activityClass, findDuplicate } from './activities.ts';
 import { AppError, type Ctx } from './engine.ts';
+import { sportDef } from './sports.ts';
 import { isValidTimezone, utcToZoned } from './time.ts';
 import type { Activity, ActivityFilter, ActivityInput, ActivityView, Id, PeriodTotals, PersonalStats } from './types.ts';
 import { validateActivityInput } from './validation.ts';
@@ -89,8 +90,11 @@ export function getStats(ctx: Ctx, timezone?: string): PersonalStats {
   let longest: PersonalStats['records']['longestKm'] = null;
   let fastest: PersonalStats['records']['fastestPace'] = null;
   for (const a of mine) {
+    // "Altro" non entra nei record; trail e corsa + camminata non hanno un passo confrontabile.
+    const def = sportDef(a.sport);
+    if (!def.performance) continue;
     if (a.distanceKm !== null && (!longest || a.distanceKm > longest.value)) longest = { value: a.distanceKm, date: a.date };
-    if (a.distanceKm !== null && a.distanceKm >= 3 && a.durationMin) {
+    if (def.paceComparable && a.distanceKm !== null && a.distanceKm >= 3 && a.durationMin) {
       const pace = Math.round((a.durationMin * 60) / a.distanceKm);
       if (!fastest || pace < fastest.secPerKm) fastest = { secPerKm: pace, date: a.date, distanceKm: a.distanceKm };
     }

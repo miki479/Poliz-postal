@@ -215,9 +215,9 @@ export function ChallengeDetail() {
           <h2 className="section-title" id="inv">Invita gli amici</h2>
           <div className="row" style={{ background: 'var(--surface-2)', borderRadius: 'var(--r-md)', padding: '10px 14px' }}><span className="truncate small grow" aria-label="Link della sfida">{link}</span></div>
           <div className="row wrap">
-            <Button variant="primary" className="grow" onClick={async () => { const r = await shareLink({ title: c.name, text: `Ti sfido: "${c.name}" su PODISMO SOCIAL!`, url: link }); if (r === 'copied') toast('ok', 'Link copiato'); if (r === 'failed') toast('err', 'Copia non riuscita.'); }}><Share2 size={18} aria-hidden="true" /> Condividi</Button>
+            <Button variant="primary" className="grow" onClick={async () => { const r = await shareLink({ title: c.name, text: `Ti sfido: "${c.name}" su RUNNGO!`, url: link }); if (r === 'copied') toast('ok', 'Link copiato'); if (r === 'failed') toast('err', 'Copia non riuscita.'); }}><Share2 size={18} aria-hidden="true" /> Condividi</Button>
             <Button variant="outline" onClick={async () => toast((await copyText(link)) ? 'ok' : 'err', 'Link copiato')}><Copy size={18} aria-hidden="true" /> Copia</Button>
-            <a className="btn btn-outline" href={whatsappUrl(`Ti sfido: "${c.name}" su PODISMO SOCIAL!`, link)} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+            <a className="btn btn-outline" href={whatsappUrl(`Ti sfido: "${c.name}" su RUNNGO!`, link)} target="_blank" rel="noopener noreferrer">WhatsApp</a>
           </div>
         </section>
       )}

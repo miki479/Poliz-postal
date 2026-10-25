@@ -5,6 +5,9 @@
  * importate sono SEMPRE private: non entrano in classifiche, sfide, feed né nell'AI.
  */
 import { findDuplicate, newActivity } from '../shared/activities.ts';
+import { isRunFamily } from '../shared/sports.ts';
+import type { ActivityStreams, SportId } from '../shared/types.ts';
+import { alignStoryLog, applyMetrics, ensureStoryLog, metricsFromSummary } from '../shared/stravaStories.ts';
 import type { DbState } from '../shared/types.ts';
 import { fetchT, hmac, safeEqual, seal, unseal, parseKey } from './util.ts';
 
@@ -72,6 +75,10 @@ export interface StravaLink {
   cursor: number | null;
   lastSync: SyncSummary | null;
   status: 'ok' | 'revoked';
+  /** true dopo aver creato i racconti per le attività già importate prima che i racconti esistessero. */
+  storiesBackfilled?: boolean;
+  /** true dopo aver riletto il riepilogo delle attività già importate per recuperare cuore, dislivello e cadenza. */
+  metricsBackfilled?: boolean;
 }
 
 /* ---------- budget di richieste ---------- */
@@ -184,14 +191,29 @@ interface StravaActivity {
   moving_time?: number;
   elapsed_time?: number;
   private?: boolean;
+  /** Tracciato semplificato senza tempi (permesso activity:read). */
+  map?: { summary_polyline?: string | null };
+  has_heartrate?: boolean;
+  average_heartrate?: number;
+  max_heartrate?: number;
+  total_elevation_gain?: number;
+  max_speed?: number;
+  average_cadence?: number;
+  average_watts?: number;
+  calories?: number;
 }
 
-const sportOf = (a: StravaActivity) => {
+/**
+ * Tipo dell'attività Strava: "TrailRun" → trail (sport_type; il vecchio campo `type` lo indica come "Run"),
+ * "Run"/"VirtualRun" → corsa, "Walk" e "Hike" → camminata. Gli altri sport non vengono importati.
+ */
+export function stravaSportOf(a: Pick<StravaActivity, 'sport_type' | 'type'>): 'running' | 'walking' | 'trail' | null {
   const t = a.sport_type ?? a.type ?? '';
-  if (/Run/.test(t)) return 'running' as const;
-  if (/Walk|Hike/.test(t)) return 'walking' as const;
+  if (/TrailRun/.test(t)) return 'trail';
+  if (/Run/.test(t)) return 'running';
+  if (/Walk|Hike/.test(t)) return 'walking';
   return null;
-};
+}
 
 export async function syncActivities(cfg: StravaConfig, link: StravaLink, db: DbState, userId: string, now = new Date()): Promise<SyncSummary> {
   const sum: SyncSummary = { at: now.toISOString(), imported: 0, updated: 0, duplicates: 0, skipped: 0, pages: 0, partial: false, rateLimited: false, error: null };
@@ -201,7 +223,8 @@ export async function syncActivities(cfg: StravaConfig, link: StravaLink, db: Db
     link.status = 'revoked';
     return { ...sum, error: 'revoked' };
   }
-  const after = link.cursor ? link.cursor - 86_400 : Math.floor(now.getTime() / 1000) - 180 * 86_400;
+  const backfill = !link.storiesBackfilled || !link.metricsBackfilled;
+  const after = link.cursor && !backfill ? link.cursor - 86_400 : Math.floor(now.getTime() / 1000) - 180 * 86_400;
   let newest = link.cursor ?? 0;
   let triedRefresh = false;
 
@@ -233,7 +256,7 @@ export async function syncActivities(cfg: StravaConfig, link: StravaLink, db: Db
     if (!Array.isArray(items) || items.length === 0) break;
 
     for (const it of items) {
-      const sport = sportOf(it);
+      const sport = stravaSportOf(it);
       const start = it.start_date ? Date.parse(it.start_date) : NaN;
       const km = typeof it.distance === 'number' && it.distance > 0 ? Math.round(it.distance) / 1000 : null;
       const min = it.moving_time ? Math.max(1, Math.round(it.moving_time / 60)) : null;
@@ -247,10 +270,16 @@ export async function syncActivities(cfg: StravaConfig, link: StravaLink, db: Db
       const existing = Object.values(db.activities).find((a) => a.userId === userId && a.externalId === externalId);
       if (existing) {
         const title = (it.name ?? '').slice(0, 80);
-        if (existing.distanceKm !== km || existing.durationMin !== min || existing.date !== date || existing.title !== title) {
-          Object.assign(existing, { distanceKm: km, durationMin: min, date, title, updatedAt: now.toISOString() });
+        // Corsa ↔ trail: le corse su sentiero importate prima che esistesse il trail prendono il tipo giusto (e viceversa).
+        const retype = existing.sport !== sport && isRunFamily(existing.sport) && isRunFamily(sport) ? sport : existing.sport;
+        if (existing.distanceKm !== km || existing.durationMin !== min || existing.date !== date || existing.title !== title || existing.sport !== retype) {
+          Object.assign(existing, { distanceKm: km, durationMin: min, date, title, sport: retype, updatedAt: now.toISOString() });
+          alignStoryLog(db, existing);
           sum.updated++;
         }
+        // Attività già importata ma senza racconto (importata prima di questa correzione): lo crea ora.
+        if (ensureStoryLog(db, existing, it.map?.summary_polyline, now, metricsFromSummary(it as unknown as Record<string, unknown>, sport))) sum.updated++;
+        else if (applyMetrics(db, existing.id, metricsFromSummary(it as unknown as Record<string, unknown>, sport))) sum.updated++;
         continue;
       }
       if (findDuplicate(db, { userId, sport, date, dayOnly: false, distanceKm: km, durationMin: min })) {
@@ -259,12 +288,17 @@ export async function syncActivities(cfg: StravaConfig, link: StravaLink, db: Db
       }
       const a = newActivity(now, { userId, source: 'strava', sport, title: (it.name ?? '').slice(0, 80), date, distanceKm: km, durationMin: min, externalId });
       db.activities[a.id] = a;
+      ensureStoryLog(db, a, it.map?.summary_polyline, now, metricsFromSummary(it as unknown as Record<string, unknown>, sport));
       sum.imported++;
     }
     if (items.length < 50) break;
     if (page === cfg.maxPages) sum.partial = true;
   }
-  if (!sum.partial) link.cursor = newest || link.cursor;
+  if (!sum.partial) {
+    link.cursor = newest || link.cursor;
+    link.storiesBackfilled = true;
+    link.metricsBackfilled = true;
+  }
   link.lastSyncAt = sum.at;
   return sum;
 }
@@ -281,3 +315,77 @@ export const stravaPublicStatus = (cfg: StravaConfig, link: StravaLink | undefin
   lastSync: link?.lastSync ?? null,
   grantedScope: link?.scope ?? null,
 });
+
+/* ---------- serie temporali (cuore, altitudine, cadenza) ---------- */
+
+const streamCache = new Map<string, { at: number; data: ActivityStreams | null }>();
+const STREAM_TTL = 6 * 3_600_000;
+const POINTS = 120;
+
+function thin(a: number[] | undefined): number[] | null {
+  if (!Array.isArray(a) || a.length < 5) return null;
+  if (a.length <= POINTS) return a;
+  return Array.from({ length: POINTS }, (_, i) => a[Math.round((i / (POINTS - 1)) * (a.length - 1))]);
+}
+
+function gainLoss(alt: number[]): { gain: number; loss: number } {
+  let gain = 0;
+  let loss = 0;
+  let ref = alt[0];
+  for (const v of alt) {
+    if (v - ref >= 3) {
+      gain += v - ref;
+      ref = v;
+    } else if (ref - v >= 3) {
+      loss += ref - v;
+      ref = v;
+    }
+  }
+  return { gain: Math.round(gain), loss: Math.round(loss) };
+}
+
+/**
+ * Serie dell'attività dalla fonte, SOLO a richiesta (apertura del dettaglio) e con cache in memoria: i limiti di Strava
+ * sono bassi. Restituisce null se Strava non le ha (es. attività senza cardiofrequenzimetro).
+ */
+export async function fetchStreams(cfg: StravaConfig, link: StravaLink, stravaId: string, sport: SportId, now = Date.now()): Promise<ActivityStreams | null> {
+  const hit = streamCache.get(stravaId);
+  if (hit && now - hit.at < STREAM_TTL) return hit.data;
+  if (link.status !== 'ok') return null;
+  if (link.expiresAt - 60 < now / 1000 && !(await refresh(cfg, link))) return null;
+  if (!takeRequest(cfg)) throw Object.assign(new Error('budget'), { status: 429 });
+  let res: Response;
+  try {
+    res = await fetchT(`${cfg.apiBase}/activities/${encodeURIComponent(stravaId)}/streams?keys=distance,heartrate,altitude,cadence&key_by_type=true`, { headers: { Authorization: `Bearer ${unseal(cfg.key!, link.access)}` } });
+  } catch {
+    throw Object.assign(new Error('network'), { status: 502 });
+  }
+  let data: ActivityStreams | null = null;
+  if (res.ok) {
+    const j = (await res.json()) as Record<string, { data?: number[] } | undefined>;
+    const dist = j.distance?.data;
+    const hr = thin(j.heartrate?.data);
+    const alt = thin(j.altitude?.data);
+    const cad = thin(j.cadence?.data);
+    if (hr || alt || cad) {
+      const gl = alt ? gainLoss(alt) : null;
+      data = {
+        distKm: (thin(dist) ?? []).map((m) => Math.round(m) / 1000),
+        hr: hr ? hr.map(Math.round) : null,
+        alt: alt ? alt.map((v) => Math.round(v * 10) / 10) : null,
+        // Corsa e trail: Strava indica una gamba sola, si raddoppia (come nel riepilogo).
+        cadence: cad ? cad.map((v) => Math.round(isRunFamily(sport) ? v * 2 : v)) : null,
+        elevGainM: gl ? gl.gain : null,
+        elevLossM: gl ? gl.loss : null,
+      };
+    }
+  } else if (res.status === 401) {
+    link.status = 'revoked';
+    return null;
+  } else if (res.status === 429) {
+    throw Object.assign(new Error('budget'), { status: 429 });
+  }
+  if (streamCache.size > 200) streamCache.delete(streamCache.keys().next().value as string);
+  streamCache.set(stravaId, { at: now, data });
+  return data;
+}

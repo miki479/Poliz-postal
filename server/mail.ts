@@ -16,7 +16,7 @@ export function mailConfigFromEnv(env: NodeJS.ProcessEnv, port: number): MailCon
   else if (env.MAIL_PROVIDER === 'outbox' && !production) provider = 'outbox'; // solo sviluppo/test
   const appUrl = (env.APP_URL || (production ? '' : `http://localhost:${port}`)).replace(/\/$/, '');
   if (!appUrl) provider = 'none'; // senza URL pubblico non si possono generare link sicuri
-  return { provider, from: env.MAIL_FROM || 'PODISMO SOCIAL <onboarding@resend.dev>', apiKey: env.RESEND_API_KEY || '', outboxFile: env.MAIL_OUTBOX_FILE || '', appUrl };
+  return { provider, from: env.MAIL_FROM || 'RUNNGO <onboarding@resend.dev>', apiKey: env.RESEND_API_KEY || '', outboxFile: env.MAIL_OUTBOX_FILE || '', appUrl };
 }
 
 export const mailEnabled = (c: MailConfig) => c.provider !== 'none';

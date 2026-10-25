@@ -33,8 +33,10 @@ function decodeXml(s: string): string {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-function sportFromText(t: string): SportId | null {
+/** Tipo dal testo del file: il trail solo se il file lo dice (es. "trail_running", "TrailRun"); l'escursionismo resta camminata. */
+export function sportFromText(t: string): SportId | null {
   const s = t.toLowerCase();
+  if (/trail/.test(s) && !/walk|hik|cammin/.test(s)) return 'trail';
   if (/run|corsa|jog/.test(s)) return 'running';
   if (/walk|hik|cammin/.test(s)) return 'walking';
   return null;

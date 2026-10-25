@@ -6,6 +6,12 @@
 import { pickExercises } from './exercises.ts';
 import type { Intensity, PlanGoal, PlanWizardInput, Segment, SessionInput, SessionKind } from './types.ts';
 
+/**
+ * Punti di estensione previsti:
+ *  - rafforzamento muscolare: `includeStrength` + `pickExercises` (exercises.ts) producono sessioni 'strength';
+ *  - flessibilità e mobilità: `includeMobility` aggiunge brevi sessioni 'mobility' facoltative.
+ * Per aggiungere altri moduli (yoga, core, pliometria) basta emettere altre `SessionInput` in `generatePlan`.
+ */
 export const PLAN_DISCLAIMER =
   'Programma generale e prudente, non una prescrizione medica. Ascolta il tuo corpo: riduci o interrompi la sessione se senti dolore, capogiri o malessere, e se hai dubbi di salute parlane con il tuo medico prima di iniziare.';
 
@@ -56,9 +62,22 @@ const blank = (date: string, kind: SessionKind, title: string, over: Partial<Ses
 });
 
 const TALK = 'Ritmo a cui riesci a parlare a frasi complete.';
+const TIPS = [
+  'Spalle rilassate e sguardo avanti.',
+  'Passi brevi e frequenti: meglio leggeri che lunghi.',
+  'Respira con calma, a ritmo con i passi.',
+  'Bevi con regolarità nelle ore prima e dopo.',
+  'Se senti dolore (non fatica), fermati e cammina.',
+  'Scegli un percorso che ti piace: la costanza viene dal divertimento.',
+];
+const tip = (w: number, i = 0) => TIPS[(w + i) % TIPS.length];
 
 export function generatePlan(input: PlanWizardInput): { sessions: SessionInput[]; warnings: string[] } {
   const warnings: string[] = [];
+  const race = input.goal === 'race_5k' || input.goal === 'race_10k' || input.goal === 'half_marathon';
+  // Obiettivi di gara e "stare in forma" riusano le strutture esistenti con varianti e riduzione finale.
+  const effGoal: PlanGoal = input.goal === 'race_5k' || input.goal === 'race_10k' ? 'pace' : input.goal === 'half_marathon' ? 'distance' : input.goal === 'general_fitness' ? 'endurance' : input.goal;
+  input = { ...input, goal: effGoal };
   const days = [...new Set(input.weekdays)].filter((d) => d >= 1 && d <= 7).sort((a, b) => a - b);
   const maxMin = Math.min(180, Math.max(20, input.maxMinutes));
   const level = input.level;
@@ -77,8 +96,9 @@ export function generatePlan(input: PlanWizardInput): { sessions: SessionInput[]
 
   for (let w = 1; w <= input.weeks; w++) {
     const weekStart = addDays(input.startDate, (w - 1) * 7);
-    const deload = isDeload(w);
-    const factor = deload ? 0.8 : 1 + 0.07 * (w - 1 - Math.floor((w - 1) / 4));
+    const taper = race && w === input.weeks && input.weeks >= 4; // ultima settimana prima della gara: volume ridotto
+    const deload = isDeload(w) || taper;
+    const factor = taper ? 0.7 : deload ? 0.8 : 1 + 0.07 * (w - 1 - Math.floor((w - 1) / 4));
     const strengthDays = chosen.filter((d) => d !== longDay && d !== chosen[chosen.indexOf(longDay) - 1]).slice(0, strengthCount);
     const strengthSet = new Set(strengthDays.length === strengthCount ? strengthDays : chosen.filter((d) => d !== longDay).slice(0, strengthCount));
     let runIndex = 0;
@@ -102,7 +122,13 @@ export function generatePlan(input: PlanWizardInput): { sessions: SessionInput[]
       }
       const isLong = d === longDay && runCount >= 2;
       runIndex++;
-      sessions.push(...runSession(input.goal, level, w, date, maxMin, factor, deload, isLong, runIndex, runCount));
+      const made = runSession(input.goal, level, w, date, maxMin, factor, deload, isLong, runIndex, runCount);
+      if (taper) for (const m of made) m.notes = (m.notes ? m.notes + ' ' : '') + 'Settimana di rifinitura: arriva alla gara fresco.';
+      sessions.push(...made);
+      // Mobilità facoltativa dopo le uscite più impegnative (modulo flessibilità).
+      if (input.includeMobility && (isLong || made.some((m) => m.intensity === 'high'))) {
+        sessions.push(blank(date, 'mobility', 'Mobilità e allungamento', { description: 'Dieci minuti di mobilità per anche, caviglie e schiena dopo la corsa. Facoltativa.', durationMin: 10, intensity: 'low', warmupMin: 0, cooldownMin: 0 }));
+      }
     }
     // Un giorno libero in più → mobilità facoltativa per i principianti.
     const spare = days.filter((d) => !chosen.includes(d));
@@ -155,6 +181,61 @@ function runSession(goal: PlanGoal, level: PlanWizardInput['level'], w: number, 
   if (goal === 'endurance' && idx === 2) {
     return [blank(date, 'aerobic', 'Resistenza aerobica moderata', { description: `Sforzo costante e moderato (circa 5–6 su 10). Può essere corsa, camminata veloce o altra attività aerobica.`, durationMin: dur(base + 5), intensity: 'moderate', notes: note })];
   }
+  const variant = pickVariant(goal, level, w, idx, deload);
+  if (variant === 'strides') {
+    const segs: Segment[] = [
+      { kind: 'warmup', label: 'Corsa facile', durationSec: Math.max(15, dur(base) - 8) * 60, reps: 1 },
+      { kind: 'work', label: 'Allungo di 20 secondi, sciolto', durationSec: 20, reps: 6 },
+      { kind: 'recovery', label: 'Cammina o trotterella 40 secondi', durationSec: 40, reps: 6 },
+    ];
+    return [blank(date, 'run_easy', 'Corsa facile con allunghi', { description: `Corsa facile (${TALK}) e, alla fine, 6 allunghi brevi e rilassati: non scatti, solo falcata più sciolta. ${tip(w, idx)}`, durationMin: dur(base), segments: segs, intensity: 'low', notes: note })];
+  }
+  if (variant === 'fartlek') {
+    const reps = deload ? 4 : Math.min(8, 5 + Math.floor(w / 3));
+    const segs: Segment[] = [
+      { kind: 'warmup', label: 'Riscaldamento facile', durationSec: 600, reps: 1 },
+      { kind: 'work', label: "Un minuto un po' più veloce (sforzo 6–7/10)", durationSec: 60, reps },
+      { kind: 'recovery', label: 'Due minuti facili', durationSec: 120, reps },
+      { kind: 'cooldown', label: 'Defaticamento facile', durationSec: 420, reps: 1 },
+    ];
+    return [blank(date, 'run_intervals', `Fartlek ${reps} × 1 min`, { description: `Gioco di ritmi: alterna un minuto più vivace a due minuti facili. Non serve cronometrare il passo: vai a sensazione. ${tip(w, idx)}`, durationMin: Math.min(maxMin, 17 + reps * 3), segments: segs, intensity: 'moderate', warmupMin: 10, cooldownMin: 7, notes: note })];
+  }
+  if (variant === 'hills') {
+    const reps = deload ? 4 : Math.min(8, 4 + Math.floor(w / 3));
+    const segs: Segment[] = [
+      { kind: 'warmup', label: 'Riscaldamento facile', durationSec: 600, reps: 1 },
+      { kind: 'work', label: 'Salita di 45 secondi, sforzo deciso ma controllato', durationSec: 45, reps },
+      { kind: 'recovery', label: 'Scendi camminando o in corsa lenta', durationSec: 90, reps },
+      { kind: 'cooldown', label: 'Defaticamento facile', durationSec: 420, reps: 1 },
+    ];
+    return [blank(date, 'run_intervals', `Salite ${reps} × 45 s`, { description: `Ripetute in salita dolce: rinforzano gambe e falcata. Se non hai salite, usa un ponte o un sovrappasso, oppure fai fartlek. ${tip(w, idx)}`, durationMin: Math.min(maxMin, 17 + reps * 3), segments: segs, intensity: 'moderate', warmupMin: 10, cooldownMin: 7, notes: note })];
+  }
+  if (variant === 'tempo') {
+    const mid = deload ? 10 : Math.min(30, 10 + 2 * Math.floor(w / 2));
+    const segs: Segment[] = [
+      { kind: 'warmup', label: 'Riscaldamento facile', durationSec: 600, reps: 1 },
+      { kind: 'work', label: 'Ritmo costante e comodamente duro (6–7/10)', durationSec: mid * 60, reps: 1 },
+      { kind: 'cooldown', label: 'Defaticamento facile', durationSec: 600, reps: 1 },
+    ];
+    return [blank(date, 'run_continuous', `Ritmo costante ${mid} min`, { description: `Un blocco continuo a ritmo sostenuto ma sostenibile: riesci a dire poche parole alla volta. ${tip(w, idx)}`, durationMin: Math.min(maxMin, 20 + mid), segments: segs, intensity: 'moderate', warmupMin: 10, cooldownMin: 10, notes: note })];
+  }
+  if (variant === 'progressive') {
+    return [blank(date, 'run_progressive', 'Progressivo', { description: `Tre parti uguali: facile, un po' più svelto, deciso ma controllato. ${tip(w, idx)}`, durationMin: dur(base), intensity: 'moderate', notes: note })];
+  }
+  if (variant === 'recovery') {
+    return [blank(date, 'recovery_active', 'Recupero attivo', { description: 'Trotto molto lento o camminata veloce per sciogliere le gambe. Deve essere piacevole: sforzo 2–3 su 10.', durationMin: Math.min(maxMin, Math.max(20, Math.round((base * 0.7) / 5) * 5)), intensity: 'low', warmupMin: 0, cooldownMin: 0, notes: note })];
+  }
   const kind: SessionKind = idx % 2 === 0 && runCount > 2 ? 'run_continuous' : 'run_easy';
-  return [blank(date, kind, kind === 'run_easy' ? 'Corsa facile' : 'Corsa continua', { description: kind === 'run_easy' ? `Ritmo facile e rilassato. ${TALK}` : 'Corsa continua a ritmo comodo ma costante.', durationMin: dur(base), intensity: (kind === 'run_easy' ? 'low' : 'moderate') as Intensity, notes: note })];
+  return [blank(date, kind, kind === 'run_easy' ? 'Corsa facile' : 'Corsa continua', { description: (kind === 'run_easy' ? `Ritmo facile e rilassato. ${TALK}` : 'Corsa continua a ritmo comodo ma costante.') + ' ' + tip(w, idx), durationMin: dur(base), intensity: (kind === 'run_easy' ? 'low' : 'moderate') as Intensity, notes: note })];
+}
+
+type Variant = 'easy' | 'strides' | 'fartlek' | 'hills' | 'tempo' | 'progressive' | 'recovery';
+
+/** Ruota le sessioni di qualità per avere varietà, senza accumulare intensità: negli scarichi niente qualità. */
+function pickVariant(goal: PlanGoal, level: PlanWizardInput['level'], w: number, idx: number, deload: boolean): Variant {
+  if (level === 'beginner' && goal !== 'pace') return idx % 2 === 0 ? 'strides' : 'easy';
+  if (deload) return idx % 2 === 0 ? 'recovery' : 'easy';
+  const pool: Variant[] = goal === 'distance' ? ['easy', 'progressive', 'strides', 'easy', 'tempo'] : goal === 'pace' ? ['tempo', 'hills', 'fartlek', 'strides'] : ['fartlek', 'easy', 'hills', 'strides', 'progressive', 'tempo'];
+  const v = pool[(w + idx) % pool.length];
+  return level === 'beginner' && (v === 'tempo' || v === 'hills') ? 'fartlek' : v;
 }

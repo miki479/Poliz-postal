@@ -1,6 +1,6 @@
 /**
  * Cloudflare Worker dedicato al Coach AI (Workers AI).
- * - Accetta SOLO richieste firmate dal server di PODISMO SOCIAL (HMAC-SHA256 + timestamp ≤ 60 s).
+ * - Accetta SOLO richieste firmate dal server di RUNNGO (HMAC-SHA256 + timestamp ≤ 60 s).
  * - Non riceve né verifica credenziali utente: l'identità e le quote per account sono gestite dal server.
  * - Valida e limita input e output; usa il modello configurato in AI_MODEL.
  * Segreti: SHARED_SECRET (wrangler secret put SHARED_SECRET). Nessuna chiave nel codice o nel frontend.

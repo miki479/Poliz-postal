@@ -1,6 +1,7 @@
+import { PACT_CONFLICT, pactHasConflict, pactModes } from './pact.ts';
 import { SPORTS } from './sports.ts';
 import { isValidTimezone } from './time.ts';
-import type { ActivityInput, ClubInput, EventInput, Level, ProfileInput, SportId, Visibility } from './types.ts';
+import type { ActivityInput, AvatarFrame, ClubInput, EventInput, Level, ProfileAccent, ProfileInput, ProfileStyle, RunPact, SportId, Visibility } from './types.ts';
 
 export type FieldErrors = Record<string, string>;
 export type Validated<T> = { ok: true; value: T } | { ok: false; errors: FieldErrors };
@@ -111,6 +112,9 @@ export function validateEventInput(raw: Partial<EventInput> | null | undefined, 
     lng = Math.round(lng * 1000) / 1000;
   }
 
+  const pact = normalizePact(r.pact);
+  if (pact === undefined) errors.pact = PACT_CONFLICT;
+
   if (Object.keys(errors).length) return { ok: false, errors };
   return {
     ok: true,
@@ -131,8 +135,31 @@ export function validateEventInput(raw: Partial<EventInput> | null | undefined, 
       visibility: visibility as Visibility,
       clubId: visibility === 'club' || clubId ? clubId : null,
       routeId: typeof r.routeId === 'string' && r.routeId ? r.routeId : null,
+      pact: pact ?? null,
     },
   };
+}
+
+export { PACT_CONFLICT };
+
+/**
+ * Patto di corsa normalizzato: null se non dichiara nulla, undefined se la combinazione è incoerente
+ * (self pace insieme a "nessuno resta indietro" o "ritmo inclusivo"). I campi nuovi assenti valgono false,
+ * così i patti salvati prima restano validi.
+ */
+export function normalizePact(raw: unknown): RunPact | null | undefined {
+  if (!raw || typeof raw !== 'object') return null;
+  const p = raw as Partial<Record<keyof RunPact, unknown>>;
+  const pact: RunPact = {
+    noDrop: p.noDrop === true,
+    inclusivePace: p.inclusivePace === true,
+    regroupPoints: clean(p.regroupPoints, 160),
+    takeTurns: p.takeTurns === true,
+    pairs: p.pairs === true,
+    selfPace: p.selfPace === true,
+  };
+  if (pactHasConflict(pact)) return undefined;
+  return pactModes(pact).length ? pact : null;
 }
 
 export function validateClubInput(raw: Partial<ClubInput> | null | undefined): Validated<ClubInput> {
@@ -189,10 +216,24 @@ export function validateProfileInput(raw: Partial<ProfileInput> | null | undefin
     showClubs: p?.showClubs === true,
     showUpcoming: p?.showUpcoming === true,
     shareActivity: p?.shareActivity === true,
+    showRecognitions: p?.showRecognitions !== false,
   };
+  let style: ProfileStyle | undefined;
+  if (r.style !== undefined && r.style !== null) {
+    const st = r.style as Partial<ProfileStyle>;
+    const accent = (ACCENTS as readonly string[]).includes(st.accent as string) ? (st.accent as ProfileAccent) : null;
+    const frame = (FRAMES as readonly string[]).includes(st.frame as string) ? (st.frame as AvatarFrame) : null;
+    const featured = Array.isArray(st.featuredBadges) ? [...new Set(st.featuredBadges.filter((b): b is string => typeof b === 'string' && /^[a-z0-9_]{2,40}$/.test(b)))] : null;
+    if (!accent || !frame || !featured || featured.length > 3) errors.style = 'Personalizzazione non valida.';
+    else style = { accent, frame, featuredBadges: featured };
+  }
   if (Object.keys(errors).length) return { ok: false, errors };
-  return { ok: true, value: { displayName, username, avatar, bio, sports: [...new Set(sports)], area, privacy } };
+  return { ok: true, value: { displayName, username, avatar, bio, sports: [...new Set(sports)], area, privacy, ...(style ? { style } : {}) } };
 }
+
+export const ACCENTS = ['teal', 'violet', 'amber', 'rose', 'lime', 'sky'] as const;
+export const FRAMES = ['none', 'ring', 'double'] as const;
+export const DEFAULT_STYLE: ProfileStyle = { accent: 'teal', frame: 'none', featuredBadges: [] };
 
 export function validateActivityInput(raw: Partial<ActivityInput> | null | undefined, now: Date): Validated<ActivityInput> {
   const errors: FieldErrors = {};

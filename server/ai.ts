@@ -80,7 +80,7 @@ export function refund(store: AiStore, userId: string, now = new Date()) {
 
 /* ---------- prompt ---------- */
 
-export type Preset = 'free' | 'event_description' | 'week_plan' | 'three_easy_runs' | 'challenge_description' | 'weekly_summary' | 'collective_goal';
+export type Preset = 'free' | 'event_description' | 'week_plan' | 'three_easy_runs' | 'challenge_description' | 'weekly_summary' | 'collective_goal' | 'workout_brief' | 'plan_intro';
 
 export const PRESETS: Record<Preset, string> = {
   free: '',
@@ -89,11 +89,13 @@ export const PRESETS: Record<Preset, string> = {
   three_easy_runs: 'Suggerisci tre idee di uscite tranquille da fare in gruppo (formato, durata indicativa, come organizzarle). Non citare luoghi o percorsi specifici.',
   challenge_description: 'Scrivi nome e breve descrizione (max 50 parole) per una sfida tra amici o di club, in base alle indicazioni dell\'utente.',
   weekly_summary: 'Riassumi in 3–4 punti le attività registrate questa settimana usando SOLO i numeri nel blocco DATI UTENTE. Se mancano dati, dillo.',
+  plan_intro: "Riscrivi in italiano, con tono diretto, caldo e sportivo, tre brevi letture (massimo 35 parole ciascuna) di ciò che una persona vuole fare con il suo piano di corsa, partendo SOLO dalle informazioni indicate dall'utente. Le tre letture hanno questi toni: 1 = con calma, 2 = a ritmo regolare, 3 = con più grinta. Non inventare dati, non dare consigli medici, non promettere risultati. Rispondi esattamente con tre righe che iniziano con «1:», «2:» e «3:», senza altro testo.",
+  workout_brief: "Scrivi un breve briefing (massimo 120 parole) dopo un allenamento appena concluso, in tre punti con questi titoli: «Com'è andata», «Confronto» (piano, storico e altri runner: cita SOLO ciò che compare nei DATI ALLENAMENTO) e «Prossima volta» (consiglio prudente basato sulle prossime sessioni del piano, se presenti). Tono incoraggiante, nessun consiglio medico, nessun numero inventato.",
   collective_goal: 'Proponi 2–3 obiettivi collettivi realistici in km per un gruppo, spiegando come sceglierli. Non inventare dati sul gruppo.',
 };
 
 export const SYSTEM_PROMPT =
-  'Sei il coach di PODISMO SOCIAL, un assistente per organizzare corse di gruppo e allenamenti. ' +
+  'Sei il coach di RUNNGO, un assistente per organizzare corse di gruppo e allenamenti. ' +
   'Rispondi SEMPRE in italiano, in modo breve (massimo 180 parole), con elenchi puntati chiari. ' +
   'Regole: non fare diagnosi né dare consigli medici; non proporre allenamenti estremi o pericolosi (niente digiuno, sforzi a oltranza o aumenti improvvisi del carico oltre circa il 10% a settimana); ' +
   'non inventare dati, record, meteo, percorsi, luoghi o attività dell\'utente: usa solo ciò che compare nel blocco DATI UTENTE, se presente. ' +

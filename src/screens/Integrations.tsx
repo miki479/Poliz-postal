@@ -163,7 +163,7 @@ export function Integrations() {
       <FileImportCard />
       <section className="card" aria-labelledby="ahk">
         <div className="row"><Smartphone className="muted" aria-hidden="true" /><h2 className="section-title" id="ahk">Apple Salute (HealthKit)</h2><span className="chip" style={{ marginLeft: 'auto' }}>Non disponibile</span></div>
-        <p className="muted small">PODISMO SOCIAL è una web app (PWA): <strong>un sito non può leggere Apple Salute</strong>, solo le app iOS native possono farlo, con il tuo consenso. Per questo non c'è un collegamento automatico.</p>
+        <p className="muted small">RUNNGO è una web app (PWA): <strong>un sito non può leggere Apple Salute</strong>, solo le app iOS native possono farlo, con il tuo consenso. Per questo non c'è un collegamento automatico.</p>
         <p className="muted small"><strong>Cosa puoi fare ora:</strong> in Apple Salute tocca il tuo profilo → <em>Esporta tutti i dati sanitari</em>, decomprimi lo zip e importa qui <code>export.xml</code>: leggiamo solo gli allenamenti di corsa e camminata, nient'altro.</p>
         <p className="hint">Una futura app iOS nativa richiederebbe un account Apple Developer (a pagamento) e la revisione di Apple: non è attivata né acquistata. Vedi la documentazione.</p>
       </section>

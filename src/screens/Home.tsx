@@ -113,7 +113,7 @@ function FirstRun() {
             variant="ghost"
             block
             onClick={async () => {
-              const r = await shareLink({ title: 'PODISMO SOCIAL', text: 'Organizziamo le corse insieme su PODISMO SOCIAL', url: window.location.origin });
+              const r = await shareLink({ title: 'RUNNGO', text: 'Organizziamo le corse insieme su RUNNGO', url: window.location.origin });
               if (r === 'copied') toast('ok', 'Link copiato');
               if (r === 'failed') toast('err', 'Non riesco a condividere: copia il link dalla barra del browser.');
             }}

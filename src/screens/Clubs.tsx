@@ -171,7 +171,7 @@ export function ClubDetail() {
   if (error || !club) return <div className="page"><Link to="/club" className="back-link"><ArrowLeft size={18} aria-hidden="true" /> Club</Link><ErrorState message={error?.code === 'not_found' ? 'Club non trovato. Serve un link o un codice d\'invito valido.' : (error?.message ?? 'Errore')} onRetry={reload} /></div>;
 
   const inviteUrl = `${window.location.origin}/invito/${club.inviteCode}`;
-  const text = `Entra nel club "${club.name}" su PODISMO SOCIAL!`;
+  const text = `Entra nel club "${club.name}" su RUNNGO!`;
 
   return (
     <div className="page">

@@ -21,6 +21,7 @@ export const STATUS_LABEL: Record<SessionStatus, { label: string; cls: string }>
   completed: { label: 'Completata', cls: 'success' },
   skipped: { label: 'Saltata', cls: 'danger' },
   rescheduled: { label: 'Riprogrammata', cls: 'accent' },
+  paused: { label: 'In pausa', cls: '' },
 };
 
 export function fmtDurSec(sec: number): string {

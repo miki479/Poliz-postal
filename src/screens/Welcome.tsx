@@ -119,7 +119,7 @@ export function Welcome() {
             <h2 className="section-title" id="nobk">Backend non configurato</h2>
           </div>
           <p className="muted small">
-            Non riesco a raggiungere il server di PODISMO SOCIAL, quindi <strong>non è possibile creare un account né accedere</strong>. Chi gestisce l'app deve avviare il server (vedi README, sezione “Backend”).
+            Non riesco a raggiungere il server di RUNNGO, quindi <strong>non è possibile creare un account né accedere</strong>. Chi gestisce l'app deve avviare il server (vedi README, sezione “Backend”).
           </p>
           <p className="muted small">Puoi comunque provare l'app in <strong>modalità demo</strong>: nessun account reale, dati solo su questo dispositivo, nulla viene condiviso.</p>
           {formError && <div className="banner err" role="alert">{formError}</div>}

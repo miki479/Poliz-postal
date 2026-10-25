@@ -189,6 +189,30 @@ describe('Strava (server mock): collegamento, sincronizzazione, rinnovo token, e
     expect((await c.call('listActivities', {})).json.result.filter((a: { source: string }) => a.source === 'strava')).toHaveLength(53);
   });
 
+  it('TrailRun diventa trail (anche se prima era una corsa), Hike resta camminata', async () => {
+    reset();
+    const c = new Client(srv.base);
+    await c.register('trail1@example.com');
+    state.activities = [
+      act(1, { name: 'Trail del monte', type: 'Run', sport_type: 'TrailRun', map: { summary_polyline: '_p~iF~ps|U_ulLnnqC_mqNvxq`@' } }),
+      act(2, { name: 'Escursione', type: 'Hike', sport_type: 'Hike', distance: 9000, moving_time: 9000 }),
+      act(3, { name: 'Corsa al parco', type: 'Run', sport_type: 'Run' }),
+    ];
+    await connect(c);
+    expect((await c.post('/api/strava/sync', {})).json.summary).toMatchObject({ imported: 3, skipped: 0, error: null });
+    const sportOf = async (title: string) => ((await c.call('listActivities', {})).json.result as Array<{ title: string; sport: string }>).find((a) => a.title === title)?.sport;
+    expect(await sportOf('Trail del monte')).toBe('trail');
+    expect(await sportOf('Escursione')).toBe('walking');
+    expect(await sportOf('Corsa al parco')).toBe('running');
+    const story = ((await c.call('listWorkoutLogs', null)).json.result as Array<{ title: string; sport: string; trail?: boolean; origin?: string }>).find((l) => l.title === 'Trail del monte');
+    expect(story).toMatchObject({ sport: 'running', trail: true, origin: 'strava' });
+    // Strava riclassifica la corsa come TrailRun: il tipo si aggiorna, senza duplicati
+    (state.activities[2] as { sport_type: string }).sport_type = 'TrailRun';
+    expect((await c.post('/api/strava/sync', {})).json.summary).toMatchObject({ imported: 0, updated: 1 });
+    expect(await sportOf('Corsa al parco')).toBe('trail');
+    expect((await c.call('listActivities', {})).json.result.filter((a: { source: string }) => a.source === 'strava')).toHaveLength(3);
+  });
+
   it('i dati Strava non compaiono in classifiche e feed degli altri', async () => {
     reset();
     const a = new Client(srv.base);
@@ -329,7 +353,7 @@ describe('Geocoding, routing e meteo (server mock)', () => {
     const b = await c.post('/api/geo/search', { q: '  FORLÌ   centro ' });
     expect(b.json.cached).toBe(true);
     expect(nominatim.hits).toHaveLength(1); // la seconda ricerca arriva dalla cache
-    expect(nominatim.hits[0].headers['user-agent']).toMatch(/PodismoSocial.*admin@example\.com/);
+    expect(nominatim.hits[0].headers['user-agent']).toMatch(/Runngo.*admin@example\.com/);
     expect((await c.post('/api/geo/search', { q: 'ab' })).status).toBe(422);
     await c.post('/api/geo/search', { q: 'Cesena' });
     await c.post('/api/geo/search', { q: 'Ravenna' });

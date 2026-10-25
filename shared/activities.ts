@@ -1,4 +1,5 @@
 import { newId } from './ids.ts';
+import { sportFamily } from './sports.ts';
 import type { Activity, ActivityClass, DbState, Id, SportId } from './types.ts';
 
 export const SOURCE_LABEL: Record<Activity['source'], string> = {
@@ -52,11 +53,13 @@ export interface DupCandidate {
 /**
  * Deduplicazione tra fonti diverse: stessa persona e sport, partenza vicina nel tempo
  * (±30 min, oppure nello stesso giorno se una delle due ha solo la data) e distanza/durata compatibili.
+ * Corsa, trail e corsa + camminata sono la stessa famiglia: la stessa uscita può essere "Corsa" nell'app e "TrailRun" su Strava.
  */
 export function findDuplicate(db: DbState, c: DupCandidate, exceptId?: Id): Activity | null {
   const t = Date.parse(c.date);
+  const family = sportFamily(c.sport);
   for (const a of Object.values(db.activities)) {
-    if (a.userId !== c.userId || a.id === exceptId || a.sport !== c.sport) continue;
+    if (a.userId !== c.userId || a.id === exceptId || sportFamily(a.sport) !== family) continue;
     const dt = Math.abs(Date.parse(a.date) - t);
     const loose = a.dayOnly || c.dayOnly;
     if (dt > (loose ? 12 * 3_600_000 : 30 * 60_000)) continue;

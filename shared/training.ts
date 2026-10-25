@@ -14,9 +14,11 @@ import type {
   PlanWizardInput,
   PlannedExercise,
   PlannedSession,
+  RunEvent,
   Segment,
   SessionInput,
   SessionKind,
+  TrackPoint,
   TrainingPlan,
   WorkoutLog,
   WorkoutLogInput,
@@ -240,6 +242,17 @@ export function validateLog(raw: Partial<WorkoutLogInput> | null | undefined, no
       }
   }
   if (r.mode !== 'manual' && r.mode !== 'timer') errors.mode = 'Modalità non valida.';
+  const track = cleanTrack(r.track);
+  if (track === undefined) errors.track = 'Tracciato non valido.';
+  const sport = r.sport === 'walking' ? 'walking' : 'running';
+  const environment = r.environment === 'treadmill' ? 'treadmill' : 'outdoor';
+  // Tapis roulant: nessuna traccia GPS e nessuna distanza "GPS".
+  if (environment === 'treadmill' && track) errors.track = 'Il tapis roulant non ha traccia GPS.';
+  const distanceSource = r.distanceSource === 'gps' || r.distanceSource === 'manual' ? r.distanceSource : null;
+  if (distanceSource === 'gps' && (environment === 'treadmill' || !track)) errors.distanceKm = 'Distanza GPS senza traccia.';
+  const gq = r.gpsQuality;
+  const gpsQuality = gq && Number.isInteger(gq.gaps) && gq.gaps >= 0 && gq.gaps < 1000 && typeof gq.lostSec === 'number' && gq.lostSec >= 0 && gq.lostSec <= 24 * 3600 ? { gaps: gq.gaps, lostSec: Math.round(gq.lostSec) } : null;
+  const eventId = typeof r.eventId === 'string' && r.eventId ? r.eventId : null;
   if (Object.keys(errors).length) return { ok: false, errors };
   return {
     ok: true,
@@ -257,8 +270,30 @@ export function validateLog(raw: Partial<WorkoutLogInput> | null | undefined, no
       mode: r.mode as 'manual' | 'timer',
       shared: r.shared === true,
       timezone: typeof r.timezone === 'string' ? r.timezone : 'Europe/Rome',
+      track: track ?? null,
+      sport,
+      environment,
+      distanceSource: dist ? distanceSource ?? 'manual' : null,
+      gpsQuality,
+      eventId,
     },
   };
+}
+
+const MAX_TRACK_POINTS = 1500;
+
+/** Accetta solo punti GPS plausibili (max 1500, già semplificati dal client). `undefined` = non valido, `null` = assente. */
+function cleanTrack(raw: unknown): TrackPoint[] | null | undefined {
+  if (raw === undefined || raw === null) return null;
+  if (!Array.isArray(raw) || raw.length > MAX_TRACK_POINTS) return undefined;
+  const out: TrackPoint[] = [];
+  for (const p of raw as Array<Partial<TrackPoint>>) {
+    if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number' || typeof p.t !== 'number') return undefined;
+    if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng) || !Number.isFinite(p.t) || Math.abs(p.lat) > 90 || Math.abs(p.lng) > 180 || p.t < 0 || p.t > 24 * 3600) return undefined;
+    const alt = typeof p.alt === 'number' && Number.isFinite(p.alt) && p.alt > -500 && p.alt < 9000 ? Math.round(p.alt * 10) / 10 : undefined;
+    out.push(alt === undefined ? { lat: Math.round(p.lat * 1e5) / 1e5, lng: Math.round(p.lng * 1e5) / 1e5, t: Math.round(p.t) } : { lat: Math.round(p.lat * 1e5) / 1e5, lng: Math.round(p.lng * 1e5) / 1e5, t: Math.round(p.t), alt });
+  }
+  return out.length >= 2 ? out : null;
 }
 
 export interface CompleteResult {
@@ -286,18 +321,39 @@ function record(ctx: Ctx, uid: Id, input: WorkoutLogInput, session: PlannedSessi
     mode: input.mode,
     activityId: null,
     shared: input.shared,
+    track: input.track ?? null,
+    brief: null,
+    sport: input.sport ?? 'running',
+    environment: input.environment ?? 'outdoor',
+    distanceSource: input.distanceSource ?? null,
+    gpsQuality: input.gpsQuality ?? null,
+    eventId: null,
+    edited: false,
     createdAt: iso(ctx.now),
     updatedAt: iso(ctx.now),
   };
   let linkedExisting = false;
-  if (isRunKind(input.kind)) {
-    const cand = { userId: uid, sport: 'running' as const, date: input.startedAt, dayOnly: input.mode === 'manual', distanceKm: input.distanceKm, durationMin: Math.round(input.durationSec / 60) };
-    const dup = findDuplicate(ctx.db, cand);
+  const sport = input.sport ?? 'running';
+  // Uscita di gruppo come contesto: valida solo se eri iscritto e la registrazione cade vicino all'orario dell'uscita.
+  let event: RunEvent | null = null;
+  if (input.eventId) {
+    const e = ctx.db.events[input.eventId];
+    const t = Date.parse(input.startedAt);
+    const okTime = e && t >= Date.parse(e.startsAt) - 2 * 3_600_000 && t <= Date.parse(e.startsAt) + 6 * 3_600_000;
+    if (!e || e.status !== 'active' || !ctx.db.participations[`${e.id}__${uid}`] || !okTime) throw new AppError('validation', 'Questa registrazione non corrisponde a un’uscita a cui sei iscritto.', { eventId: 'Uscita non valida.' });
+    event = e;
+    log.eventId = e.id;
+  }
+  if (isRunKind(input.kind) || sport === 'walking') {
+    const cand = { userId: uid, sport, date: input.startedAt, dayOnly: input.mode === 'manual', distanceKm: input.distanceKm, durationMin: Math.round(input.durationSec / 60) };
+    // Se l'uscita è già stata confermata, la registrazione si collega a quella (nessun doppio conteggio né doppi riconoscimenti).
+    const already = event ? Object.values(ctx.db.activities).find((a) => a.userId === uid && a.eventId === event!.id) : undefined;
+    const dup = already ?? findDuplicate(ctx.db, cand);
     if (dup) {
       log.activityId = dup.id;
       linkedExisting = true;
     } else {
-      const a = newActivity(ctx.now, { userId: uid, source: 'manual', sport: 'running', title: input.title, date: input.startedAt, dayOnly: cand.dayOnly, distanceKm: input.distanceKm, durationMin: cand.durationMin, planSessionId: session?.id ?? null, visibility: input.shared ? 'shared' : 'private' });
+      const a = newActivity(ctx.now, { userId: uid, source: event ? 'event' : 'manual', eventId: event?.id ?? null, sport, title: input.title || event?.title || '', date: input.startedAt, dayOnly: cand.dayOnly, distanceKm: input.distanceKm, durationMin: cand.durationMin, planSessionId: session?.id ?? null, visibility: input.shared ? 'shared' : 'private' });
       ctx.db.activities[a.id] = a;
       log.activityId = a.id;
     }
@@ -336,16 +392,27 @@ export function listWorkoutLogs(ctx: Ctx, filter?: { from?: string | null; to?: 
     .slice(0, 500);
 }
 
+export function getWorkoutLog(ctx: Ctx, id: Id): WorkoutLog {
+  return own(ctx, ctx.db.workoutLogs[id], 'Allenamento');
+}
+
 export function updateWorkoutLog(ctx: Ctx, id: Id, patch: Partial<WorkoutLogInput>): WorkoutLog {
   const l = own(ctx, ctx.db.workoutLogs[id], 'Allenamento');
   const merged = { ...l, ...patch, plannedSessionId: l.plannedSessionId, kind: l.kind, timezone: 'UTC', mode: l.mode } as unknown as Partial<WorkoutLogInput>;
   const v = validateLog(merged, ctx.now);
   if (!v.ok) throw new AppError('validation', 'Controlla i campi evidenziati.', v.errors);
-  Object.assign(l, { title: v.value.title, durationSec: v.value.durationSec, distanceKm: v.value.distanceKm, paceSecPerKm: v.value.distanceKm ? Math.round(v.value.durationSec / v.value.distanceKm) : null, rpe: v.value.rpe, difficulties: v.value.difficulties, notes: v.value.notes, sets: v.value.sets, shared: v.value.shared, updatedAt: iso(ctx.now) });
+  const edited = l.edited || (!!l.track && (v.value.distanceKm !== l.distanceKm || v.value.durationSec !== l.durationSec));
+  if (patch.sport && !l.plannedSessionId) {
+    l.sport = patch.sport === 'walking' ? 'walking' : 'running';
+    // Un trail cambiato in camminata non è più un trail; "corsa" lo lascia trail (il modulo non distingue la strada).
+    if (l.sport === 'walking') delete l.trail;
+  }
+  if (edited && l.distanceKm !== v.value.distanceKm) l.distanceSource = v.value.distanceKm ? 'manual' : null;
+  Object.assign(l, { edited, title: v.value.title, durationSec: v.value.durationSec, distanceKm: v.value.distanceKm, paceSecPerKm: v.value.distanceKm ? Math.round(v.value.durationSec / v.value.distanceKm) : null, rpe: v.value.rpe, difficulties: v.value.difficulties, notes: v.value.notes, sets: v.value.sets, shared: v.value.shared, updatedAt: iso(ctx.now) });
   // Se il log ha creato un'attività sua (non collegata a una già esistente), tiene allineati i valori.
   const a = l.activityId ? ctx.db.activities[l.activityId] : undefined;
   if (a && a.planSessionId === l.plannedSessionId && a.source === 'manual' && a.userId === l.userId) {
-    Object.assign(a, { distanceKm: l.distanceKm, durationMin: Math.round(l.durationSec / 60), visibility: l.shared ? 'shared' : 'private', updatedAt: iso(ctx.now) });
+    Object.assign(a, { distanceKm: l.distanceKm, durationMin: Math.round(l.durationSec / 60), visibility: l.shared ? 'shared' : 'private', sport: l.trail ? 'trail' : l.sport ?? a.sport, updatedAt: iso(ctx.now) });
   }
   return l;
 }
@@ -369,7 +436,7 @@ function validateWizard(raw: Partial<PlanWizardInput> | null | undefined): { ok:
   const r = raw ?? {};
   const errors: FieldErrors = {};
   const name = clean(r.name, 60) || 'Il mio piano';
-  if (!['start_running', 'endurance', 'distance', 'pace', 'strength_support'].includes(r.goal as string)) errors.goal = 'Scegli un obiettivo.';
+  if (!['start_running', 'endurance', 'distance', 'pace', 'strength_support', 'general_fitness', 'race_5k', 'race_10k', 'half_marathon'].includes(r.goal as string)) errors.goal = 'Scegli un obiettivo.';
   if (!['beginner', 'intermediate', 'advanced'].includes(r.level as string)) errors.level = 'Scegli il livello.';
   const weekdays = Array.isArray(r.weekdays) ? [...new Set(r.weekdays.filter((d) => Number.isInteger(d) && d >= 1 && d <= 7))] : [];
   if (!weekdays.length) errors.weekdays = 'Scegli almeno un giorno disponibile.';
@@ -381,7 +448,7 @@ function validateWizard(raw: Partial<PlanWizardInput> | null | undefined): { ok:
   const weeks = r.weeks;
   if (!Number.isInteger(weeks) || (weeks as number) < 1 || (weeks as number) > 12) errors.weeks = 'Da 1 a 12 settimane.';
   if (Object.keys(errors).length) return { ok: false, errors };
-  return { ok: true, value: { name, goal: r.goal!, level: r.level!, weekdays, maxMinutes: maxMinutes as number, equipment, preference: r.preference!, includeStrength: r.includeStrength === true, startDate: r.startDate as string, weeks: weeks as number } };
+  return { ok: true, value: { name, goal: r.goal!, level: r.level!, weekdays, maxMinutes: maxMinutes as number, equipment, preference: r.preference!, includeStrength: r.includeStrength === true, includeMobility: r.includeMobility === true, startDate: r.startDate as string, weeks: weeks as number } };
 }
 
 /** Anteprima del piano generato, SENZA salvarlo: l'utente può rivederlo prima di confermare. */
@@ -593,6 +660,7 @@ export const trainingMethods = {
   completeSession,
   logWorkout,
   listWorkoutLogs,
+  getWorkoutLog,
   updateWorkoutLog,
   deleteWorkoutLog,
   previewPlan,

@@ -1,15 +1,15 @@
 /* Design tokens centralizzati. Cambia qui palette, tipografia e dimensioni. */
 :root {
   /* Colori */
-  --bg: #0b0f12;
-  --surface: #151b20;
-  --surface-2: #20282e;
-  --border: #2a343b;
-  --border-strong: #3d4a53;
-  --accent: #36e0e5;
-  --accent-2: #7cf5ed;
+  --bg: #14181d;
+  --surface: #1c2127;
+  --surface-2: #262c34;
+  --border: #2a313a;
+  --border-strong: #3a434d;
+  --accent: #3cc8cd;
+  --accent-2: #7fe3e3;
   --accent-ink: #04181a;
-  --accent-soft: rgb(54 224 229 / 0.12);
+  --accent-soft: rgb(60 200 205 / 0.12);
   --text: #f5f7f8;
   --text-2: #a7b1b8;
   --text-3: #8b969d;
@@ -22,14 +22,14 @@
 
   /* Tipografia */
   --font-body: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Barlow Condensed', 'Arial Narrow', 'Inter Variable', system-ui, sans-serif;
-  --fs-xs: 0.8125rem;
-  --fs-sm: 0.9375rem;
-  --fs-md: 1rem;
-  --fs-lg: 1.1875rem;
-  --fs-xl: 1.5rem;
-  --fs-2xl: 2rem;
-  --fs-3xl: 2.75rem;
+  --font-display: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-xs: 0.71875rem;
+  --fs-sm: 0.8125rem;
+  --fs-md: 0.875rem;
+  --fs-lg: 1rem;
+  --fs-xl: 1.25rem;
+  --fs-2xl: 1.5rem;
+  --fs-3xl: 2rem;
 
   /* Spaziature (scala a 4 px) */
   --s-1: 4px;
@@ -42,14 +42,14 @@
   --s-10: 40px;
 
   /* Bordi, ombre, dimensioni */
-  --r-sm: 10px;
-  --r-md: 16px;
-  --r-lg: 22px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
   --r-pill: 999px;
-  --shadow-1: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px rgb(0 0 0 / 0.35);
-  --shadow-glow: 0 0 0 1px rgb(54 224 229 / 0.35), 0 0 24px rgb(54 224 229 / 0.18);
-  --tap: 48px;
-  --nav-h: 68px;
+  --shadow-1: 0 4px 16px rgb(0 0 0 / 0.3);
+  --shadow-glow: none;
+  --tap: 44px;
+  --nav-h: 58px;
   --col: 640px;
   --gutter: 16px;
 

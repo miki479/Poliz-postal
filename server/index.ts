@@ -9,9 +9,10 @@ import { HANDLE_RE, normalizeEmail, validateEmailPassword } from '../shared/vali
 import { mailConfigFromEnv, mailEnabled, sendMail } from './mail.ts';
 import { storageFromEnv, type Account, type Persisted, type Storage, type TokenRec } from './storage.ts';
 import { APPLE, GOOGLE, verifyIdToken, type OidcProvider } from './oidc.ts';
+import { analyzeWorkout, factsToContext, factsToText } from '../shared/brief.ts';
 import { aiConfig, aiStatus, buildContext, buildMessages, callWorker, PRESETS, refund, reserve, type Preset } from './ai.ts';
 import { geocode, geoConfig, route as routeFn } from './geo.ts';
-import { authorizeUrl, deauthorize, exchangeCode, stravaConfig, stravaPublicStatus, syncActivities, verifyState } from './strava.ts';
+import { authorizeUrl, deauthorize, exchangeCode, fetchStreams, stravaConfig, stravaPublicStatus, syncActivities, verifyState } from './strava.ts';
 import { forecast, weatherConfig } from './weather.ts';
 
 /* ---------- configurazione (variabili d'ambiente, nessun segreto nel frontend) ---------- */
@@ -243,7 +244,7 @@ async function sendVerification(userId: string) {
   await persist();
   await sendMail(mail, {
     to: acc.email,
-    subject: 'Conferma il tuo indirizzo email — PODISMO SOCIAL',
+    subject: 'Conferma il tuo indirizzo email — RUNNGO',
     text: `Ciao!\n\nConferma il tuo indirizzo email aprendo questo link (valido 48 ore):\n${mail.appUrl}/verifica-email?token=${token}\n\nSe non hai creato tu l'account puoi ignorare questo messaggio.`,
   });
 }
@@ -401,7 +402,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
         const t = newTokenFor(acc.userId, 'reset', 3_600_000);
         await persist();
         try {
-          await sendMail(mail, { to: acc.email, subject: 'Reimposta la tua password — PODISMO SOCIAL', text: `Hai chiesto di reimpostare la password.\n\nApri questo link (valido 1 ora, utilizzabile una volta):\n${mail.appUrl}/reimposta-password?token=${t}\n\nSe non sei stato tu, ignora questo messaggio: la tua password resta invariata.` });
+          await sendMail(mail, { to: acc.email, subject: 'Reimposta la tua password — RUNNGO', text: `Hai chiesto di reimpostare la password.\n\nApri questo link (valido 1 ora, utilizzabile una volta):\n${mail.appUrl}/reimposta-password?token=${t}\n\nSe non sei stato tu, ignora questo messaggio: la tua password resta invariata.` });
         } catch (e) {
           console.error('reset email non inviata:', (e as Error).message);
           throw new AppError('unavailable', 'Non riusciamo a inviare l\'email in questo momento. Riprova tra poco.');
@@ -485,6 +486,20 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       return send(res, 200, { url: authorizeUrl(strava, userId!) });
     }
 
+    case '/api/strava/streams': {
+      // Serie (cuore, altitudine, cadenza) di un MIO racconto nato da Strava; mai di altri.
+      const acc = store.accounts[userId!];
+      const log = store.db.workoutLogs[String(body.logId ?? '')];
+      if (!log || log.userId !== userId) throw new AppError('not_found', 'Attività non trovata.');
+      const act = log.activityId ? store.db.activities[log.activityId] : null;
+      if (!strava.enabled || !acc.strava || !act || act.source !== 'strava' || !act.externalId) return send(res, 200, { streams: null });
+      try {
+        const streams = await fetchStreams(strava, acc.strava, act.externalId.replace(/^strava:/, ''), act.sport);
+        return send(res, 200, { streams });
+      } catch {
+        return send(res, 200, { streams: null, unavailable: true });
+      }
+    }
     case '/api/strava/sync': {
       if (!strava.enabled) throw new AppError('unavailable', strava.reason ?? 'Integrazione Strava non attiva.');
       const acc = store.accounts[userId!];
@@ -503,6 +518,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       let deleted = 0;
       if (body.deleteData !== false) {
         for (const a of Object.values(store.db.activities)) if (a.userId === userId && a.source === 'strava') { delete store.db.activities[a.id]; deleted++; }
+        for (const l of Object.values(store.db.workoutLogs)) if (l.userId === userId && l.origin === 'strava') delete store.db.workoutLogs[l.id];
       }
       await persist();
       return send(res, 200, { ok: true, deleted, status: stravaPublicStatus(strava, undefined) });
@@ -545,6 +561,33 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       } finally {
         aiBusy.delete(userId!);
       }
+    }
+
+    case '/api/ai/brief': {
+      // Briefing dopo un allenamento: se il Coach AI non c'è o la quota è finita, resta il riepilogo calcolato con regole fisse.
+      const log = store.db.workoutLogs[String(body.logId ?? '')];
+      if (!log || log.userId !== userId) throw new AppError('not_found', 'Allenamento non trovato.');
+      if (log.brief && body.refresh !== true) return send(res, 200, { brief: log.brief, facts: analyzeWorkout(store.db, log), remaining: aiStatus(ai, store.ai, userId!).remaining });
+      if (limited(`aibrief:${userId}`, 6, 60_000)) throw new AppError('rate_limited', 'Attendi un momento prima di rigenerare il briefing.');
+      const facts = analyzeWorkout(store.db, log);
+      let brief = { text: factsToText(facts), at: new Date().toISOString(), ai: false };
+      if (ai.enabled && !aiBusy.has(userId!) && aiStatus(ai, store.ai, userId!).remaining > 0 && aiStatus(ai, store.ai, userId!).serviceAvailable) {
+        aiBusy.add(userId!);
+        try {
+          reserve(ai, store.ai, userId!);
+          try {
+            const out = await callWorker(ai, buildMessages('workout_brief', '', factsToContext(facts)));
+            brief = { text: out.text, at: brief.at, ai: !out.simulated };
+          } catch {
+            refund(store.ai, userId!); // se l'AI non risponde, la quota non si consuma e si usa il riepilogo automatico
+          }
+        } finally {
+          aiBusy.delete(userId!);
+        }
+      }
+      log.brief = brief;
+      await persist();
+      return send(res, 200, { brief, facts, remaining: aiStatus(ai, store.ai, userId!).remaining });
     }
 
     case '/api/call': {
@@ -619,7 +662,7 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`PODISMO SOCIAL API pronta su http://${HOST}:${PORT} (dati: ${DATA_FILE})`);
+  console.log(`RUNNGO API pronta su http://${HOST}:${PORT} (dati: ${DATA_FILE})`);
 });
 
 // All'arresto (es. Cloud Run) si attende l'ultimo salvataggio in corso.

@@ -107,10 +107,12 @@ function Inner({ mode, event, clubs, presetClub, routes, presetRoute, fromSessio
       title: f.title, sport: f.sport, startsAt: startsAt ?? 'invalid', timezone: tz, meetingPlace: f.meetingPlace, area: f.area, lat: f.lat, lng: f.lng,
       distanceKm: numField(f.distance), paceSecPerKm: pace, level: f.level, notes: f.notes, maxParticipants: numField(f.max),
       visibility: f.visibility, clubId: f.visibility === 'club' || f.clubId ? f.clubId || null : null, routeId: f.routeId || null,
+      // Il patto di corsa si sceglie nell'app: modificando dal web resta quello salvato (anche le modalità nuove).
+      pact: event?.pact ?? null,
     };
     const v = validateEventInput(input, new Date());
     return { input, errors: v.ok ? {} : v.errors, startsAt };
-  }, [f, tz]);
+  }, [f, tz, event]);
 
   const err = (k: string) => (submitted ? built.errors[k] : '') || serverErrors[k] || '';
   const hasChanges = JSON.stringify(f) !== JSON.stringify(initial);

@@ -8,3 +8,9 @@ test-results
 worker
 docs
 tests
+mobile
+.claude
+android
+ios
+*-qr*.png
+runngo-qr*.png

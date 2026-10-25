@@ -1,0 +1,12 @@
+.gcloudignore
+.git
+.gitignore
+#!include:.gitignore
+.claude/
+mobile/
+android/
+ios/
+docs/
+test-results/
+*-qr*.png
+runngo-qr*.png

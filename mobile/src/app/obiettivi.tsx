@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
-import Animated, { cancelAnimation, Easing, useAnimatedProps, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
 import { BadgeHex } from '@/components/BadgeHex';
@@ -52,9 +52,7 @@ const pctOf = (g: GoalProgress) => (g.goal.target > 0 ? g.current / g.goal.targe
 
 /** Anello di avanzamento che si riempie fino al valore reale (fermo con movimento ridotto). */
 function Ring({ pct, size = 88, stroke = 9, tint, children }: { pct: number; size?: number; stroke?: number; tint: string; children: React.ReactNode }) {
-  const appReduce = useReduceMotion();
-  const systemReduce = useReducedMotion();
-  const still = appReduce || systemReduce;
+  const still = useReduceMotion();
   const target = Math.max(0, Math.min(1, pct));
   const p = useSharedValue(still ? target : 0);
   useEffect(() => {

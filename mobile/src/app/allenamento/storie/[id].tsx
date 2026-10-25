@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, PanResponder, Pressable, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { cancelAnimation, Easing, FadeIn, FadeOut, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, FadeIn, FadeOut, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, ClipPath, Defs, G, Path, RadialGradient, Rect, Stop, LinearGradient as SvgGradient } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -706,8 +706,7 @@ function ResultsSlide({ awards, fresh, still, onOpen, dir }: { awards: Award[]; 
 export default function Storie() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const reduceSys = useReducedMotion();
-  const still = useReduceMotion() || reduceSys;
+  const still = useReduceMotion();
   const sr = useScreenReader();
   const focused = useIsFocused();
   const [data, setData] = useState<StoryData | null>(null);

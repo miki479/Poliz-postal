@@ -1,7 +1,7 @@
 import { useIsFocused } from 'expo-router';
 import { useEffect, useId, useMemo, useRef } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { cancelAnimation, Easing, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { useReduceMotion } from '@/components/ui';
@@ -147,8 +147,7 @@ export function RouteTrace({
   glow?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const reduceSys = useReducedMotion();
-  const still = useReduceMotion() || reduceSys;
+  const still = useReduceMotion();
   const focused = useIsFocused();
   const margin = pad ?? Math.max(6, strokeWidth * 3);
   const g = useMemo(() => (track.length > 1 ? traceGeometry(track, width, height, margin) : null), [track, width, height, margin]);

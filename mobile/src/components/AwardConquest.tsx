@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useId } from 'react';
 import { Modal, Pressable, Share, Text, useWindowDimensions, View } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Line, RadialGradient, Stop } from 'react-native-svg';
 
@@ -40,9 +39,7 @@ const NIGHT_INK = '#1D4FBF';
 /* ---------- finestra di conquista ---------- */
 
 function useStill(): boolean {
-  const app = useReduceMotion();
-  const system = useReducedMotion();
-  return app || system;
+  return useReduceMotion();
 }
 
 /** Raggi e bagliore fermi dietro la medaglia (decorativi). */

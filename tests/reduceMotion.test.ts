@@ -76,6 +76,7 @@ describe('Preferenza movimento condivisa e ingresso calendario', () => {
     expect(store.getReduceMotion()).toBe(true);
     event(false);
     expect(store.getReduceMotion()).toBe(false);
+    expect(calendar(store.getReduceMotion()).runs[0].from).toBe(0);
     expect(listener).toHaveBeenCalledTimes(2);
     off(); event(true);
     expect(listener).toHaveBeenCalledTimes(2);

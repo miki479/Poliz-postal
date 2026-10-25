@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useId, useMemo } from 'react';
 import { Text, View } from 'react-native';
-import Animated, { cancelAnimation, Easing, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 import { ActivityGlyph } from '@/components/SportIcon';
@@ -30,8 +30,7 @@ const CYCLE_MS = { trace: 2600, sweep: 2200, spark: 2400, wave: 2600 } as const;
  * `width` (facoltativa): per le griglie; l'altezza segue le proporzioni del mockup. Senza, misura fissa 138 × 184.
  */
 export function StoryCard({ log, all, seen, width }: { log: WorkoutLog; all: WorkoutLog[]; seen?: boolean; width?: number }) {
-  const reduceSys = useReducedMotion();
-  const still = useReduceMotion() || reduceSys;
+  const still = useReduceMotion();
   const focused = useIsFocused();
   const p = useMemo(() => storyPalette(log, all), [log, all]);
   const cyc = useSharedValue(0);

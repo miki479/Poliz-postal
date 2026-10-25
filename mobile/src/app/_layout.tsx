@@ -1,6 +1,7 @@
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AccessibilityInfo } from 'react-native';
+import { useEffect, useState } from 'react';
 import { initializeReduceMotion } from '@/lib/reduceMotion';
 
 void initializeReduceMotion(AccessibilityInfo);
@@ -39,6 +40,13 @@ function Routes() {
 }
 
 export default function RootLayout() {
+  const [motionReady, setMotionReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void initializeReduceMotion(AccessibilityInfo).then(() => { if (active) setMotionReady(true); });
+    return () => { active = false; };
+  }, []);
+  if (!motionReady) return null;
   return (
     <ThemeProvider value={theme}>
       <StatusBar style="light" />

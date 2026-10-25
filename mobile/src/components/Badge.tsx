@@ -30,9 +30,14 @@ export function BadgeEmblem({ b, size = 64 }: { b: BadgeView; size?: number }) {
   const p = b.earned ? 1 : b.progress ?? 0;
   const o = useRef(new Animated.Value(b.earned && !reduce && !revealed.has(b.id) ? 0 : 1)).current;
   useEffect(() => {
-    if (!b.earned || reduce || revealed.has(b.id)) return;
+    if (!b.earned || reduce || revealed.has(b.id)) {
+      o.stopAnimation(); o.setValue(1);
+      return;
+    }
     revealed.add(b.id);
-    Animated.timing(o, { toValue: 1, duration: M.reveal, useNativeDriver: true }).start();
+    const run = Animated.timing(o, { toValue: 1, duration: M.reveal, useNativeDriver: true });
+    run.start();
+    return () => run.stop();
   }, [b.earned, b.id, reduce, o]);
   return (
     <Animated.View style={{ width: size, height: size, opacity: o, transform: [{ scale: o.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">

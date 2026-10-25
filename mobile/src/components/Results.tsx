@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated as RNAnimated, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle } from 'react-native';
-import Animated, { cancelAnimation, Easing, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 
 import { BadgeHex, hexLabelText } from '@/components/BadgeHex';
@@ -15,9 +15,7 @@ import type { Award } from '@shared/records.ts';
 
 /** Movimento ridotto: impostazione letta dal sistema all'avvio (subito) o aggiornata dall'app. */
 function useStill(): boolean {
-  const sys = useReducedMotion();
-  const app = useReduceMotion();
-  return sys || app;
+  return useReduceMotion();
 }
 
 /* ---------- numero che sale (solo valori reali, già formattati) ---------- */

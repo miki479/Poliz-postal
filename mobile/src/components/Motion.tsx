@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, Animated, Dimensions, Easing, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Dimensions, Easing, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { ClipPath, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { color, R } from '@/constants/theme';
+import { useReduceMotion } from '@/lib/useReduceMotion';
 
 /* ---------- visibilità: le animazioni partono quando l'elemento entra nello schermo ---------- */
 
@@ -17,15 +18,12 @@ export function useScrollEmitter() {
   return { value, emit, Provider: ScrollCtx.Provider };
 }
 
-let reduceCache = false;
-void AccessibilityInfo.isReduceMotionEnabled().then((v) => (reduceCache = v));
-AccessibilityInfo.addEventListener('reduceMotionChanged', (v) => (reduceCache = v));
-
 /** true la prima volta che l'elemento è visibile (poi resta true: l'animazione non si ripete). */
 export function useInView() {
+  const reduce = useReduceMotion();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ref = useRef<any>(null);
-  const [seen, setSeen] = useState(reduceCache);
+  const [seen, setSeen] = useState(reduce);
   const ctx = useContext(ScrollCtx);
   const check = useCallback(() => {
     ref.current?.measureInWindow((_x: number, y: number, _w: number, h: number) => {
@@ -41,7 +39,7 @@ export function useInView() {
       un?.();
     };
   }, [seen, check, ctx]);
-  return { ref, onLayout: check, inView: seen, reduce: reduceCache };
+  return { ref, onLayout: check, inView: seen || reduce, reduce };
 }
 
 /** Valore animato 0→1 quando l'elemento entra nello schermo (immediato con "Riduci movimento"). */
@@ -84,7 +82,7 @@ export function useCountUp(text: string) {
     Animated.timing(a, { toValue: 1, duration: 800, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(() => setShown(text));
     return () => a.removeListener(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inView, text]);
+  }, [inView, text, reduce]);
   return { ref, onLayout, shown };
 }
 

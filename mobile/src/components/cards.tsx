@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, ActionSheetIOS, Alert, Animated, Easing, Image, Platform, Pressable, Share, StyleSheet, Text, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActionSheetIOS, Alert, Animated, Easing, Image, Platform, Pressable, Share, StyleSheet, Text, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { ActivityGlyph, SportGlyph, type Glyph } from '@/components/SportIcon';
@@ -236,26 +236,9 @@ function spoken(parts: Array<string | null | undefined | false>): string {
     .join(' ');
 }
 
-/**
- * Ultimo valore noto di "Riduci movimento", condiviso da tutte le card. `useReduceMotion` vale false finché il sistema
- * non risponde: senza questo ogni card appena montata partirebbe invisibile e farebbe un frame di dissolvenza anche
- * a chi ha chiesto niente movimento.
- */
-let reduceNow = false;
-void AccessibilityInfo.isReduceMotionEnabled().then(
-  (on) => {
-    reduceNow = on;
-  },
-  () => {},
-);
-AccessibilityInfo.addEventListener('reduceMotionChanged', (on) => {
-  reduceNow = on;
-});
-
 /** Ingresso discreto (dissolvenza e piccolo spostamento); con "Riduci movimento" appare subito. */
 function Enter({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
-  const live = useReduceMotion();
-  const reduce = live || reduceNow;
+  const reduce = useReduceMotion();
   const [v] = useState(() => new Animated.Value(reduce ? 1 : 0));
   useEffect(() => {
     if (reduce) return v.setValue(1);

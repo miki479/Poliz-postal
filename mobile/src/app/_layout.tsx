@@ -1,5 +1,9 @@
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { AccessibilityInfo } from 'react-native';
+import { initializeReduceMotion } from '@/lib/reduceMotion';
+
+void initializeReduceMotion(AccessibilityInfo);
 
 import { color, type } from '@/constants/theme';
 import { SessionProvider, useSession } from '@/lib/session';

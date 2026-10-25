@@ -33,27 +33,11 @@ import { color, C, GUTTER, HIT, M, R, S, type } from '@/constants/theme';
 import type { UserPublic } from '@shared/types.ts';
 
 import { humanError } from '@/lib/errors';
+import { useReduceMotion } from '@/lib/useReduceMotion';
+export { useReduceMotion } from '@/lib/useReduceMotion';
 export type IconName = keyof typeof Ionicons.glyphMap;
 
 /* ---------- accessibilità e movimento ---------- */
-
-/** true se l'utente ha chiesto di ridurre il movimento: niente animazioni decorative. */
-export function useReduceMotion(): boolean {
-  const [on, setOn] = useState(true);
-  useEffect(() => {
-    let active = true;
-    let changed = false;
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (value) => {
-      changed = true;
-      setOn(value);
-    });
-    void AccessibilityInfo.isReduceMotionEnabled().then((value) => {
-      if (active && !changed) setOn(value);
-    }, () => {});
-    return () => { active = false; sub.remove(); };
-  }, []);
-  return on;
-}
 
 export function useScreenReader(): boolean {
   const [on, setOn] = useState(false);

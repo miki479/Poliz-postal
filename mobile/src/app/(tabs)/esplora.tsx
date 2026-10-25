@@ -90,7 +90,7 @@ export default function Esplora() {
     return () => clearTimeout(h);
   }, [text]);
 
-  const query = useMemo<EventQuery>(() => ({ scope: runF.clubsOnly ? 'clubs' : 'all', ...range(runF.day), sport: runF.sport === 'any' ? null : runF.sport, level: runF.level === 'any' ? null : runF.level, minKm: LEN[runF.len][0], maxKm: LEN[runF.len][1], areaText: pos ? null : typed || null }), [runF, typed, pos]);
+  const query = useMemo<EventQuery>(() => ({ scope: runF.clubsOnly ? 'clubs' : 'all', ...range(runF.day), sport: runF.sport === 'any' ? null : runF.sport, level: runF.level === 'any' ? null : runF.level, minKm: LEN[runF.len][0], maxKm: LEN[runF.len][1], areaText: pos ? null : typed || null, nearby: pos ? { ...pos, radiusKm: RADIUS_KM } : null }), [runF, typed, pos]);
   const runs = useLoad(() => call<EventView[]>('listEvents', query), [JSON.stringify(query)]);
   const routes = useLoad(() => (mode === 'routes' ? call<RouteView[]>('listRoutes', { scope: routeScope, areaText: typed || null, minKm: LEN[routeLen][0], maxKm: LEN[routeLen][1] }) : Promise.resolve([] as RouteView[])), [mode, routeScope, routeLen, typed]);
 
@@ -114,7 +114,7 @@ export default function Esplora() {
   const nearby = useMemo(() => {
     if (!runs.data || !pos) return null;
     const withPos = runs.data.filter((e) => e.lat !== null && e.lng !== null).map((e) => ({ e, km: haversineKm(pos, { lat: e.lat!, lng: e.lng! }) }));
-    return { list: withPos.filter((x) => x.km <= RADIUS_KM).sort((a, b) => a.km - b.km), hidden: runs.data.length - withPos.length };
+    return { list: withPos };
   }, [runs.data, pos]);
 
   const active = mode === 'runs' ? countRun(runF) : (routeScope !== 'explore' ? 1 : 0) + (routeLen !== 'all' ? 1 : 0);
@@ -156,7 +156,6 @@ export default function Esplora() {
               <View style={{ gap: S.sm }}>
                 <Text style={t.small} accessibilityLiveRegion="polite">
                   {items.length === 1 ? '1 uscita' : `${items.length} uscite`}
-                  {nearby?.hidden ? ` · ${nearby.hidden} senza posizione non incluse` : ''}
                 </Text>
                 {items.length ? (
                   items.map((e, i) => <EventCard key={e.id} e={e} index={i} clubImage={e.club ? clubImages[e.club.id] ?? null : null} note={nearby ? `a ${fmtKm(nearby.list[i].km)}` : null} />)

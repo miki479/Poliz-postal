@@ -351,6 +351,9 @@ function assertRouteUsable(ctx: Ctx, routeId: Id | null, userId: Id) {
 
 export function listEvents(ctx: Ctx, query?: EventQuery | null): EventView[] {
   const q: EventQuery = query && typeof query === 'object' ? query : {};
+  const near = q.nearby;
+  if (near != null && (typeof near !== 'object' || !Number.isFinite(near.lat) || Math.abs(near.lat) > 90 || !Number.isFinite(near.lng) || Math.abs(near.lng) > 180 || !Number.isFinite(near.radiusKm) || near.radiusKm <= 0 || near.radiusKm > 500))
+    throw new AppError('validation', 'Scegli una posizione valida e un raggio tra 0 e 500 km.');
   const { db, actorId, now } = ctx;
   const myClubs = userClubIds(db, actorId);
   const scope = q.scope ?? 'all';
@@ -361,6 +364,7 @@ export function listEvents(ctx: Ctx, query?: EventQuery | null): EventView[] {
     const clubVisible = e.clubId !== null && myClubs.has(e.clubId);
     const discoverable = e.visibility === 'public' || (e.visibility === 'club' && clubVisible) || mine;
     if (!discoverable) continue;
+    if (near && (e.lat == null || e.lng == null || haversineKm(near, { lat: e.lat, lng: e.lng }) > near.radiusKm)) continue;
     if (scope === 'mine' && !mine) continue;
     if (scope === 'clubs' && !clubVisible) continue;
     const past = Date.parse(e.startsAt) < now.getTime();
@@ -375,7 +379,7 @@ export function listEvents(ctx: Ctx, query?: EventQuery | null): EventView[] {
     if (text && !`${e.area} ${e.meetingPlace} ${e.title}`.toLowerCase().includes(text)) continue;
     out.push(eventView(ctx, e));
   }
-  out.sort((a, b) => (q.includePast ? b.startsAt.localeCompare(a.startsAt) : a.startsAt.localeCompare(b.startsAt)));
+  out.sort((a, b) => near ? haversineKm(near, { lat: a.lat!, lng: a.lng! }) - haversineKm(near, { lat: b.lat!, lng: b.lng! }) : (q.includePast ? b.startsAt.localeCompare(a.startsAt) : a.startsAt.localeCompare(b.startsAt)));
   return out.slice(0, 200);
 }
 

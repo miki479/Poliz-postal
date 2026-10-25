@@ -309,6 +309,8 @@ export type FeedItem =
   | { kind: 'workout_shared'; id: string; at: string; user: UserPublic; workout: { title: string; kind: SessionKind; durationMin: number; distanceKm: number | null } };
 
 export interface EventQuery {
+  /** Filtro effimero: non memorizzare la posizione del richiedente. */
+  nearby?: { lat: number; lng: number; radiusKm: number } | null;
   scope?: 'all' | 'mine' | 'clubs';
   sport?: SportId | null;
   level?: Level | null;

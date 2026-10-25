@@ -53,6 +53,25 @@ beforeEach(() => {
 });
 
 describe('creazione uscita', () => {
+  it('vicino a me filtra prima del limite, non persiste la posizione e rispetta la visibilità', () => {
+    const e = E.createEvent(as('a'), input({ lat: 45, lng: 9 }));
+    const missing = E.createEvent(as('a'), input());
+    const privateEvent = E.createEvent(as('a'), input({ visibility: 'private', lat: 45, lng: 9 }));
+    // Molti eventi lontani antecedenti non devono consumare i 200 risultati.
+    for (let n = 0; n < 210; n++) db.events[`far${n}`] = { ...db.events[e.id], id: `far${n}`, lat: 41, lng: 12, startsAt: '2026-10-24T10:00:00Z' };
+    const before = JSON.stringify(db);
+    const found = E.listEvents(as('b'), { nearby: { lat: 45.00123, lng: 9.00456, radiusKm: 5 } });
+    expect(found.map((x) => x.id)).toEqual([e.id]);
+    expect(found[0].lat).toBe(45); expect(found[0].lng).toBe(9);
+    expect(found.map((x) => x.id)).not.toContain(missing.id);
+    expect(found.map((x) => x.id)).not.toContain(privateEvent.id);
+    expect(JSON.stringify(db)).toBe(before);
+  });
+  it('rifiuta coordinate e raggi invalidi senza restituire eventi', () => {
+    for (const nearby of [{ lat: 91, lng: 0, radiusKm: 5 }, { lat: 0, lng: 181, radiusKm: 5 }, { lat: NaN, lng: 0, radiusKm: 5 }, { lat: 0, lng: 0, radiusKm: -1 }, { lat: 0, lng: 0, radiusKm: 501 }]) {
+      expect(code(() => E.listEvents(as('a'), { nearby }))).toBe('validation');
+    }
+  });
   it.each(['beginner', 'easy', 'medium', 'hard', 'advanced'] as const)('conserva il livello %s in creazione, modifica e filtro', (level) => {
     const event = E.createEvent(as('a'), input({ level }));
     expect(E.getEvent(as('b'), event.id).level).toBe(level);

@@ -4,6 +4,7 @@ import { newActivity } from '../shared/activities.ts';
 import { AppError, DEFAULT_PRIVACY, emptyDb, type Ctx } from '../shared/engine.ts';
 import { detectFormat, parseAppleHealthWorkouts, parseGpx, parseTcx, parseWorkoutFile } from '../shared/importers.ts';
 import type { ImportItem, ImportResult } from '../shared/importing.ts';
+import { cleanFileSamples, fileMeasurements } from '../shared/fileMeasurements.ts';
 
 const GPX = `<?xml version="1.0"?><gpx version="1.1"><trk><name>Giro &amp; ritorno</name><type>running</type><trkseg>
 <trkpt lat="44.2200" lon="12.0400"><time>2026-10-20T06:00:00Z</time></trkpt>
@@ -22,6 +23,20 @@ const HEALTH = `<?xml version="1.0"?><HealthData locale="it_IT"><Record type="HK
 <Workout workoutActivityType="HKWorkoutActivityTypeCycling" duration="30" durationUnit="min" startDate="2026-10-23 10:00:00 +0200"/></HealthData>`;
 
 describe('parser file di allenamento', () => {
+  it('legge le estensioni GPX e non trasforma valori mancanti in zeri', () => {
+    const xml = GPX.replace('<time>2026-10-20T06:00:00Z</time>', '<time>2026-10-20T06:00:00Z</time><ele>0</ele><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>140</gpxtpx:hr><gpxtpx:cad>80</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions>').replace('<time>2026-10-20T06:05:00Z</time>', '<time>2026-10-20T06:05:00Z</time><ele>12</ele>');
+    const samples = parseGpx(xml).activities[0].samples!;
+    expect(samples[0]).toMatchObject({ hr: 140, cadence: 80, alt: 0, distanceKm: 0 });
+    expect(samples[1].hr).toBeUndefined(); expect(samples[2].alt).toBeUndefined();
+    expect(fileMeasurements(samples)).toMatchObject({ hrAvg: 140, hrMax: 140, cadAvg: 80, gain: 12, loss: 0 });
+  });
+  it('legge cuore, quota e RunCadence dei Trackpoint TCX con namespace', () => {
+    const xml = TCX.replace('</Lap>', '<Track><Trackpoint><DistanceMeters>100</DistanceMeters><HeartRateBpm><Value>150</Value></HeartRateBpm><AltitudeMeters>-5</AltitudeMeters><Extensions><ns3:TPX><ns3:RunCadence>85</ns3:RunCadence></ns3:TPX></Extensions></Trackpoint><Trackpoint><DistanceMeters>200</DistanceMeters><AltitudeMeters>10</AltitudeMeters></Trackpoint></Track></Lap>');
+    const samples = parseTcx(xml).activities[0].samples!;
+    expect(samples).toEqual([{ distanceKm: 0.1, hr: 150, alt: -5, cadence: 85 }, { distanceKm: 0.2, alt: 10 }]);
+    expect(fileMeasurements(samples).gain).toBe(15);
+    expect(fileMeasurements(cleanFileSamples([{ hr: -1, cadence: Infinity, alt: '12' }, {}]))).toMatchObject({ hrAvg: null, cadAvg: null, gain: null });
+  });
   it('riconosce il formato', () => {
     expect(detectFormat(GPX)).toBe('gpx');
     expect(detectFormat(TCX)).toBe('tcx');
@@ -61,6 +76,17 @@ describe('importazione nello storico', () => {
     return { db, as };
   };
   const items = (): ImportItem[] => parseAppleHealthWorkouts(HEALTH).activities.map((a) => ({ ...a }));
+  it('salva un log privato con campioni, lo deduplica e cancella anche le misure', () => {
+    const { db, as } = mk();
+    const parsed = parseGpx(GPX).activities;
+    parsed[0].samples = [{ hr: 140, alt: 5, cadence: 82, distanceKm: 0 }, { alt: 15, distanceKm: 1 }];
+    call(as('a'), 'importActivities', [parsed]);
+    const log = Object.values(db.workoutLogs)[0];
+    expect(log.origin).toBe('file'); expect(log.shared).toBe(false); expect(log.fileSamples).toEqual(parsed[0].samples);
+    expect(() => call(as('b'), 'getWorkoutLog', [log.id])).toThrow(/non trovato/);
+    call(as('a'), 'importActivities', [parsed]); expect(Object.values(db.workoutLogs)).toHaveLength(1);
+    call(as('a'), 'deleteImported', ['file']); expect(Object.values(db.workoutLogs)).toHaveLength(0);
+  });
 
   it('importa come attività private, senza duplicati alla seconda importazione', () => {
     const { db, as } = mk();

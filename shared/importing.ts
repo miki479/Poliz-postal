@@ -2,8 +2,11 @@ import { findDuplicate, newActivity } from './activities.ts';
 import { AppError, type Ctx } from './engine.ts';
 import { SPORTS } from './sports.ts';
 import type { Id, SportId } from './types.ts';
+import { cleanFileSamples, type FileSample } from './fileMeasurements.ts';
+import { newId } from './ids.ts';
 
 export interface ImportItem {
+  samples?: FileSample[];
   externalId: string;
   sport: SportId;
   title: string;
@@ -54,6 +57,11 @@ export function importActivities(ctx: Ctx, items: ImportItem[]): ImportResult {
     }
     const a = newActivity(ctx.now, { userId: uid, source: 'file', sport: it.sport, title: String(it.title ?? '').slice(0, 80), date: new Date(t).toISOString(), distanceKm: km, durationMin: min, externalId });
     ctx.db.activities[a.id] = a;
+    const samples = cleanFileSamples(it.samples);
+    if (min != null && samples.some((s) => s.hr != null || s.alt != null || s.cadence != null)) {
+      const id = newId('wkl');
+      ctx.db.workoutLogs[id] = { id, userId: uid, activityId: a.id, plannedSessionId: null, kind: it.sport === 'walking' ? 'aerobic' : 'run_free', title: a.title, startedAt: a.date, durationSec: min * 60, distanceKm: km, paceSecPerKm: km ? Math.round(min * 60 / km) : null, rpe: null, difficulties: '', notes: '', sets: [], mode: 'manual', shared: false, origin: 'file', fileSamples: samples, sport: it.sport === 'walking' ? 'walking' : 'running', ...(it.sport === 'trail' ? { trail: true } : {}), createdAt: ctx.now.toISOString(), updatedAt: ctx.now.toISOString() };
+    }
     known.add(externalId);
     res.imported++;
   }
@@ -72,7 +80,7 @@ export function deleteImported(ctx: Ctx, source: 'file' | 'strava'): { deleted: 
       n++;
     }
   }
-  if (source === 'strava') for (const l of Object.values(ctx.db.workoutLogs)) if (l.userId === uid && l.origin === 'strava') delete ctx.db.workoutLogs[l.id];
+  for (const l of Object.values(ctx.db.workoutLogs)) if (l.userId === uid && l.origin === source) delete ctx.db.workoutLogs[l.id];
   return { deleted: n };
 }
 

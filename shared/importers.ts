@@ -5,8 +5,10 @@
  */
 import { haversineKm } from './time.ts';
 import type { SportId } from './types.ts';
+import { cleanFileSamples, type FileSample } from './fileMeasurements.ts';
 
 export interface ParsedActivity {
+  samples?: FileSample[];
   externalId: string;
   sport: SportId;
   title: string;
@@ -32,6 +34,15 @@ function decodeXml(s: string): string {
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Tag con prefisso XML facoltativo (gpxtpx, ns3, ...). */
+function element(xml: string, name: string): string | undefined {
+  return new RegExp(`<(?:[\\w.-]+:)?${name}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${name}>`, 'i').exec(xml)?.[1];
+}
+function numberElement(xml: string, name: string): number | undefined {
+  const text = element(xml, name)?.trim();
+  if (!text) return undefined;
+  const value = Number(text); return Number.isFinite(value) ? value : undefined;
+}
 
 /** Tipo dal testo del file: il trail solo se il file lo dice (es. "trail_running", "TrailRun"); l'escursionismo resta camminata. */
 export function sportFromText(t: string): SportId | null {
@@ -55,19 +66,20 @@ export function parseGpx(text: string): ParseResult {
   const activities: ParsedActivity[] = [];
   let skipped = 0;
   for (const trk of tracks) {
-    const pts: Array<{ lat: number; lng: number; t: number | null }> = [];
+    const pts: Array<{ lat: number; lng: number; t: number | null; sample: FileSample }> = [];
     for (const m of trk.matchAll(/<trkpt\b([^>]*)>([\s\S]*?)<\/trkpt>/gi)) {
-      const lat = Number(attr(m[1], 'lat'));
-      const lng = Number(attr(m[1], 'lon'));
+      const lat = Number(attr(m[1], 'lat') ?? NaN);
+      const lng = Number(attr(m[1], 'lon') ?? NaN);
       const tm = /<time>([^<]+)<\/time>/i.exec(m[2]);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) pts.push({ lat, lng, t: tm ? Date.parse(tm[1]) : null });
+      if (Number.isFinite(lat) && Math.abs(lat) <= 90 && Number.isFinite(lng) && Math.abs(lng) <= 180) pts.push({ lat, lng, t: tm ? Date.parse(tm[1]) : null, sample: { hr: numberElement(m[2], 'hr'), alt: numberElement(m[2], 'ele'), cadence: numberElement(m[2], 'cad') } });
     }
     if (pts.length < 2) {
       skipped++;
       continue;
     }
     let km = 0;
-    for (let i = 1; i < pts.length; i++) km += haversineKm(pts[i - 1], pts[i]);
+    pts[0].sample.distanceKm = 0;
+    for (let i = 1; i < pts.length; i++) { km += haversineKm(pts[i - 1], pts[i]); pts[i].sample.distanceKm = km; }
     const times = pts.map((p) => p.t).filter((t): t is number => t !== null && !Number.isNaN(t));
     const start = times.length ? Math.min(...times) : null;
     if (start === null) {
@@ -79,7 +91,7 @@ export function parseGpx(text: string): ParseResult {
     const type = /<type>([^<]*)<\/type>/i.exec(trk)?.[1] ?? name ?? 'running';
     const sport = sportFromText(type) ?? 'running'; // i GPX spesso non indicano lo sport: si assume corsa, modificabile dall'utente
     const date = new Date(start).toISOString();
-    activities.push({ externalId: `gpx:${date}:${round2(km)}`, sport, title: name ? decodeXml(name).slice(0, 80) : 'Attività da GPX', date, distanceKm: round2(km), durationMin });
+    activities.push({ externalId: `gpx:${date}:${round2(km)}`, sport, title: name ? decodeXml(name).slice(0, 80) : 'Attività da GPX', date, distanceKm: round2(km), durationMin, samples: cleanFileSamples(pts.map((p) => p.sample)) });
   }
   return { activities, skipped, format: 'gpx' };
 }
@@ -104,7 +116,11 @@ export function parseTcx(text: string): ParseResult {
       seconds += Number(/<TotalTimeSeconds>([^<]+)<\/TotalTimeSeconds>/i.exec(lap[0])?.[1] ?? 0) || 0;
     }
     const date = new Date(start).toISOString();
-    out.push({ externalId: `tcx:${date}:${Math.round(meters)}`, sport, title: 'Attività da TCX', date, distanceKm: meters > 0 ? round2(meters / 1000) : null, durationMin: seconds > 0 ? Math.max(1, Math.round(seconds / 60)) : null });
+    const samples = [...a.matchAll(/<(?:[\w.-]+:)?Trackpoint\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?Trackpoint>/gi)].map((m): FileSample => {
+      const dist = numberElement(m[1], 'DistanceMeters');
+      return { distanceKm: dist == null ? undefined : dist / 1000, hr: numberElement(element(m[1], 'HeartRateBpm') ?? '', 'Value'), alt: numberElement(m[1], 'AltitudeMeters'), cadence: numberElement(m[1], 'RunCadence') ?? numberElement(m[1], 'Cadence') };
+    });
+    out.push({ externalId: `tcx:${date}:${Math.round(meters)}`, sport, title: 'Attività da TCX', date, distanceKm: meters > 0 ? round2(meters / 1000) : null, durationMin: seconds > 0 ? Math.max(1, Math.round(seconds / 60)) : null, samples: cleanFileSamples(samples) });
   }
   return { activities: out, skipped, format: 'tcx' };
 }

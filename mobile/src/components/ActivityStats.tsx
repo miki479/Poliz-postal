@@ -13,6 +13,7 @@ import { fmtClock, fmtDate, fmtPace, kmParts } from '@/lib/format';
 import { styleOfLog } from '@/lib/storyPalette';
 import { elevationOf, splits } from '@shared/track.ts';
 import type { ActivityStreams, WorkoutLog } from '@shared/types.ts';
+import { fileMeasurements } from '@shared/fileMeasurements.ts';
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
@@ -212,6 +213,7 @@ function Value({ value, unit, label }: { value: string; unit: string; label: str
  */
 export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Cambiandolo si richiedono di nuovo le serie a Strava. */ refreshKey?: number }) {
   const m = log.metrics ?? null;
+  const file = useMemo(() => log.origin === 'file' ? fileMeasurements(log.fileSamples ?? []) : null, [log.origin, log.fileSamples]);
   const fromStrava = log.origin === 'strava';
   const [streams, setStreams] = useState<ActivityStreams | null>(null);
   const [asked, setAsked] = useState(false);
@@ -243,16 +245,16 @@ export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Ca
   const gpsElev = useMemo(() => (log.track ? elevationOf(log.track) : null), [log.track]);
   const sp = useMemo(() => (log.track && log.track.length > 1 && !log.gpsQuality?.gaps ? splits(log.track) : []), [log.track, log.gpsQuality?.gaps]);
 
-  const hrSeries = streams?.hr ?? null;
-  const dist = streams?.distKm ?? null;
-  const alt: { xs: number[]; ys: number[] } | null = streams?.alt && dist ? { xs: dist, ys: streams.alt } : gpsElev && gpsElev.profile.length > 4 ? { xs: gpsElev.profile.map((x) => x.distKm), ys: gpsElev.profile.map((x) => x.alt) } : null;
+  const hrSeries = streams?.hr ?? file?.heart.ys ?? null;
+  const dist = streams?.distKm ?? file?.heart.xs ?? null;
+  const alt: { xs: number[]; ys: number[] } | null = file?.altitude ?? (streams?.alt && dist ? { xs: dist, ys: streams.alt } : gpsElev && gpsElev.profile.length > 4 ? { xs: gpsElev.profile.map((x) => x.distKm), ys: gpsElev.profile.map((x) => x.alt) } : null);
   const cadSeries = streams?.cadence ?? null;
-  const gain = streams?.elevGainM ?? m?.elevGainM ?? gpsElev?.gainM ?? null;
-  const loss = streams?.elevLossM ?? gpsElev?.lossM ?? null;
-  const hrAvg = m?.hrAvg ?? (hrSeries && hrSeries.length ? Math.round(hrSeries.reduce((a, b) => a + b, 0) / hrSeries.length) : null);
-  const hrMax = hrSeries && hrSeries.length ? max(hrSeries) : m?.hrMax ?? null;
-  const cadAvg = m?.cadenceSpm ?? (cadSeries && cadSeries.length ? Math.round(cadSeries.reduce((a, b) => a + b, 0) / cadSeries.length) : null);
-  const cadMax = cadSeries && cadSeries.length ? max(cadSeries) : null;
+  const gain = file?.gain ?? streams?.elevGainM ?? m?.elevGainM ?? gpsElev?.gainM ?? null;
+  const loss = file?.loss ?? streams?.elevLossM ?? gpsElev?.lossM ?? null;
+  const hrAvg = file?.hrAvg ?? m?.hrAvg ?? (hrSeries && hrSeries.length ? Math.round(hrSeries.reduce((a, b) => a + b, 0) / hrSeries.length) : null);
+  const hrMax = file?.hrMax ?? (hrSeries && hrSeries.length ? max(hrSeries) : m?.hrMax ?? null);
+  const cadAvg = file?.cadAvg ?? m?.cadenceSpm ?? (cadSeries && cadSeries.length ? Math.round(cadSeries.reduce((a, b) => a + b, 0) / cadSeries.length) : null);
+  const cadMax = file?.cadMax ?? (cadSeries && cadSeries.length ? max(cadSeries) : null);
   const moving = m?.movingSec ?? null;
   const elapsed = m?.elapsedSec ?? null;
 
@@ -287,8 +289,8 @@ export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Ca
           {hasCad ? (
             <Card icon="footsteps" tint={color.accent} title="Cadenza" style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', gap: S.sm }}>
-                <Value value={String(cadAvg)} unit="spm" label="Media" />
-                {cadMax ? <Value value={String(cadMax)} unit="spm" label="Massima" /> : null}
+                <Value value={String(cadAvg)} unit={file ? '/min' : 'spm'} label="Media" />
+                {cadMax != null ? <Value value={String(cadMax)} unit={file ? '/min' : 'spm'} label="Massima" /> : null}
               </View>
             </Card>
           ) : null}
@@ -343,7 +345,8 @@ export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Ca
         </Card>
       ) : null}
 
-      {!hasHeart ? (
+      {file && hasCad ? <Text style={[type.footnote, { color: color.textTertiary }]}>Cadenza come registrata nel file, senza conversioni tra passi e cicli.</Text> : null}
+      {!hasHeart && !file ? (
         <Text style={[type.footnote, { color: color.textTertiary }]}>
           {fromStrava ? (!asked ? 'Cerco le misure su Strava…' : failed ? 'Le misure di Strava non sono raggiungibili in questo momento.' : 'Frequenza cardiaca non fornita da Strava per questa attività.') : 'Frequenza cardiaca non disponibile: le registrazioni dell’app non leggono sensori cardiaci.'}
         </Text>

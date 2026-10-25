@@ -825,7 +825,8 @@ export interface WorkoutLog {
   /** Distanza o durata corrette a mano dopo la registrazione: esclusa dai record calcolati sulla traccia. */
   edited?: boolean;
   /** 'strava' = nato da un'attività importata: tracciato senza tempi, sempre privato. */
-  origin?: 'app' | 'strava';
+  origin?: 'app' | 'strava' | 'file';
+  fileSamples?: import('./fileMeasurements.ts').FileSample[];
   /** Briefing dopo l'allenamento. */
   brief?: WorkoutBrief | null;
   /** Misure fornite dalla fonte (Strava): vedi ActivityMetrics. */

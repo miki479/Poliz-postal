@@ -9,7 +9,7 @@ import { AccessibilityInfo, Alert, AppState, Linking, Platform, Pressable, Scrol
 import MapView, { Polyline } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Banner, Button, Divider, Field, IconButton, LinkText, Pills, Row, Segmented, SwitchRow, t, Panel } from '@/components/ui';
+import { Banner, Button, Divider, Field, IconButton, LinkText, Pills, Row, Segmented, SwitchRow, Sheet, t, Panel } from '@/components/ui';
 import { color, GUTTER, R, S, type } from '@/constants/theme';
 import { call, ext } from '@/lib/api';
 import { deviceTimezone, fmtClock, fmtPace, KIND_LABEL, whenLabel } from '@/lib/format';
@@ -24,6 +24,7 @@ import { contextualLocationPermission } from '@/lib/locationPermissionPolicy';
 import { resumeRecording } from '@/lib/recordingLifecycle';
 import { humanError } from '@/lib/errors';
 import { RecordingMap, WorkoutSuggestions } from '@/components/RecordingDiscovery';
+import { RecordingSetupFrame } from '@/components/RecordingSetupFrame';
 type Phase = 'setup' | 'live' | 'finish';
 type Gps = 'off' | 'searching' | 'good' | 'weak' | 'lost' | 'denied';
 
@@ -40,6 +41,7 @@ export default function Registra() {
   const { me } = useSession();
   const { session: sessionParam } = useLocalSearchParams<{ session?: string }>();
   const [phase, setPhase] = useState<Phase>('setup');
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [kind, setKind] = useState<'running' | 'walking' | 'treadmill'>('running');
   const [ctxKind, setCtxKind] = useState<'solo' | 'event' | 'session'>(sessionParam ? 'session' : 'solo');
   const [sessions, setSessions] = useState<PlannedSession[]>([]);
@@ -378,24 +380,18 @@ export default function Registra() {
 
   /* ---------- PREPARAZIONE ---------- */
   const chosen = ctxKind === 'session' ? sessions.find((x) => x.id === sessionId) ?? null : null;
-  if (phase === 'setup')
-    return (
-      <View style={{ flex: 1, backgroundColor: color.bg }}>
-        <ScrollView contentContainerStyle={{ paddingTop: insets.top + S.sm, paddingHorizontal: GUTTER, paddingBottom: S.md, gap: S.lg }}>
-          <Row>
-            <Text style={[t.h1, { flex: 1 }]} accessibilityRole="header">
-              Registra
-            </Text>
-            <IconButton name="close" label="Chiudi" filled onPress={() => router.back()} />
-          </Row>
-
-          {kind !== 'treadmill' ? <View style={{ gap: S.xs }}>
-            <RecordingMap center={position} suggested={suggested} showLocation={perm === 'granted'} height={230} onDestination={(point) => void personalize(point)} />
-            <Row><Text style={[t.small, { flex: 1 }]}>{locating ? 'Cerco il GPS…' : routeBusy ? 'Calcolo il percorso a piedi…' : mapMessage}</Text><IconButton name="locate-outline" label="Centra sulla mia posizione" onPress={() => { if (!locating) void locate(); }} /></Row>
-            {routeError ? <Banner tone="warn" text={routeError} /> : null}
-            {routePoints.length ? <LinkText title="Rimuovi percorso suggerito" onPress={() => { setSuggested([]); setRoutePoints([]); }} /> : null}
-          </View> : null}
-
+  if (phase === 'setup') {
+    const activityLabel = kind === 'treadmill' ? 'Tapis roulant' : kind === 'walking' ? 'Camminata' : 'Corsa';
+    const contextLabel = chosen?.title || (ctxKind === 'event' ? events.find((e) => e.id === eventId)?.title || 'Uscita di gruppo' : 'Da solo');
+    return <>
+      <RecordingSetupFrame insets={insets} summary={recovered ? 'Attività da recuperare' : activityLabel} subtitle={recovered ? 'Apri la card per vedere la bozza' : `${contextLabel} · Opzioni`} onOptions={() => setOptionsOpen(true)} onClose={() => router.back()}
+        starting={starting} disabled={starting || (!recovered && ctxKind === 'event' && !eventId)} resume={!!recovered} onStart={() => { if (recovered) void resumeDraft(recovered); else void start(); }}
+        map={<View style={{ flex: 1, minHeight: 0, gap: S.xs }}>
+          <RecordingMap fill initialHeat="global" center={position} suggested={suggested} showLocation={perm === 'granted' && kind !== 'treadmill'} onDestination={(point) => void personalize(point)} />
+          <Row><Text style={[t.small, { flex: 1 }]} numberOfLines={2}>{locating ? 'Cerco il GPS…' : routeBusy ? 'Calcolo il percorso a piedi…' : mapMessage}</Text><IconButton name="locate-outline" label="Centra sulla mia posizione" onPress={() => { if (!locating) void locate(); }} /></Row>
+          {routeError ? <Text style={[t.small, { color: color.warning }]} numberOfLines={2}>{routeError}</Text> : null}
+        </View>} />
+      <Sheet title="Opzioni registrazione" visible={optionsOpen} onClose={() => setOptionsOpen(false)} footer={<Button title="Fatto" onPress={() => setOptionsOpen(false)} />}>
           {recovered ? (
             <Panel style={{ padding: S.lg, gap: S.sm }}>
               <Text style={t.title}>Attività interrotta</Text>
@@ -408,7 +404,7 @@ export default function Registra() {
             </Panel>
           ) : null}
 
-          <WorkoutSuggestions onGearChange={setGearId} onChoose={(session) => {
+          <WorkoutSuggestions selectedGear={gearId} onGearChange={setGearId} onChoose={(session) => {
             setSessions((current) => current.some((s) => s.id === session.id) ? current : [...current, session]);
             setCtxKind('session'); setSessionId(session.id);
             setKind(session.kind === 'aerobic' ? 'walking' : 'running');
@@ -467,16 +463,10 @@ export default function Registra() {
             {battery !== null && battery < 0.2 ? <Banner tone="warn" text={`Batteria al ${Math.round(battery * 100)}%: la registrazione con il GPS consuma. L’attività viene salvata sul telefono mentre corri.`} /> : null}
             <Text style={t.small}>Frequenza cardiaca: nessun sensore collegato. Runngo non la stima dal passo.</Text>
           </View>
-        </ScrollView>
-
-        <View style={{ alignItems: 'center', paddingBottom: insets.bottom + S.sm, paddingTop: S.sm, backgroundColor: color.bg }}>
-          <Pressable onPress={() => void start()} disabled={starting || (ctxKind === 'event' && !eventId)} accessibilityRole="button" accessibilityLabel={starting ? "Preparo la registrazione" : "Avvia la registrazione"} accessibilityState={{ busy: starting, disabled: starting }} style={({ pressed }) => [circle(64, color.accent), pressed && { opacity: 0.85 }]}>
-            <Ionicons name="play" size={38} color={color.onAccent} />
-          </Pressable>
-          <Text style={[t.small, { marginTop: S.sm }]}>{starting ? "Preparo…" : "Avvia"}</Text>
-        </View>
-      </View>
-    );
+          {routePoints.length ? <LinkText title="Rimuovi percorso suggerito" onPress={() => { setSuggested([]); setRoutePoints([]); }} /> : null}
+      </Sheet>
+    </>;
+  }
 
   /* ---------- FINE ---------- */
   if (phase === 'finish' && d) {

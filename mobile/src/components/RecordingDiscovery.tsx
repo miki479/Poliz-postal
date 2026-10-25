@@ -20,9 +20,9 @@ const BASES: Array<{ value: Base; label: string }> = [{ value: 'night', label: '
 const HEAT: Array<{ value: Heat; label: string }> = [{ value: 'off', label: 'Spenta' }, { value: 'global', label: 'Globale' }, { value: 'week', label: 'Ultimi 7 giorni' }];
 
 /** Mappe native di Expo Go: gli strati di densità usano cerchi, disponibili anche con Apple Maps. */
-export function RecordingMap({ track = [], height = 250, showLocation = false, center, suggested = [], onDestination }: { track?: TrackPoint[]; height?: number; showLocation?: boolean; center?: LatLng | null; suggested?: LatLng[]; onDestination?: (point: LatLng) => void }) {
+export function RecordingMap({ track = [], height = 250, fill = false, initialHeat = 'off', showLocation = false, center, suggested = [], onDestination }: { track?: TrackPoint[]; height?: number; fill?: boolean; initialHeat?: Heat; showLocation?: boolean; center?: LatLng | null; suggested?: LatLng[]; onDestination?: (point: LatLng) => void }) {
   const [base, setBase] = useState<Base>('night');
-  const [heat, setHeat] = useState<Heat>('off');
+  const [heat, setHeat] = useState<Heat>(initialHeat);
   const [popular, setPopular] = useState(false);
   const [layers, setLayers] = useState(false);
   const queryKey = `${heat}:${center?.lat ?? ''}:${center?.lng ?? ''}`;
@@ -48,8 +48,8 @@ export function RecordingMap({ track = [], height = 250, showLocation = false, c
     else if (coordinates.length === 1) { map.current?.animateToRegion({ ...coordinates[0], latitudeDelta: 0.025, longitudeDelta: 0.025 }, 0); fitted.current = key; }
   }, [data, heat, points, center, suggested]);
   useEffect(() => { fit(); }, [fit]);
-  return <View style={{ gap: S.sm }}>
-    <View style={{ height, borderRadius: R.card, overflow: 'hidden', backgroundColor: color.surface }}>
+  return <View style={{ gap: S.sm, ...(fill ? { flex: 1, minHeight: 0 } : {}) }}>
+    <View style={{ ...(fill ? { flex: 1, minHeight: 0 } : { height }), borderRadius: R.card, overflow: 'hidden', backgroundColor: color.surface }}>
       <MapView ref={map} onLongPress={onDestination ? (e) => onDestination({ lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude }) : undefined} onMapReady={() => { ready.current = true; fit(); }} style={{ flex: 1 }} mapType={mapType} userInterfaceStyle="dark" showsUserLocation={showLocation} followsUserLocation={showLocation} pitchEnabled={false} initialRegion={first ? { latitude: first.lat, longitude: first.lng, latitudeDelta: 0.04, longitudeDelta: 0.04 } : undefined}>
         {heat !== 'off' ? data?.heat.map((cell) => {
           const center = { latitude: cell.lat, longitude: cell.lng };
@@ -78,9 +78,10 @@ export function RecordingMap({ track = [], height = 250, showLocation = false, c
 }
 
 /** Proposte reali del piano e percorsi accessibili, ordinati dallo storico disponibile. */
-export function WorkoutSuggestions({ onChoose, onGearChange }: { onChoose: (session: PlannedSession) => void; onGearChange?: (id: string | null) => void }) {
+export function WorkoutSuggestions({ onChoose, onGearChange, selectedGear: gearSelection }: { onChoose: (session: PlannedSession) => void; onGearChange?: (id: string | null) => void; selectedGear?: string | null }) {
   const gears = useLoad(() => call<GearView[]>('listGear', false));
-  const [selectedGear, setSelectedGear] = useState<string | null>(null);
+  const [internalGear, setSelectedGear] = useState<string | null>(null);
+  const selectedGear = gearSelection === undefined ? internalGear : gearSelection;
   const gearId = selectedGear && (!gears.data || gears.data.some((g) => g.id === selectedGear)) ? selectedGear : null;
   const [result, setResult] = useState<{ gearId: string | null; data: MapInsights | null; failed: boolean } | null>(null);
   const data = result?.gearId === gearId ? result.data : null;
@@ -93,7 +94,7 @@ export function WorkoutSuggestions({ onChoose, onGearChange }: { onChoose: (sess
   useEffect(() => {
     onGearChange?.(gearId);
   }, [gearId, onGearChange]);
-  const chooseGear = (id: string | null) => setSelectedGear(id);
+  const chooseGear = (id: string | null) => { if (gearSelection === undefined) setSelectedGear(id); else onGearChange?.(id); };
   return <View style={{ gap: S.lg }}>
     <View style={{ gap: S.sm }}>
       <Text style={t.h2}>Con quale attrezzatura</Text>

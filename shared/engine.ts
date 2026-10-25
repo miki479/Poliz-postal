@@ -795,13 +795,14 @@ export function getFeed(ctx: Ctx, limit = 40): FeedItem[] {
     items.push({ kind: 'event_joined', id: `j_${p.id}`, at: p.joinedAt, user: toPublic(db, p.userId), event: eventView(ctx, e) });
   }
   for (const a of Object.values(db.activities)) {
-    if (!mates.has(a.userId) || a.visibility !== 'shared' || Date.parse(a.createdAt) < now.getTime() - 30 * 86_400_000) continue;
+    // Difesa anche sui dati già salvati: i dati Strava non vengono pubblicati dal feed.
+    if (a.source === 'strava' || !mates.has(a.userId) || a.visibility !== 'shared' || Date.parse(a.createdAt) < now.getTime() - 30 * 86_400_000) continue;
     const { fileData: _privateFileData, ...publicActivity } = a;
     items.push({ kind: 'run_completed', id: `a_${a.id}`, at: a.createdAt, user: toPublic(db, a.userId), activity: publicActivity });
   }
   for (const l of Object.values(db.workoutLogs)) {
     // Compare solo ciò che l'utente ha scelto di condividere; mai il piano personale.
-    if (!l.shared || !mates.has(l.userId) || Date.parse(l.createdAt) < now.getTime() - 30 * 86_400_000) continue;
+    if (l.origin === 'strava' || !l.shared || !mates.has(l.userId) || Date.parse(l.createdAt) < now.getTime() - 30 * 86_400_000) continue;
     items.push({ kind: 'workout_shared', id: `w_${l.id}`, at: l.createdAt, user: toPublic(db, l.userId), workout: { title: l.title, kind: l.kind, durationMin: Math.round(l.durationSec / 60), distanceKm: l.distanceKm } });
   }
   return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);

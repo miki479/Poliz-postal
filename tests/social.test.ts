@@ -52,6 +52,29 @@ describe('segui, scintille e commenti', () => {
     const suggestions = run<Array<{ user: UserPublic; paceSecPerKm: number | null }>>('a', 'suggestRunners');
     expect(suggestions.find((s) => s.user.id === 'b')?.paceSecPerKm).toBeNull();
   });
+  it('Strava resta privato anche con vecchi flag condivisi; dei file si condivide solo il riepilogo scelto', () => {
+    run('a', 'follow', ['b']);
+    for (const origin of ['strava', 'file'] as const) {
+      const id = `import-${origin}`;
+      const activity = newActivity(NOW, { userId: 'b', source: origin, sport: 'running', date: NOW.toISOString(), distanceKm: 5, durationMin: 30 });
+      db.activities[activity.id] = activity;
+      db.workoutLogs[id] = { id, userId: 'b', plannedSessionId: null, kind: 'run_free', title: `Corsa da ${origin}`, startedAt: NOW.toISOString(), durationSec: 1800, distanceKm: 5, paceSecPerKm: 360, rpe: null, difficulties: '', notes: '', sets: [], mode: 'manual', activityId: activity.id, shared: false, origin, track: [{ lat: 45, lng: 9, t: 0 }, { lat: 45.01, lng: 9, t: 0 }], createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() };
+      const updated = run<WorkoutLog>('b', 'updateWorkoutLog', [id, { shared: true, title: 'Titolo corretto' }]);
+      expect(updated.shared).toBe(origin === 'file');
+      expect(updated.title).toBe('Titolo corretto');
+      expect(db.activities[activity.id].visibility).toBe('private');
+      expect(code(() => run('b', 'setTrackVisibility', [id, true]))).toBe('validation');
+      // Il filtro di lettura protegge anche record lasciati condivisi dalle versioni precedenti.
+      updated.shared = true;
+      activity.visibility = 'shared';
+      for (const method of ['getFeed', 'getSocialFeed']) {
+        const feed = run<FeedItem[]>('a', method);
+        expect(feed.some((item) => item.id === `w_${id}` || item.id === `a_${activity.id}`)).toBe(origin === 'file');
+        const workout = feed.find((item) => item.id === `w_${id}`);
+        if (workout?.kind === 'workout_shared') expect(workout.workout.track).toBeUndefined();
+      }
+    }
+  });
   it('seguire mostra nel feed le attività condivise, anche senza club in comune', () => {
     expect(run<FeedItem[]>('a', 'getSocialFeed')).toHaveLength(0);
     run('a', 'follow', ['b']);

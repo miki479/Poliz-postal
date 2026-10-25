@@ -408,7 +408,9 @@ export function updateWorkoutLog(ctx: Ctx, id: Id, patch: Partial<WorkoutLogInpu
     if (l.sport === 'walking') delete l.trail;
   }
   if (edited && l.distanceKm !== v.value.distanceKm) l.distanceSource = v.value.distanceKm ? 'manual' : null;
-  Object.assign(l, { edited, title: v.value.title, durationSec: v.value.durationSec, distanceKm: v.value.distanceKm, paceSecPerKm: v.value.distanceKm ? Math.round(v.value.durationSec / v.value.distanceKm) : null, rpe: v.value.rpe, difficulties: v.value.difficulties, notes: v.value.notes, sets: v.value.sets, shared: v.value.shared, updatedAt: iso(ctx.now) });
+  // I dati Strava restano privati anche se un vecchio client invia shared:true.
+  const shared = l.origin === 'strava' ? false : v.value.shared;
+  Object.assign(l, { edited, title: v.value.title, durationSec: v.value.durationSec, distanceKm: v.value.distanceKm, paceSecPerKm: v.value.distanceKm ? Math.round(v.value.durationSec / v.value.distanceKm) : null, rpe: v.value.rpe, difficulties: v.value.difficulties, notes: v.value.notes, sets: v.value.sets, shared, updatedAt: iso(ctx.now) });
   // Se il log ha creato un'attività sua (non collegata a una già esistente), tiene allineati i valori.
   const a = l.activityId ? ctx.db.activities[l.activityId] : undefined;
   if (a && a.planSessionId === l.plannedSessionId && a.source === 'manual' && a.userId === l.userId) {

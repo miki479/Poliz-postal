@@ -2,7 +2,9 @@
 
 Documento per chi riprende il lavoro (persona o altra AI). Descrive cosa esiste, cosa è stato fatto, cosa manca e come verificare, rilasciare e pubblicare.
 
-> **Ultimo aggiornamento UI del 25 ottobre 2026:** corretti crash Integrazioni, figure, wizard e collegamento dei racconti; aggiunti attrezzatura, mappe aggregate con consenso distinto e comando Registra. Server `00021-dq4`, Expo iOS gruppo `4d981c85-1fb8-4cc7-93ed-7339348c0203`. Dettagli, file, test, limiti e QR nel [resoconto UI](RELEASE-UI-2026-10-25.md).
+> **Ultima revisione del 25 ottobre 2026:** integrato il commit remoto `73e7e43` con onboarding e correzioni registrazione, mantenendo Google compatibile con Expo Go e il replay stabile. Corretti revoca heatmap e statistiche attraverso interruzioni GPS. Codice `f076abc`, server `00022-njl`, Expo iOS gruppo `d72fc5e7-7d22-48f5-945a-086d6357627e`. **406 test in 48 file**, typecheck, build, export ed E2E browser del percorso iniziale passati. [Resoconto completo](REVIEW-2026-10-25.md) e [QR aggiornato](runngo-expo-review-2026-10-25.png).
+
+> **Aggiornamento UI precedente del 25 ottobre 2026:** corretti crash Integrazioni, figure, wizard e collegamento dei racconti; aggiunti attrezzatura, mappe aggregate con consenso distinto e comando Registra. Server `00021-dq4`, Expo iOS gruppo `4d981c85-1fb8-4cc7-93ed-7339348c0203`. Dettagli, file, test, limiti e QR nel [resoconto UI](RELEASE-UI-2026-10-25.md).
 
 > **Aggiornamento precedente del 25 ottobre 2026:** backup sicuro `67c2c5f`; le modifiche successive sono salvate in commit separati. Sono implementati anche i cinque livelli persistenti, retry modifica uscita, selettori adattivi, inviti alle singole uscite, filtro geografico server, misure GPX/TCX, zone Strava autorizzate e accesso Google. Apple Salute/HealthKit resta esclusa. Per stato finale, file, commit, test e limiti leggere [RELEASE-2026-10-25.md](RELEASE-2026-10-25.md). Le sezioni storiche sotto descrivono il passaggio iniziale; i TODO risolti sono elencati nel resoconto di rilascio.
 
@@ -29,7 +31,7 @@ Documento per chi riprende il lavoro (persona o altra AI). Descrive cosa esiste,
 ```bash
 # dalla root C:\Poliz-postal
 npx tsc --noEmit -p .          # typecheck server + shared + web
-npx vitest run                 # tutti i test (ultimo esito: 40 file, 377 test, tutti verdi)
+npx vitest run                 # tutti i test (ultimo esito: 48 file, 406 test, tutti verdi)
 npm run build                  # build web + server
 
 # dentro mobile/
@@ -61,13 +63,14 @@ python -c "import segno; segno.make('exp://u.expo.dev/a4379409-221f-4209-99a9-4e
 
 ## 2. Cosa è online adesso
 
-- **Server Cloud Run:** revisione `podismo-social-00021-dq4`, 100% del traffico. Include attrezzatura, mappe aggregate/consenso GPS distinto e correzione privacy dei riepiloghi Strava, oltre alle funzioni del rilascio precedente.
-- **Expo Go iPhone:** branch `main`, runtime `1.0.0`, gruppo `4d981c85-1fb8-4cc7-93ed-7339348c0203`, codice `f93bc33`. [QR aggiornato](runngo-expo-ui-2026-10-25.png).
-- **Verifiche finali:** entrambi i typecheck, 377 test in 40 file, build web/server ed export iOS passati. Health e risorse Google 200 prima di Expo. Lint generale ancora non verde per segnalazioni preesistenti React Compiler; confronto dei file modificati e controllo mirato senza nuove segnalazioni d'errore.
-- Google: client Web conservato, consenso In test (solo utenti di prova). Strava: scope `read,activity:read,profile:read_all`, vecchi collegamenti da ricollegare per le zone.
-- Dettagli e limiti nel [resoconto UI](RELEASE-UI-2026-10-25.md). Il [resoconto precedente](RELEASE-2026-10-25.md) conserva le informazioni sul primo rilascio. La prova fisica su iPhone resta da fare; segmenti ufficiali/piste certificate non hanno una fonte dati collegata.
+- **Server Cloud Run:** revisione `podismo-social-00022-njl`, 100% del traffico. Comprende le nuove API di configurazione iniziale e la revoca condivisa delle heatmap, oltre alle funzioni precedenti.
+- **Expo Go iPhone:** branch `main`, runtime `1.0.0`, gruppo `d72fc5e7-7d22-48f5-945a-086d6357627e`, codice `f076abc`. [QR aggiornato](runngo-expo-review-2026-10-25.png).
+- **Verifiche:** typecheck root/mobile, 406 test in 48 file, build web/server, export iOS e web passati. E2E browser mobile con API simulate: introduzione → registrazione → tutorial → creatore piano, senza errori JavaScript. Non sostituisce la prova nativa su iPhone.
+- Health e risorse Google 200 prima di Expo. Google rimane HTTPS/Expo Go, consenso In test per i soli utenti di prova; nessun SDK Google nativo aggiunto. Strava conserva scope `read,activity:read,profile:read_all`.
+- Calendario, RouteReplay.tsx e routeGeometry.ts invariati; per tracce interrotte un componente esterno mostra solo i segmenti acquisiti. Apple Salute esclusa. Lint mirato delle nuove schermate pulito; restano le segnalazioni generali preesistenti.
+- [Resoconto revisione](REVIEW-2026-10-25.md), [rilascio UI precedente](RELEASE-UI-2026-10-25.md), [primo rilascio](RELEASE-2026-10-25.md). Commit locali, nessun push GitHub.
 
-> Ordine rispettato: server, health e risorse Google, poi Expo. Le sezioni 3 e 4 sotto sono il passaggio storico iniziale; per lo stato attuale fanno fede i due resoconti.
+> Ordine rispettato: server, controlli health/Google, poi Expo. Le sezioni 3 e 4 sotto sono il passaggio storico iniziale; per lo stato attuale fanno fede i resoconti.
 
 ---
 

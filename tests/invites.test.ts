@@ -138,5 +138,7 @@ describe('inviti alle singole uscite', () => {
     run('b', 'leaveEvent', [e.id]);
     expect(received('c')).toEqual([]);
     expect(code(() => run('c', 'respondEventInvite', [id, true]))).toBe('forbidden');
+    expect(run('a', 'inviteToEvent', [e.id, ['c']])).toEqual({ sent: 1, skipped: 0 });
+    expect(received('c')).toHaveLength(1);
   });
 });

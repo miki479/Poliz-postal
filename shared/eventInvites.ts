@@ -21,7 +21,7 @@ function available(ctx: Ctx, eventId: Id): RunEvent {
 function stateFor(ctx: Ctx, event: RunEvent, userId: Id): InviteState {
   if (isParticipant(ctx.db, event.id, userId)) return 'member';
   const invites = Object.values(ctx.db.eventInvites ?? {}).filter((i) => i.eventId === event.id && i.toId === userId);
-  if (invites.some((i) => i.status === 'pending')) return 'pending';
+  if (invites.some((i) => i.status === 'pending' && canInviteEvent(ctx.db, event, i.fromId))) return 'pending';
   if (invites.some((i) => i.status === 'declined' && ctx.now.getTime() - Date.parse(i.respondedAt ?? i.createdAt) < COOLDOWN)) return 'recent_decline';
   return 'none';
 }

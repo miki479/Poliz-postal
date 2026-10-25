@@ -2,7 +2,9 @@
 
 Documento per chi riprende il lavoro (persona o altra AI). Descrive cosa esiste, cosa è stato fatto, cosa manca e come verificare, rilasciare e pubblicare.
 
-> **Aggiornamento del 25 ottobre 2026:** backup sicuro `67c2c5f`; le modifiche successive sono salvate in commit separati. Sono implementati anche i cinque livelli persistenti, retry modifica uscita, selettori adattivi, inviti alle singole uscite, filtro geografico server, misure GPX/TCX, zone Strava autorizzate e accesso Google. Apple Salute/HealthKit resta esclusa. Per stato finale, file, commit, test e limiti leggere [RELEASE-2026-10-25.md](RELEASE-2026-10-25.md). Le sezioni storiche sotto descrivono il passaggio iniziale; i TODO risolti sono elencati nel resoconto di rilascio.
+> **Ultimo aggiornamento UI del 25 ottobre 2026:** corretti crash Integrazioni, figure, wizard e collegamento dei racconti; aggiunti attrezzatura, mappe aggregate con consenso distinto e comando Registra. Server `00021-dq4`, Expo iOS gruppo `4d981c85-1fb8-4cc7-93ed-7339348c0203`. Dettagli, file, test, limiti e QR nel [resoconto UI](RELEASE-UI-2026-10-25.md).
+
+> **Aggiornamento precedente del 25 ottobre 2026:** backup sicuro `67c2c5f`; le modifiche successive sono salvate in commit separati. Sono implementati anche i cinque livelli persistenti, retry modifica uscita, selettori adattivi, inviti alle singole uscite, filtro geografico server, misure GPX/TCX, zone Strava autorizzate e accesso Google. Apple Salute/HealthKit resta esclusa. Per stato finale, file, commit, test e limiti leggere [RELEASE-2026-10-25.md](RELEASE-2026-10-25.md). Le sezioni storiche sotto descrivono il passaggio iniziale; i TODO risolti sono elencati nel resoconto di rilascio.
 
 ---
 
@@ -27,7 +29,7 @@ Documento per chi riprende il lavoro (persona o altra AI). Descrive cosa esiste,
 ```bash
 # dalla root C:\Poliz-postal
 npx tsc --noEmit -p .          # typecheck server + shared + web
-npx vitest run                 # tutti i test (ultimo esito: 24 file, 288 test, tutti verdi)
+npx vitest run                 # tutti i test (ultimo esito: 40 file, 377 test, tutti verdi)
 npm run build                  # build web + server
 
 # dentro mobile/
@@ -59,11 +61,13 @@ python -c "import segno; segno.make('exp://u.expo.dev/a4379409-221f-4209-99a9-4e
 
 ## 2. Cosa è online adesso
 
-- **Server Cloud Run:** revisione `podismo-social-00019-p6h`, 100% del traffico. Nuovo modello, cinque livelli, inviti uscite, filtro geografico, import sensori, zone Strava e accesso Google. Health OK; pagina Google e client.js rispondono 200. GOOGLE_CLIENT_ID conservato; consenso Google In test (solo utenti di prova). Scope Strava: read,activity:read,profile:read_all; per le zone i vecchi collegamenti devono ricollegarsi.
-- **Expo Go iPhone:** branch main, runtime 1.0.0, gruppo `6d58c5c0-3abb-442f-ac06-0b64187490ef`, codice `00e028c`, QR in [runngo-expo-2026-10-25.png](runngo-expo-2026-10-25.png).
-- **Verifiche finali:** entrambi i typecheck, 334 test su 30 file, build web/server ed export iOS passati. Dettagli e limiti nel [resoconto](RELEASE-2026-10-25.md).
+- **Server Cloud Run:** revisione `podismo-social-00021-dq4`, 100% del traffico. Include attrezzatura, mappe aggregate/consenso GPS distinto e correzione privacy dei riepiloghi Strava, oltre alle funzioni del rilascio precedente.
+- **Expo Go iPhone:** branch `main`, runtime `1.0.0`, gruppo `4d981c85-1fb8-4cc7-93ed-7339348c0203`, codice `f93bc33`. [QR aggiornato](runngo-expo-ui-2026-10-25.png).
+- **Verifiche finali:** entrambi i typecheck, 377 test in 40 file, build web/server ed export iOS passati. Health e risorse Google 200 prima di Expo. Lint generale ancora non verde per segnalazioni preesistenti React Compiler; confronto dei file modificati e controllo mirato senza nuove segnalazioni d'errore.
+- Google: client Web conservato, consenso In test (solo utenti di prova). Strava: scope `read,activity:read,profile:read_all`, vecchi collegamenti da ricollegare per le zone.
+- Dettagli e limiti nel [resoconto UI](RELEASE-UI-2026-10-25.md). Il [resoconto precedente](RELEASE-2026-10-25.md) conserva le informazioni sul primo rilascio. La prova fisica su iPhone resta da fare; segmenti ufficiali/piste certificate non hanno una fonte dati collegata.
 
-> Ordine rispettato: server, health e risorse Google, poi Expo. Le sezioni 3 e 4 sotto sono il passaggio storico iniziale: per i TODO risolti fa fede il resoconto aggiornato.
+> Ordine rispettato: server, health e risorse Google, poi Expo. Le sezioni 3 e 4 sotto sono il passaggio storico iniziale; per lo stato attuale fanno fede i due resoconti.
 
 ---
 

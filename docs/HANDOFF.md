@@ -2,7 +2,7 @@
 
 Documento per chi riprende il lavoro (persona o altra AI). Descrive cosa esiste, cosa è stato fatto, cosa manca e come verificare, rilasciare e pubblicare.
 
-> ⚠️ **Niente è ancora salvato in git.** L'ultimo commit è `12f69af` sul branch `claude/podismo-social`. Tutta l'app nativa (`mobile/`) e gran parte di `shared/` e `tests/` sono file **non tracciati**. Prima di qualsiasi altra cosa: `git add` e commit, per non rischiare di perdere il lavoro.
+> **Aggiornamento del 25 ottobre 2026:** backup sicuro `67c2c5f`; le modifiche successive sono salvate in commit separati. Sono implementati anche i cinque livelli persistenti, retry modifica uscita, selettori adattivi, inviti alle singole uscite, filtro geografico server, misure GPX/TCX, zone Strava autorizzate e accesso Google. Apple Salute/HealthKit resta esclusa. Per stato finale, file, commit, test e limiti leggere [RELEASE-2026-10-25.md](RELEASE-2026-10-25.md). Le sezioni storiche sotto descrivono il passaggio iniziale; i TODO risolti sono elencati nel resoconto di rilascio.
 
 ---
 
@@ -59,12 +59,11 @@ python -c "import segno; segno.make('exp://u.expo.dev/a4379409-221f-4209-99a9-4e
 
 ## 2. Cosa è online adesso
 
-- **Server su Cloud Run:** revisione `podismo-social-00016`, con il codice del commit `67c2c5f` (compreso il nuovo modello dati del §3.3) e `GEO_CONTACT_EMAIL`. La ricerca dei luoghi è attiva (`geocoding: true`).
-- **App su Expo Go:** ultimo aggiornamento pubblicato, gruppo `60391767-ebaa-4658-bfaf-bc47b4e42a3e` (QR in `runngo-qr-backup.png`). Corrisponde al commit `67c2c5f`: tutto il §3, compresi i pezzi parziali del §4.1.
+- **Server Cloud Run:** revisione `podismo-social-00019-p6h`, 100% del traffico. Nuovo modello, cinque livelli, inviti uscite, filtro geografico, import sensori, zone Strava e accesso Google. Health OK; pagina Google e client.js rispondono 200. GOOGLE_CLIENT_ID conservato; consenso Google In test (solo utenti di prova). Scope Strava: read,activity:read,profile:read_all; per le zone i vecchi collegamenti devono ricollegarsi.
+- **Expo Go iPhone:** branch main, runtime 1.0.0, gruppo `6d58c5c0-3abb-442f-ac06-0b64187490ef`, codice `00e028c`, QR in [runngo-expo-2026-10-25.png](runngo-expo-2026-10-25.png).
+- **Verifiche finali:** entrambi i typecheck, 334 test su 30 file, build web/server ed export iOS passati. Dettagli e limiti nel [resoconto](RELEASE-2026-10-25.md).
 
-> **Ordine obbligatorio per ogni rilascio che cambia `shared/` o `server/`:** prima il server, poi l'aggiornamento Expo.
-
-Quindi i §3 e §4 qui sotto vanno letti così: il §3 adesso **è** pubblicato, il §4 resta da fare.
+> Ordine rispettato: server, health e risorse Google, poi Expo. Le sezioni 3 e 4 sotto sono il passaggio storico iniziale: per i TODO risolti fa fede il resoconto aggiornato.
 
 ---
 

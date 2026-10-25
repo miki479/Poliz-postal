@@ -5,6 +5,7 @@ import { ActionSheetIOS, Alert, Platform, Pressable, Text, View } from 'react-na
 
 import { EventCard, GroupRunCard, paceNum } from '@/components/cards';
 import { AwardMark } from '@/components/Results';
+import { LatestCard } from '@/components/LatestCard';
 import { activityAwards, descending } from '@shared/records.ts';
 import { Banner, Button, IconButton, Metric, PressableScale, Row, Section, Sheet, Skeleton, TabScreen, t, useLoad, Panel } from '@/components/ui';
 import { color, HIT, R, S, type } from '@/constants/theme';
@@ -316,7 +317,7 @@ export default function Home() {
 
           {hero?.kind === 'event' ? <HeroEvent e={hero.e} label={hero.label} clubImage={imageOf(hero.e, images)} onChange={() => void state.reload().then(() => force((x) => x + 1))} /> : null}
           {hero?.kind === 'discover' ? <HeroEvent e={hero.e} label="Potrebbe fare per te" clubImage={imageOf(hero.e, images)} onChange={() => void state.reload()} /> : null}
-          {hero?.kind === 'recap' ? <HeroRecap log={hero.log} logs={d.logs} /> : null}
+          {hero?.kind === 'recap' ? <LatestCard logs={d.logs} onOpenAll={() => router.push('/profilo')} /> : null}
           {hero?.kind === 'session' ? <HeroSession s={hero.s} /> : null}
           {hero?.kind === 'paused' ? <HeroPaused state={hero.state} onResume={() => setReq({ action: 'resume', params: { date: todayIso() } })} /> : null}
           {applied ? <UndoBanner change={applied} onUndone={() => { setApplied(null); void state.reload(); }} onDismiss={() => setApplied(null)} /> : null}
@@ -351,6 +352,8 @@ export default function Home() {
               ))}
             </Section>
           ) : null}
+
+          {hero?.kind !== 'recap' ? <LatestCard logs={d.logs} onOpenAll={() => router.push('/profilo')} /> : null}
 
           {week ? (
             <Section title="Questa settimana" action="Statistiche" onAction={() => router.push('/statistiche')}>

@@ -216,6 +216,8 @@ export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Ca
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    setStreams(null);
+    setAsked(false);
     if (!fromStrava) return;
     let alive = true;
     setFailed(false);
@@ -262,9 +264,9 @@ export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Ca
   return (
     <View style={{ gap: S.md }}>
       <View style={{ flexDirection: 'row', gap: S.sm }}>
-        <Tile value={log.distanceKm ? kmParts(log.distanceKm)[0] : '—'} unit={log.distanceKm ? 'km' : undefined} label={log.distanceSource === 'manual' ? 'Distanza dichiarata' : 'Distanza'} />
+        {log.distanceKm != null ? <Tile value={kmParts(log.distanceKm)[0]} unit="km" label={log.distanceSource === 'manual' ? 'Distanza dichiarata' : 'Distanza'} /> : null}
         <Tile value={fmtClock(log.durationSec)} label="Durata" />
-        <Tile value={log.paceSecPerKm ? fmtPace(log.paceSecPerKm).replace('/km', '') : '—'} unit={log.paceSecPerKm ? '/km' : undefined} label="Passo medio" />
+        {log.paceSecPerKm ? <Tile value={fmtPace(log.paceSecPerKm).replace('/km', '')} unit="/km" label="Passo medio" /> : null}
       </View>
 
       {hasHeart ? (

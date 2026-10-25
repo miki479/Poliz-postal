@@ -28,7 +28,7 @@ const SESSION_DAYS = 30;
 /** Dietro Firebase Hosting passa solo il cookie "__session": imposta SESSION_COOKIE_NAME=__session. */
 const COOKIE = process.env.SESSION_COOKIE_NAME || 'ps_session';
 const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS || '').split(',').map((h) => h.trim()).filter(Boolean);
-const MAX_BODY = 250_000;
+const MAX_BODY = 2_000_000;
 const REGISTER_LIMIT = Number(process.env.REGISTER_LIMIT_PER_HOUR) || 10;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID || '';

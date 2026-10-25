@@ -16,7 +16,7 @@ import { ApiError, call, ext, type StravaStatus } from '@/lib/api';
 import { humanError } from '@/lib/errors';
 import { fmtClock, fmtDate, fmtDateTimeShort, fmtKm, fmtPace, relativeFromNow } from '@/lib/format';
 import { mix, styleOfLog } from '@/lib/storyPalette';
-import { parseWorkoutFile, type ParseResult } from '@shared/importers.ts';
+import { fileImportBatches, parseWorkoutFile, type ParseResult } from '@shared/importers.ts';
 import type { WorkoutLog } from '@shared/types.ts';
 
 const MAX_BYTES = 20_000_000;
@@ -274,8 +274,8 @@ function FileImport() {
     setBusy(true);
     try {
       let imported = 0, duplicates = 0;
-      for (let i = 0; i < parsed.activities.length; i += 400) {
-        const r = await call<{ imported: number; duplicates: number }>('importActivities', parsed.activities.slice(i, i + 400));
+      for (const batch of fileImportBatches(parsed.activities)) {
+        const r = await call<{ imported: number; duplicates: number }>('importActivities', batch);
         imported += r.imported;
         duplicates += r.duplicates;
       }

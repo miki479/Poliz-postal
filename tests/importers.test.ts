@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { call } from '../shared/api.ts';
 import { newActivity } from '../shared/activities.ts';
 import { AppError, DEFAULT_PRIVACY, emptyDb, type Ctx } from '../shared/engine.ts';
-import { detectFormat, parseAppleHealthWorkouts, parseGpx, parseTcx, parseWorkoutFile } from '../shared/importers.ts';
+import { detectFormat, fileImportBatches, parseAppleHealthWorkouts, parseGpx, parseTcx, parseWorkoutFile } from '../shared/importers.ts';
 import type { ImportItem, ImportResult } from '../shared/importing.ts';
 import { cleanFileSamples, fileMeasurements } from '../shared/fileMeasurements.ts';
 
@@ -23,6 +23,17 @@ const HEALTH = `<?xml version="1.0"?><HealthData locale="it_IT"><Record type="HK
 <Workout workoutActivityType="HKWorkoutActivityTypeCycling" duration="30" durationUnit="min" startDate="2026-10-23 10:00:00 +0200"/></HealthData>`;
 
 describe('parser file di allenamento', () => {
+  it('segnala il limite campioni invece di importare senza misure', () => {
+    expect(() => cleanFileSamples(Array(20001).fill({ hr: 140 }))).toThrow(/20.000 campioni/);
+  });
+  it('invia i campioni in lotti entro il limite HTTP senza perdita di misure', () => {
+    const activity = parseGpx(GPX).activities[0];
+    const list = Array.from({ length: 6 }, (_, i) => ({ ...activity, title: 'Attività con emoji 🏃', externalId: String(i), samples: Array(3000).fill({ distanceKm: 1.23456789, hr: 140, alt: 123, cadence: 80 }) }));
+    const batches = fileImportBatches(list, 450000);
+    expect(batches.length).toBeGreaterThan(1);
+    expect(batches.flat()).toEqual(list);
+    expect(batches.every((batch) => Buffer.byteLength(JSON.stringify({ method: 'importActivities', args: [batch] })) < 450000)).toBe(true);
+  });
   it('legge le estensioni GPX e non trasforma valori mancanti in zeri', () => {
     const xml = GPX.replace('<time>2026-10-20T06:00:00Z</time>', '<time>2026-10-20T06:00:00Z</time><ele>0</ele><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>140</gpxtpx:hr><gpxtpx:cad>80</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions>').replace('<time>2026-10-20T06:05:00Z</time>', '<time>2026-10-20T06:05:00Z</time><ele>12</ele>');
     const samples = parseGpx(xml).activities[0].samples!;
@@ -36,6 +47,18 @@ describe('parser file di allenamento', () => {
     expect(samples).toEqual([{ distanceKm: 0.1, hr: 150, alt: -5, cadence: 85 }, { distanceKm: 0.2, alt: 10 }]);
     expect(fileMeasurements(samples).gain).toBe(15);
     expect(fileMeasurements(cleanFileSamples([{ hr: -1, cadence: Infinity, alt: '12' }, {}]))).toMatchObject({ hrAvg: null, cadAvg: null, gain: null });
+  });
+  it('mantiene i secondi esatti e usa gli orari TCX se manca la durata riepilogata', () => {
+    const gpx = GPX.replace('2026-10-20T06:05:00Z', '2026-10-20T06:00:30Z').replace('2026-10-20T06:10:00Z', '2026-10-20T06:01:30Z');
+    expect(parseGpx(gpx).activities[0]).toMatchObject({ durationSec: 90, durationMin: 1.5 });
+    const tcx = '<TrainingCenterDatabase><Activities><Activity Sport="Running"><Id>2026-10-21T07:00:00Z</Id><Lap><DistanceMeters>1000</DistanceMeters><Track><Trackpoint><Time>2026-10-21T07:00:00Z</Time></Trackpoint><Trackpoint><Time>2026-10-21T07:01:30Z</Time></Trackpoint></Track></Lap></Activity></Activities></TrainingCenterDatabase>';
+    expect(parseTcx(tcx).activities[0]).toMatchObject({ durationSec: 90, durationMin: 1.5 });
+  });
+  it('conserva riepiloghi TCX come riepiloghi senza costruire serie', () => {
+    const xml = '<TrainingCenterDatabase><Activities><Activity Sport="Running"><Id>2026-10-21T07:00:00Z</Id><Lap><TotalTimeSeconds>90</TotalTimeSeconds><DistanceMeters>1000</DistanceMeters><AverageHeartRateBpm><Value>145</Value></AverageHeartRateBpm><MaximumHeartRateBpm><Value>170</Value></MaximumHeartRateBpm><Cadence>82</Cadence><Extensions><ns3:LX><ns3:MaxRunCadence>91</ns3:MaxRunCadence></ns3:LX></Extensions></Lap></Activity></Activities></TrainingCenterDatabase>';
+    const parsed = parseTcx(xml).activities[0];
+    expect(parsed).toMatchObject({ durationSec: 90, durationMin: 1.5, samples: [], summary: { hrAvg: 145, hrMax: 170, cadAvg: 82, cadMax: 91 } });
+    expect(fileMeasurements(parsed.samples!, parsed.summary).heart).toEqual({ xs: [], ys: [] });
   });
   it('riconosce il formato', () => {
     expect(detectFormat(GPX)).toBe('gpx');
@@ -86,6 +109,37 @@ describe('importazione nello storico', () => {
     expect(() => call(as('b'), 'getWorkoutLog', [log.id])).toThrow(/non trovato/);
     call(as('a'), 'importActivities', [parsed]); expect(Object.values(db.workoutLogs)).toHaveLength(1);
     call(as('a'), 'deleteImported', ['file']); expect(Object.values(db.workoutLogs)).toHaveLength(0);
+  });
+  it('non arrotonda durata e passo dei nuovi log al minuto', () => {
+    const { db, as } = mk();
+    const parsed = { ...parseGpx(GPX).activities[0], durationSec: 90, durationMin: 2, distanceKm: 1, samples: [{ hr: 145 }] };
+    call(as('a'), 'importActivities', [[parsed]]);
+    expect(Object.values(db.workoutLogs)[0]).toMatchObject({ durationSec: 90, paceSecPerKm: 90 });
+    expect(Object.values(db.activities)[0].durationMin).toBe(1.5);
+  });
+  it('salva sensori senza durata e li rende consultabili solo al proprietario, anche se il riepilogo è shared', () => {
+    const { db, as } = mk();
+    const data: ImportItem = { externalId: 'sensors-no-time', sport: 'running', title: 'Sensori dal file', date: '2026-10-21T10:00:00Z', distanceKm: null, durationMin: null, durationSec: null, samples: [{ hr: 145, alt: 8, cadence: 80 }], summary: { hrMax: 170 } };
+    expect(call(as('a'), 'importActivities', [[data]])).toMatchObject({ imported: 1 });
+    const activity = Object.values(db.activities)[0];
+    expect(activity.fileData).toEqual({ durationSec: null, samples: data.samples, summary: data.summary });
+    expect(Object.values(db.workoutLogs)).toHaveLength(0);
+    expect(call(as('a'), 'getFileActivity', [activity.id])).toMatchObject({ fileData: activity.fileData });
+    expect(() => call(as('b'), 'getFileActivity', [activity.id])).toThrow(/non trovata/);
+    call(as('b'), 'follow', ['a']); call(as('a'), 'setActivityVisibility', [activity.id, 'shared']);
+    const feed = call(as('b'), 'getFeed', []) as Array<{ kind: string; activity?: { fileData?: unknown } }>;
+    expect(feed.some((item) => item.kind === 'run_completed')).toBe(true);
+    expect(feed.find((item) => item.kind === 'run_completed')?.activity?.fileData).toBeUndefined();
+    expect(JSON.stringify(feed)).not.toContain('hrMax');
+  });
+  it('rifiuta limiti campioni e documento prima di mutare qualunque attività del lotto', () => {
+    const { db, as } = mk(); const good = parseGpx(GPX).activities[0];
+    const before = JSON.stringify(db);
+    expect(() => call(as('a'), 'importActivities', [[good, { ...good, externalId: 'oversize', samples: Array(20001).fill({ hr: 140 }) }]])).toThrow(/20.000 campioni/);
+    expect(JSON.stringify(db)).toBe(before);
+    const big = Array(20000).fill({ hr: 140.123456789, cadence: 89.123456789, distanceKm: 123.123456789, alt: 1234.123456789 });
+    expect(() => call(as('a'), 'importActivities', [[good, { ...good, externalId: 'oversize-doc', samples: big }]])).toThrow(/troppi dati/);
+    expect(JSON.stringify(db)).toBe(before);
   });
 
   it('importa come attività private, senza duplicati alla seconda importazione', () => {

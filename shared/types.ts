@@ -123,6 +123,8 @@ export type ActivitySource = 'event' | 'manual' | 'strava' | 'file';
 export type ActivityClass = 'self_declared' | 'imported' | 'verified';
 
 export interface Activity {
+  /** Dati del file privati: esclusi dal feed anche se il riepilogo viene condiviso. */
+  fileData?: import('./fileMeasurements.ts').FileActivityData;
   id: Id;
   userId: Id;
   source: ActivitySource;
@@ -827,6 +829,7 @@ export interface WorkoutLog {
   /** 'strava' = nato da un'attività importata: tracciato senza tempi, sempre privato. */
   origin?: 'app' | 'strava' | 'file';
   fileSamples?: import('./fileMeasurements.ts').FileSample[];
+  fileSummary?: import('./fileMeasurements.ts').FileSummary;
   /** Briefing dopo l'allenamento. */
   brief?: WorkoutBrief | null;
   /** Misure fornite dalla fonte (Strava): vedi ActivityMetrics. */

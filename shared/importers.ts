@@ -5,10 +5,12 @@
  */
 import { haversineKm } from './time.ts';
 import type { SportId } from './types.ts';
-import { cleanFileSamples, type FileSample } from './fileMeasurements.ts';
+import { cleanFileSamples, cleanFileSummary, assertFileDocumentSize, type FileSample, type FileSummary } from './fileMeasurements.ts';
 
 export interface ParsedActivity {
   samples?: FileSample[];
+  summary?: FileSummary;
+  durationSec?: number | null;
   externalId: string;
   sport: SportId;
   title: string;
@@ -22,6 +24,24 @@ export interface ParseResult {
   /** Voci riconosciute ma non importabili (altri sport, dati incompleti). */
   skipped: number;
   format: 'gpx' | 'tcx' | 'apple-health';
+}
+
+/** Le serie dei sensori possono essere grandi: lotti entro il limite HTTP, senza scartare campioni. */
+export function fileImportBatches(items: ParsedActivity[], maxBytes = 1_800_000): ParsedActivity[][] {
+  const batches: ParsedActivity[][] = [];
+  let batch: ParsedActivity[] = []; let bytes = 1024;
+  for (const item of items) {
+    let size = 1;
+    for (const char of JSON.stringify(item)) {
+      const cp = char.codePointAt(0)!;
+      size += cp < 128 ? 1 : cp < 2048 ? 2 : cp < 65536 ? 3 : 4;
+    }
+    if (size + 1024 > maxBytes) throw new Error('Questa attività contiene troppi campioni per un singolo invio. Importa un file più breve.');
+    if (batch.length && (bytes + size > maxBytes || batch.length >= 400)) { batches.push(batch); batch = []; bytes = 1024; }
+    batch.push(item); bytes += size;
+  }
+  if (batch.length) batches.push(batch);
+  return batches;
 }
 
 const attr = (tag: string, name: string): string | null => {
@@ -86,12 +106,15 @@ export function parseGpx(text: string): ParseResult {
       skipped++; // senza orari non si può collocare l'attività nel tempo
       continue;
     }
-    const durationMin = times.length > 1 ? Math.max(1, Math.round((Math.max(...times) - start) / 60000)) : null;
+    const durationSec = times.length > 1 && Math.max(...times) > start ? (Math.max(...times) - start) / 1000 : null;
+    const durationMin = durationSec != null ? durationSec / 60 : null;
     const name = /<name>([^<]*)<\/name>/i.exec(trk)?.[1];
     const type = /<type>([^<]*)<\/type>/i.exec(trk)?.[1] ?? name ?? 'running';
     const sport = sportFromText(type) ?? 'running'; // i GPX spesso non indicano lo sport: si assume corsa, modificabile dall'utente
     const date = new Date(start).toISOString();
-    activities.push({ externalId: `gpx:${date}:${round2(km)}`, sport, title: name ? decodeXml(name).slice(0, 80) : 'Attività da GPX', date, distanceKm: round2(km), durationMin, samples: cleanFileSamples(pts.map((p) => p.sample)) });
+    const samples = cleanFileSamples(pts.map((p) => p.sample));
+    assertFileDocumentSize({ samples });
+    activities.push({ externalId: `gpx:${date}:${round2(km)}`, sport, title: name ? decodeXml(name).slice(0, 80) : 'Attività da GPX', date, distanceKm: round2(km), durationMin, durationSec, samples });
   }
   return { activities, skipped, format: 'gpx' };
 }
@@ -109,18 +132,39 @@ export function parseTcx(text: string): ParseResult {
       skipped++;
       continue;
     }
-    let meters = 0;
-    let seconds = 0;
-    for (const lap of a.matchAll(/<Lap\b[\s\S]*?<\/Lap>/gi)) {
-      meters += Number(/<DistanceMeters>([^<]+)<\/DistanceMeters>/i.exec(lap[0])?.[1] ?? 0) || 0;
-      seconds += Number(/<TotalTimeSeconds>([^<]+)<\/TotalTimeSeconds>/i.exec(lap[0])?.[1] ?? 0) || 0;
-    }
+    // I dati dei Trackpoint non sono riepiloghi Lap: non usarne il primo come totale.
+    const laps = [...a.matchAll(/<Lap\b[\s\S]*?<\/Lap>/gi)].map((m) => m[0].replace(/<(?:[\w.-]+:)?Track\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?Track>/gi, ''));
+    const lapMeters = laps.map((lap) => numberElement(lap, 'DistanceMeters'));
+    const lapSeconds = laps.map((lap) => numberElement(lap, 'TotalTimeSeconds'));
+    const meters = lapMeters.length && lapMeters.every((v) => v != null && v >= 0) ? lapMeters.reduce<number>((sum, v) => sum + v!, 0) : null;
+    const seconds = lapSeconds.length && lapSeconds.every((v) => v != null && v > 0) ? lapSeconds.reduce<number>((sum, v) => sum + v!, 0) : null;
+    const weighted = (values: Array<number | undefined>): number | undefined => {
+      if (!values.length || values.some((v) => v == null)) return undefined;
+      if (values.length === 1) return values[0];
+      return seconds != null ? values.reduce<number>((sum, v, i) => sum + v! * lapSeconds[i]!, 0) / seconds : undefined;
+    };
+    const lapMax = (values: Array<number | undefined>): number | undefined => {
+      const present = values.filter((v): v is number => v != null);
+      return present.length ? Math.max(...present) : undefined;
+    };
+    const summary = cleanFileSummary({
+      hrAvg: weighted(laps.map((lap) => numberElement(element(lap, 'AverageHeartRateBpm') ?? '', 'Value'))),
+      hrMax: lapMax(laps.map((lap) => numberElement(element(lap, 'MaximumHeartRateBpm') ?? '', 'Value'))),
+      cadAvg: weighted(laps.map((lap) => numberElement(lap, 'AvgRunCadence') ?? numberElement(lap, 'Cadence'))),
+      cadMax: lapMax(laps.map((lap) => numberElement(lap, 'MaxRunCadence'))),
+    });
     const date = new Date(start).toISOString();
     const samples = [...a.matchAll(/<(?:[\w.-]+:)?Trackpoint\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?Trackpoint>/gi)].map((m): FileSample => {
       const dist = numberElement(m[1], 'DistanceMeters');
       return { distanceKm: dist == null ? undefined : dist / 1000, hr: numberElement(element(m[1], 'HeartRateBpm') ?? '', 'Value'), alt: numberElement(m[1], 'AltitudeMeters'), cadence: numberElement(m[1], 'RunCadence') ?? numberElement(m[1], 'Cadence') };
     });
-    out.push({ externalId: `tcx:${date}:${Math.round(meters)}`, sport, title: 'Attività da TCX', date, distanceKm: meters > 0 ? round2(meters / 1000) : null, durationMin: seconds > 0 ? Math.max(1, Math.round(seconds / 60)) : null, samples: cleanFileSamples(samples) });
+    const pointTimes = [...a.matchAll(/<(?:[\w.-]+:)?Trackpoint\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?Trackpoint>/gi)]
+      .map((m) => Date.parse(element(m[1], 'Time') ?? '')).filter(Number.isFinite);
+    const timedDuration = pointTimes.length > 1 && Math.max(...pointTimes) > Math.min(...pointTimes) ? (Math.max(...pointTimes) - Math.min(...pointTimes)) / 1000 : null;
+    const durationSec = seconds ?? timedDuration;
+    const cleaned = cleanFileSamples(samples);
+    assertFileDocumentSize({ samples: cleaned, summary });
+    out.push({ externalId: `tcx:${date}:${Math.round(meters ?? 0)}`, sport, title: 'Attività da TCX', date, distanceKm: meters != null && meters > 0 ? round2(meters / 1000) : null, durationMin: durationSec != null ? durationSec / 60 : null, durationSec, samples: cleaned, summary });
   }
   return { activities: out, skipped, format: 'tcx' };
 }

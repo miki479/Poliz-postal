@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Modal, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { cancelAnimation, Easing, useAnimatedProps, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { ClipPath, Defs, G, LinearGradient, Line, Path, Rect, Stop } from 'react-native-svg';
 
@@ -26,9 +26,7 @@ const HR = color.danger;
 const ALT = color.success;
 
 function useStill(): boolean {
-  const app = useReduceMotion();
-  const system = useReducedMotion();
-  return app || system;
+  return useReduceMotion();
 }
 
 /* ---------- grafico con assi (solo valori reali della fonte) ---------- */
@@ -212,9 +210,11 @@ function Value({ value, unit, label }: { value: string; unit: string; label: str
  *  - Strava: riepilogo (cuore, dislivello, cadenza…) e, a richiesta, le serie per i grafici.
  * Un dato mancante non diventa uno zero né un valore predefinito: il riquadro semplicemente non c'è.
  */
-export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Cambiandolo si richiedono di nuovo le serie a Strava. */ refreshKey?: number }) {
+export type ActivityStatsData = Pick<WorkoutLog, 'id' | 'startedAt' | 'distanceKm' | 'paceSecPerKm'> & Partial<Pick<WorkoutLog, 'metrics' | 'origin' | 'fileSamples' | 'fileSummary' | 'track' | 'gpsQuality' | 'distanceSource'>> & { durationSec: number | null };
+
+export function ActivityStats({ log, refreshKey = 0 }: { log: ActivityStatsData; /** Cambiandolo si richiedono di nuovo le serie a Strava. */ refreshKey?: number }) {
   const m = log.metrics ?? null;
-  const file = useMemo(() => log.origin === 'file' ? fileMeasurements(log.fileSamples ?? []) : null, [log.origin, log.fileSamples]);
+  const file = useMemo(() => log.origin === 'file' ? fileMeasurements(log.fileSamples ?? [], log.fileSummary) : null, [log.origin, log.fileSamples, log.fileSummary]);
   const fromStrava = log.origin === 'strava';
   const [streams, setStreams] = useState<ActivityStreams | null>(null);
   const [asked, setAsked] = useState(false);
@@ -262,7 +262,7 @@ export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Ca
   const timeRows = !!moving && !!elapsed && elapsed - moving >= 30;
   const hasHeart = hrAvg !== null || hrMax !== null;
   const hasElev = gain !== null;
-  const hasCad = cadAvg !== null;
+  const hasCad = cadAvg !== null || cadMax !== null;
   const hasMisc = m?.maxSpeedKmh != null || m?.calories != null || m?.avgWatts != null;
   const fastest = sp.length ? Math.min(...sp.map((y) => y.paceSecPerKm)) : 0;
 
@@ -270,7 +270,7 @@ export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Ca
     <View style={{ gap: S.md }}>
       <View style={{ flexDirection: 'row', gap: S.sm }}>
         {log.distanceKm != null ? <Tile value={kmParts(log.distanceKm)[0]} unit="km" label={log.distanceSource === 'manual' ? 'Distanza dichiarata' : 'Distanza'} /> : null}
-        <Tile value={fmtClock(log.durationSec)} label="Durata" />
+        {log.durationSec != null ? <Tile value={fmtClock(log.durationSec)} label="Durata" /> : null}
         {log.paceSecPerKm ? <Tile value={fmtPace(log.paceSecPerKm).replace('/km', '')} unit="/km" label="Passo medio" /> : null}
       </View>
 
@@ -291,7 +291,7 @@ export function ActivityStats({ log, refreshKey = 0 }: { log: WorkoutLog; /** Ca
           {hasCad ? (
             <Card icon="footsteps" tint={color.accent} title="Cadenza" style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', gap: S.sm }}>
-                <Value value={String(cadAvg)} unit={file ? '/min' : 'spm'} label="Media" />
+                {cadAvg !== null ? <Value value={String(cadAvg)} unit={file ? '/min' : 'spm'} label="Media" /> : null}
                 {cadMax != null ? <Value value={String(cadMax)} unit={file ? '/min' : 'spm'} label="Massima" /> : null}
               </View>
             </Card>

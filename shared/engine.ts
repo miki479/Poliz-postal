@@ -794,7 +794,8 @@ export function getFeed(ctx: Ctx, limit = 40): FeedItem[] {
   }
   for (const a of Object.values(db.activities)) {
     if (!mates.has(a.userId) || a.visibility !== 'shared' || Date.parse(a.createdAt) < now.getTime() - 30 * 86_400_000) continue;
-    items.push({ kind: 'run_completed', id: `a_${a.id}`, at: a.createdAt, user: toPublic(db, a.userId), activity: a });
+    const { fileData: _privateFileData, ...publicActivity } = a;
+    items.push({ kind: 'run_completed', id: `a_${a.id}`, at: a.createdAt, user: toPublic(db, a.userId), activity: publicActivity });
   }
   for (const l of Object.values(db.workoutLogs)) {
     // Compare solo ciò che l'utente ha scelto di condividere; mai il piano personale.

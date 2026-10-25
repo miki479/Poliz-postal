@@ -201,7 +201,7 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
           return (
             <View key={a.id}>
               {i ? <Divider inset={56} /> : null}
-              <Pressable disabled={!log} onPress={() => log && router.push({ pathname: '/allenamento/log/[id]', params: { id: log.id } })} accessibilityRole={log ? 'button' : undefined} accessibilityLabel={`${a.title || st.label}, ${fmtDate(a.date)}${measure ? `, ${measure}` : ''}${got.length ? `, ${got.length} ${got.length === 1 ? 'riconoscimento' : 'riconoscimenti'}` : ''}`} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 60, paddingVertical: S.sm }, pressed && { opacity: 0.6 }]}>
+              <Pressable disabled={!log && a.source !== 'file'} onPress={() => log ? router.push({ pathname: '/allenamento/log/[id]', params: { id: log.id } }) : a.source === 'file' && router.push({ pathname: '/allenamento/file/[id]', params: { id: a.id } })} accessibilityRole={log || a.source === 'file' ? 'button' : undefined} accessibilityLabel={`${a.title || st.label}, ${fmtDate(a.date)}${measure ? `, ${measure}` : ''}${got.length ? `, ${got.length} ${got.length === 1 ? 'riconoscimento' : 'riconoscimenti'}` : ''}`} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 60, paddingVertical: S.sm }, pressed && { opacity: 0.6 }]}>
                 <View style={{ width: 42, height: 42, borderRadius: R.control, backgroundColor: st.tint, alignItems: 'center', justifyContent: 'center' }}>
                   <ActivityGlyph style={st} size={24} color={st.solid} />
                 </View>
@@ -218,7 +218,7 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
                     <Text style={[type.caption, { color: tone.light, fontWeight: '800' }]}>{got.length}</Text>
                   </View>
                 ) : null}
-                {log ? <Ionicons name="chevron-forward" size={16} color={color.textTertiary} /> : null}
+                {log || a.source === 'file' ? <Ionicons name="chevron-forward" size={16} color={color.textTertiary} /> : null}
               </Pressable>
             </View>
           );

@@ -2,6 +2,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, FileUp, Link2, RefreshCw, Smart
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ParseResult } from '../../shared/importers.ts';
+import { fileImportBatches } from '../../shared/importers.ts';
 import type { ImportResult } from '../../shared/importing.ts';
 import type { StravaStatus, SyncSummary } from '../backend/types.ts';
 import { fmtDateTimeShort } from '../format.ts';
@@ -122,8 +123,8 @@ function FileImportCard() {
     setBusy(true);
     try {
       let total: ImportResult = { imported: 0, duplicates: 0, invalid: 0 };
-      for (let i = 0; i < parsed.activities.length; i += 400) {
-        const r = await backend.importActivities(parsed.activities.slice(i, i + 400));
+      for (const batch of fileImportBatches(parsed.activities)) {
+        const r = await backend.importActivities(batch);
         total = { imported: total.imported + r.imported, duplicates: total.duplicates + r.duplicates, invalid: total.invalid + r.invalid };
       }
       setResult(total);

@@ -1,8 +1,9 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, BackHandler, Easing, Text, View, type ScrollViewInstance } from 'react-native';
+import { Animated, BackHandler, Easing, Pressable, Text, View, type ScrollViewInstance } from 'react-native';
 
-import { ClubHeroCard } from '@/components/cards';
+import { ClubChoice } from '@/components/event/ClubChoice';
 import { EventFrame } from '@/components/event/EventFrame';
 import { EventPreview } from '@/components/event/EventPreview';
 import { FeatureList, type Feature } from '@/components/event/FeatureRows';
@@ -11,12 +12,12 @@ import { OptionChip } from '@/components/event/OptionChip';
 import { PactTiles } from '@/components/event/PactPicker';
 import { Reveal } from '@/components/event/Reveal';
 import { SectionTitle } from '@/components/event/SectionTitle';
-import { TypeCards, TypeTiles } from '@/components/event/TypePicker';
+import { TypeCards } from '@/components/event/TypePicker';
 import { DistanceDial, LevelBar, PaceDial } from '@/components/EventDials';
 import { PlacePicker, shortPlace } from '@/components/PlacePicker';
-import { Banner, Button, DateField, Empty, Field, Loading, Row, useReduceMotion } from '@/components/ui';
+import { Banner, Button, DateField, Empty, Field, Loading, Row, Sheet, useReduceMotion } from '@/components/ui';
 import { loadEventForEdit } from '@/lib/eventEdit';
-import { ChoiceRow, GroupLabel } from '@/components/Wizard';
+import { ChoiceRow } from '@/components/Wizard';
 import { clubTint, eventSportStyle, FEATURE_ICONS, PACT_ICON, PACT_ICONS, PACT_MODES, PACT_TINT, pactBlocker, pactModes, VISIBILITY_ICONS, type PactMode } from '@/constants/eventStyle';
 import { color, S, type } from '@/constants/theme';
 import { ApiError, call, type GeoPlace } from '@/lib/api';
@@ -56,7 +57,7 @@ const kmLabel = (km: number) => `${String(Math.round(km * 100) / 100).replace('.
 /**
  * Crea (o modifica) un'uscita in 4 passi, come nei mockup:
  *  1. Attività: tipo (tessere a tutto colore), quando e dove (luogo verificato), per chi (pubblica, un club, su invito);
- *  2. Dettagli: "Cosa vuoi fare?", distanza, ritmo con la figura animata e livello (stimato finché non lo scegli tu);
+ *  2. Dettagli: distanza, ritmo con la figura animata e livello (stimato finché non lo scegli tu);
  *  3. Patto: patto di corsa a tessere (facoltativo), posti e note;
  *  4. Riepilogo: nome, anteprima e caratteristiche, poi la pubblicazione.
  * Avanzamento a passi in alto, un solo pulsante principale largo in basso. Niente campo obbligatorio superfluo.
@@ -95,6 +96,7 @@ export default function EventoForm() {
   const [meet, setMeet] = useState('');
   const [visibility, setVisibility] = useState<Visibility>(clubParam ? 'club' : 'public');
   const [clubId, setClubId] = useState<string | null>(clubParam ?? null);
+  const [whoOpen, setWhoOpen] = useState(false);
   const [tz, setTz] = useState(deviceTimezone());
   const [km, setKm] = useState<number | null>(null);
   const [paceSec, setPaceSec] = useState<number | null>(null);
@@ -235,6 +237,7 @@ export default function EventoForm() {
       }
       if (visibility === 'club' && !clubId) {
         setErr({ who: 'Scegli per quale club è l’uscita, oppure rendila pubblica.' });
+        setWhoOpen(true);
         return showSection(whoY.current);
       }
     }
@@ -365,7 +368,7 @@ export default function EventoForm() {
             />
           </>
         }>
-        <Animated.View style={{ gap: S.xxl, opacity: slide, transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [dir * 28, 0] }) }] }}>
+        <Animated.View style={{ gap: S.lg, opacity: slide, transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [dir * 28, 0] }) }] }}>
           {i === 0 ? (
             <>
               <View>
@@ -417,47 +420,17 @@ export default function EventoForm() {
                     {err.place ? <Banner tone="error" text={err.place} /> : null}
                   </>
                 )}
-                <Field label="Punto di ritrovo preciso" value={meet} onChangeText={setMeet} optional placeholder="Es. fontana di piazza Saffi" maxLength={90} />
               </View>
 
-              <View style={{ gap: S.md }} onLayout={(e) => (whoY.current = e.nativeEvent.layout.y)}>
-                <SectionTitle title="Per chi è?" />
-                <ChoiceRow
-                  title="Uscita pubblica"
-                  hint="Non è legata a nessun club: compare in Esplora e può unirsi chiunque"
-                  icon="earth-outline"
-                  on={visibility === 'public'}
-                  onPress={() => {
-                    setVisibility('public');
-                    setClubId(null);
-                    setErr({});
-                  }}
-                />
-                {clubs.length ? <GroupLabel text="Oppure per un tuo club" /> : null}
-                {clubs.map((c) => (
-                  <ClubHeroCard
-                    key={c.id}
-                    c={c}
-                    selected={visibility === 'club' && clubId === c.id}
-                    onSelect={() => {
-                      setVisibility('club');
-                      setClubId(c.id);
-                      setErr({});
-                    }}
-                  />
-                ))}
-                {!clubs.length ? <Text style={[type.footnote, { color: color.textSecondary }]}>Non fai ancora parte di un club: entra o creane uno per organizzare uscite di gruppo riservate.</Text> : null}
-                <ChoiceRow
-                  title="Solo chi ha il link"
-                  hint="Non compare da nessuna parte: la condividi tu"
-                  icon="link-outline"
-                  on={visibility === 'private'}
-                  onPress={() => {
-                    setVisibility('private');
-                    setClubId(null);
-                    setErr({});
-                  }}
-                />
+              <View style={{ gap: S.sm }} onLayout={(e) => (whoY.current = e.nativeEvent.layout.y)}>
+                <Pressable onPress={() => setWhoOpen(true)} accessibilityRole="button" accessibilityState={{ expanded: whoOpen }} accessibilityLabel="Visibilità e punto di ritrovo. Modifica i dettagli" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 64, padding: S.md, borderRadius: 18, backgroundColor: color.surface, opacity: pressed ? 0.75 : 1 })}>
+                  <Ionicons name={visibility === 'club' ? 'people-outline' : visibility === 'private' ? 'link-outline' : 'earth-outline'} size={23} color={color.accent} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[type.headline, { color: color.text }]}>Visibilità e ritrovo</Text>
+                    <Text style={[type.footnote, { color: color.textSecondary }]}>{[visibility === 'club' ? club?.name ?? 'Scegli un club' : visibility === 'private' ? 'Solo chi ha il link' : 'Uscita pubblica', meet.trim() || 'Punto preciso facoltativo'].join(' · ')}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
+                </Pressable>
                 {err.who ? <Banner tone="error" text={err.who} /> : null}
               </View>
             </>
@@ -465,12 +438,6 @@ export default function EventoForm() {
 
           {i === 1 ? (
             <>
-              <View>
-                <SectionTitle title="Cosa vuoi fare?" />
-                <View style={{ marginTop: S.md }}>
-                  <TypeTiles value={sport} onChange={pickSport} />
-                </View>
-              </View>
               <DistanceDial sport={dialSport} value={km} onChange={setKm} />
               <View>
                 {/* Il ritmo si chiude scorrendo passando ad "Altro" (che non ha ritmo): il livello sale senza saltare. */}
@@ -575,6 +542,21 @@ export default function EventoForm() {
           ) : null}
         </Animated.View>
       </EventFrame>
+      <Sheet visible={whoOpen && i === 0} onClose={() => setWhoOpen(false)} title="Visibilità e ritrovo" footer={<Button title="Conferma dettagli" onPress={() => setWhoOpen(false)} />}>
+        <Field label="Punto di ritrovo preciso" value={meet} onChangeText={setMeet} optional placeholder="Es. fontana di piazza Saffi" maxLength={90} />
+        <View style={{ gap: S.sm }} accessibilityRole="radiogroup" accessibilityLabel="Visibilità">
+          <SectionTitle title="Visibilità" />
+          <ChoiceRow title="Uscita pubblica" hint="Compare in Esplora: può partecipare chiunque" icon="earth-outline" on={visibility === 'public'} onPress={() => { setVisibility('public'); setClubId(null); setErr({}); }} />
+          <ChoiceRow title="Solo chi ha il link" hint="Non compare in Esplora: decidi tu con chi condividerla" icon="link-outline" on={visibility === 'private'} onPress={() => { setVisibility('private'); setClubId(null); setErr({}); }} />
+        </View>
+        <View style={{ gap: S.sm }} accessibilityRole="radiogroup" accessibilityLabel="Riservata a un club">
+          <SectionTitle title="Riservata a un club" />
+          <Text style={[type.footnote, { color: color.textSecondary }]}>Scegli un tuo club per riservare l’uscita ai suoi membri.</Text>
+          {clubs.map((c) => <ClubChoice key={c.id} club={c} selected={visibility === 'club' && clubId === c.id} onSelect={() => { setVisibility('club'); setClubId(c.id); setErr({}); }} />)}
+          {!clubs.length ? <Text style={[type.footnote, { color: color.textSecondary }]}>Non fai ancora parte di un club.</Text> : null}
+        </View>
+        {err.who ? <Banner tone="error" text={err.who} /> : null}
+      </Sheet>
     </>
   );
 }

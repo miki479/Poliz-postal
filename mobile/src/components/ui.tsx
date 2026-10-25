@@ -28,7 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AmbientGlow } from '@/components/Ambient';
 import { ScrollProvider, useCountUp, useScrollEmitter } from '@/components/Motion';
-import { Tessera } from '@/components/Tessera';
+import { AvatarCircle } from '@/components/AvatarCircle';
 import { color, C, GUTTER, HIT, M, R, S, type } from '@/constants/theme';
 import type { UserPublic } from '@shared/types.ts';
 
@@ -462,9 +462,9 @@ export function DateField({ label, value, onChange, mode = 'datetime' }: { label
 
 /* ---------- persone ---------- */
 
-/** Avatar con silhouette "Tessera Runngo" (vedi Tessera.tsx). */
+/** Avatar circolare con cornice coerente per persone, profili e partecipanti. */
 export function Avatar({ name, hue, size = 40, uri, frame = 'none', ring = color.accent }: { name: string; hue: number; size?: number; uri?: string | null; frame?: 'none' | 'ring' | 'double'; ring?: string }) {
-  return <Tessera name={name} hue={hue} size={size} uri={uri} frame={frame} ring={ring} />;
+  return <AvatarCircle name={name} hue={hue} size={size} uri={uri} frame={frame} ring={ring} />;
 }
 
 /** Pila di avatar reali; mostra "+N" solo se esistono altre persone. */
@@ -584,7 +584,7 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
     Animated.timing(y, { toValue: 0, duration: reduce ? 0 : M.sheet, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [visible, reduce, y]);
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible={visible} transparent animationType={reduce ? 'none' : 'fade'} onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={{ flex: 1, backgroundColor: color.overlay }} onPress={onClose} accessibilityLabel="Chiudi" accessibilityRole="button" />
       <Animated.View accessibilityViewIsModal style={{ maxHeight: '86%', backgroundColor: color.surface, borderTopLeftRadius: R.sheet, borderTopRightRadius: R.sheet, paddingBottom: insets.bottom + S.md, transform: [{ translateY: y.interpolate({ inputRange: [0, 1], outputRange: [0, 480] }) }] }}>
         <View style={{ alignItems: 'center', paddingTop: S.sm }}>

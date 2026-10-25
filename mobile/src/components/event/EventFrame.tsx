@@ -63,13 +63,14 @@ export function EventFrame({
       </View>
       <ScrollView
         ref={ref}
-        contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: S.lg, gap: S.xl, paddingBottom: 150 + insets.bottom }}
+        style={{ flex: 1, minHeight: 0 }}
+        contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: S.md, gap: S.lg, paddingBottom: S.xl }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets>
         {children}
       </ScrollView>
-      {footer ? <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: GUTTER, paddingTop: S.md, paddingBottom: insets.bottom + S.md, backgroundColor: color.bg, gap: S.sm }}>{footer}</View> : null}
+      {footer ? <View style={{ flexShrink: 0, paddingHorizontal: GUTTER, paddingTop: S.sm, paddingBottom: insets.bottom + S.md, backgroundColor: color.bg, gap: S.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.separator }}>{footer}</View> : null}
     </View>
   );
 }

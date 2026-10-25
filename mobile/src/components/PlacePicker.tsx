@@ -137,6 +137,7 @@ export function PlacePicker({ label, value, onChange, onUnavailable, placeholder
   }
 
   function pick(p: GeoPlace) {
+    seq.current++;
     onChange(p);
     setResults([]);
     setQ('');
@@ -175,14 +176,19 @@ export function PlacePicker({ label, value, onChange, onUnavailable, placeholder
     <View style={{ gap: S.sm }}>
       <Text style={[type.subhead, { color: color.textSecondary }]}>{label}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingLeft: S.xs, paddingRight: S.xs, borderRadius: R.control, backgroundColor: color.surface, borderWidth: 1, borderColor: color.controlBorder }}>
-        <Pressable onPress={() => void search()} disabled={!canSearch || state === 'busy'} accessibilityRole="button" accessibilityLabel="Cerca" accessibilityState={{ disabled: !canSearch }} style={{ width: HIT - 4, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
+        <View accessible={false} style={{ width: HIT - 4, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="search" size={19} color={canSearch ? color.text : color.textSecondary} />
-        </Pressable>
+        </View>
         <TextInput
           ref={input}
           value={q}
           onChangeText={(v) => {
+            seq.current++;
             setQ(v);
+            if (state === 'busy' || results.length) {
+              setResults([]);
+              setState('idle');
+            }
             if (state === 'short' && v.trim().length >= 3) setState('idle');
           }}
           onSubmitEditing={() => void search()}
@@ -191,10 +197,10 @@ export function PlacePicker({ label, value, onChange, onUnavailable, placeholder
           returnKeyType="search"
           autoCorrect={false}
           accessibilityLabel={label}
-          accessibilityHint="Scrivi il nome e premi Cerca sulla tastiera"
-          style={{ flex: 1, color: color.text, ...type.body, paddingVertical: S.md }}
+          accessibilityHint="Scrivi almeno tre lettere, poi tocca il pulsante Cerca"
+          style={{ flex: 1, minWidth: 0, color: color.text, ...type.body, paddingVertical: S.md }}
         />
-        <View style={{ width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: q || state === 'busy' ? HIT : 0, height: HIT, alignItems: 'center', justifyContent: 'center' }}>
           {state === 'busy' ? (
             <ActivityIndicator color={color.accent} accessibilityLabel="Ricerca in corso" />
           ) : q ? (
@@ -203,6 +209,9 @@ export function PlacePicker({ label, value, onChange, onUnavailable, placeholder
             </Pressable>
           ) : null}
         </View>
+      <Pressable onPress={() => void search()} disabled={!canSearch || state === 'busy'} accessibilityRole="button" accessibilityLabel="Cerca località" accessibilityState={{ disabled: !canSearch || state === 'busy', busy: state === 'busy' }} style={({ pressed }) => ({ flexShrink: 0, minHeight: HIT, alignItems: 'center', justifyContent: 'center', paddingHorizontal: S.md, borderRadius: R.pill, backgroundColor: canSearch ? color.accentTint : color.surface, opacity: !canSearch || state === 'busy' ? 0.55 : pressed ? 0.75 : 1 })}>
+        <Text style={[type.subhead, { color: canSearch ? color.accent : color.textSecondary, fontWeight: '700' }]}>{state === 'busy' ? 'Cerco…' : 'Cerca'}</Text>
+      </Pressable>
       </View>
       {state === 'short' ? <Text style={[type.footnote, { color: color.textSecondary }]}>Scrivi almeno 3 lettere.</Text> : null}
       {showPanel ? (

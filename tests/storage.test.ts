@@ -49,6 +49,14 @@ function sample(): Persisted {
 }
 
 describe('FirestoreStorage', () => {
+  it('conserva gli inviti alle uscite nella nuova tabella', async () => {
+    const fs = new FakeFirestore(); const storage = new FirestoreStorage(fs, 'inv_');
+    const p = sample();
+    p.db.eventInvites.einv_1 = { id: 'einv_1', eventId: 'event', fromId: 'usr_a', toId: 'usr_b', status: 'pending', createdAt: '2026-10-25T12:00:00Z', respondedAt: null };
+    await storage.save(p);
+    expect((await new FirestoreStorage(fs, 'inv_').load()).db.eventInvites).toEqual(p.db.eventInvites);
+    expect(fs.data.has('inv_db_eventInvites/einv_1')).toBe(true);
+  });
   it('salva e ricarica lo stato identico (round trip)', async () => {
     const fs = new FakeFirestore();
     const a = new FirestoreStorage(fs, 'test_');

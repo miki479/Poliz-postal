@@ -158,7 +158,8 @@ export type NotificationType =
   | 'challenge_ended'
   | 'new_follower'
   | 'new_comment'
-  | 'club_invite';
+  | 'club_invite'
+  | 'event_invite';
 
 export interface Notification {
   id: Id;
@@ -198,6 +199,7 @@ export interface DbState {
   reports: Record<Id, UserReport>;
   follows: Record<string, import('./social.ts').Follow>;
   clubInvites: Record<string, import('./invites.ts').ClubInvite>;
+  eventInvites: Record<string, import('./eventInvites.ts').EventInvite>;
   sparks: Record<string, import('./social.ts').Spark>;
   comments: Record<Id, import('./social.ts').Comment>;
 }

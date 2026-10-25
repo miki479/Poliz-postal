@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
 import { ClubMark } from '@/components/cards';
-import { Async, Banner, Card, Empty, Screen, Section, t, useLoad } from '@/components/ui';
+import { Async, Banner, Button, Card, Empty, Screen, Section, t, useLoad } from '@/components/ui';
+import type { EventInviteView } from '@shared/eventInvites.ts';
 import { clubTint } from '@/constants/eventStyle';
 import { color, S, type } from '@/constants/theme';
 import { call } from '@/lib/api';
@@ -50,15 +51,39 @@ function InviteCard({ inv, onDone }: { inv: InviteView; onDone: () => void }) {
   );
 }
 
+function EventInviteCard({ inv, onDone }: { inv: EventInviteView; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function answer(accept: boolean) {
+    if (busy) return;
+    setBusy(true); setError('');
+    try {
+      await call('respondEventInvite', inv.id, accept);
+      onDone();
+      if (accept) router.push({ pathname: '/evento/[id]', params: { id: inv.eventId } });
+    } catch (e) { setError(humanError(e, 'Non riesco a rispondere all’invito. Riprova.')); }
+    finally { setBusy(false); }
+  }
+  return <Card style={{ gap: S.sm }}>
+    <Text style={t.title}>{inv.event.title}</Text>
+    <Text style={t.muted}>{inv.from.displayName} ti invita a partecipare</Text>
+    <Button title="Vedi l’uscita" variant="soft" onPress={() => router.push({ pathname: '/evento/[id]', params: { id: inv.eventId } })} />
+    <Button title="Accetta e partecipa" disabled={busy} onPress={() => void answer(true)} />
+    <Button title="Rifiuta" variant="soft" disabled={busy} onPress={() => void answer(false)} />
+    {error ? <Banner tone="error" text={error} /> : null}
+  </Card>;
+}
+
 export default function Notifiche() {
-  const state = useLoad(async () => ({ list: await call<Notification[]>('listNotifications'), invites: await call<InviteView[]>('myClubInvites').catch(() => [] as InviteView[]) }));
+  const state = useLoad(async () => ({ list: await call<Notification[]>('listNotifications'), invites: await call<InviteView[]>('myClubInvites'), eventInvites: await call<EventInviteView[]>('myEventInvites') }));
   useEffect(() => () => void call('markNotificationsRead').catch(() => {}), []);
   return (
     <Screen onRefresh={state.reload}>
       <Stack.Screen options={{ title: 'Notifiche' }} />
       <Async state={state}>
-        {({ list, invites }) => (
+        {({ list, invites, eventInvites }) => (
           <View style={{ gap: S.xl }}>
+            {eventInvites.length ? <Section title="Inviti alle uscite">{eventInvites.map((inv) => <EventInviteCard key={inv.id} inv={inv} onDone={() => void state.reload()} />)}</Section> : null}
             {invites.length ? (
               <Section title="Inviti ai club">
                 <View style={{ gap: S.md }}>
@@ -85,7 +110,7 @@ export default function Notifiche() {
                   </Card>
                 ))}
               </View>
-            ) : !invites.length ? (
+            ) : !invites.length && !eventInvites.length ? (
               <Empty title="Nessuna notifica" />
             ) : null}
           </View>

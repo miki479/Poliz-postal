@@ -124,6 +124,7 @@ export function emptyDb(): DbState {
     recognitionRounds: {},
     reports: {},
     clubInvites: {},
+    eventInvites: {},
     follows: {},
     sparks: {},
     comments: {},
@@ -169,7 +170,7 @@ export function isMember(db: DbState, clubId: Id | null, userId: Id | null): boo
   return !!clubId && !!userId && !!db.memberships[mKey(clubId, userId)];
 }
 
-function isParticipant(db: DbState, eventId: Id, userId: Id | null): boolean {
+export function isParticipant(db: DbState, eventId: Id, userId: Id | null): boolean {
   return !!userId && !!db.participations[pKey(eventId, userId)];
 }
 
@@ -216,11 +217,16 @@ export function notify(ctx: Ctx, userId: Id, type: NotificationType, text: strin
 }
 
 /** Chi può vedere i dettagli completi di un'uscita. */
+export function canInviteEvent(db: DbState, e: RunEvent, userId: Id): boolean {
+  return !!db.users[userId] && (e.organizerId === userId || isParticipant(db, e.id, userId)) && (e.visibility !== 'club' || isMember(db, e.clubId, userId));
+}
+
 function canViewFull(ctx: Ctx, e: RunEvent, token?: string | null): boolean {
   const { db, actorId } = ctx;
   if (actorId && (e.organizerId === actorId || isParticipant(db, e.id, actorId))) return true;
   if (e.visibility === 'public') return true;
   if (e.visibility === 'club') return isMember(db, e.clubId, actorId);
+  if (actorId && Object.values(db.eventInvites ?? {}).some((i) => i.eventId === e.id && i.toId === actorId && i.status === 'pending' && canInviteEvent(db, e, i.fromId))) return true;
   return !!token && token === e.inviteToken;
 }
 
@@ -741,6 +747,7 @@ export function deleteAccount(ctx: Ctx): { deleted: true } {
   for (const a of Object.values(db.activities)) if (a.userId === actor.id) delete db.activities[a.id];
   for (const n of Object.values(db.notifications)) if (n.userId === actor.id) delete db.notifications[n.id];
   for (const i of Object.values(db.clubInvites ?? {})) if (i.fromId === actor.id || i.toId === actor.id) delete db.clubInvites[i.id];
+  for (const i of Object.values(db.eventInvites ?? {})) if (i.fromId === actor.id || i.toId === actor.id) delete db.eventInvites[i.id];
   purgeUserData(ctx, actor.id);
   delete db.users[actor.id];
   ctx.cache = undefined;

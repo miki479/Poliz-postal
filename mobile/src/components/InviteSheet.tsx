@@ -23,8 +23,8 @@ const STATE: Record<InviteState, { sub: string; dot?: string; pill: string | nul
 const inviteUrl = (code: string) => `${API_URL}/invito/${encodeURIComponent(code)}`;
 const shortUrl = (u: string) => u.replace(/^https?:\/\//, '');
 
-function Row({ c, busy, onInvite }: { c: InviteCandidate; busy: boolean; onInvite: () => void }) {
-  const s = STATE[c.state];
+function Row({ c, busy, onInvite, event = false }: { c: InviteCandidate; busy: boolean; onInvite: () => void; event?: boolean }) {
+  const s = event && c.state === 'member' ? { ...STATE.member, sub: 'Partecipa già all’uscita' } : STATE[c.state];
   const name = c.user.displayName;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 64 }}>
@@ -61,7 +61,7 @@ const pill = { minHeight: 36, paddingHorizontal: S.lg, borderRadius: R.pill, fle
  * ogni regola: solo membri, solo amici, un invito in sospeso, pausa dopo un rifiuto), poi il link d'invito reale del club
  * da copiare o condividere con chi non è ancora tra i tuoi amici.
  */
-export function InviteSheet({ visible, onClose, clubId, clubName, inviteCode }: { visible: boolean; onClose: () => void; clubId: string; clubName: string; inviteCode: string }) {
+export function InviteSheet({ visible, onClose, clubId = '', clubName = '', inviteCode = '', eventId }: { visible: boolean; onClose: () => void; clubId?: string; clubName?: string; inviteCode?: string; eventId?: string }) {
   const insets = useSafeAreaInsets();
   const reduce = useReduceMotion();
   const [list, setList] = useState<InviteCandidate[] | null>(null);
@@ -74,8 +74,9 @@ export function InviteSheet({ visible, onClose, clubId, clubName, inviteCode }: 
 
   const load = useCallback(() => {
     setError('');
-    call<InviteCandidate[]>('inviteCandidates', clubId).then(setList, (e) => setError(humanError(e, 'Non riesco a caricare i tuoi amici.')));
-  }, [clubId]);
+    setList(null);
+    call<InviteCandidate[]>(eventId ? 'eventInviteCandidates' : 'inviteCandidates', eventId ?? clubId).then(setList, (e) => setError(humanError(e, 'Non riesco a caricare i tuoi amici.')));
+  }, [clubId, eventId]);
   useEffect(() => {
     if (!visible) return;
     setNote('');
@@ -95,7 +96,7 @@ export function InviteSheet({ visible, onClose, clubId, clubName, inviteCode }: 
     setError('');
     setNote('');
     try {
-      const r = await call<{ sent: number; skipped: number }>('inviteToClub', clubId, [c.user.id]);
+      const r = await call<{ sent: number; skipped: number }>(eventId ? 'inviteToEvent' : 'inviteToClub', eventId ?? clubId, [c.user.id]);
       if (r.sent) {
         // Lo stato reale arriva dal server; intanto la riga mostra subito l'invito partito.
         setList((cur) => cur?.map((x) => (x.user.id === c.user.id ? { ...x, state: 'pending' } : x)) ?? cur);
@@ -149,12 +150,12 @@ export function InviteSheet({ visible, onClose, clubId, clubName, inviteCode }: 
               <Skeleton height={56} />
             </View>
           ) : null}
-          {list && !list.length ? <Text style={t.muted}>Qui compaiono le persone che segui. Seguine qualcuna dal suo profilo per poterla invitare, oppure condividi il link qui sotto.</Text> : null}
+          {list && !list.length ? <Text style={t.muted}>{eventId ? 'Qui compaiono le persone che segui e che possono accedere all’uscita. Per le uscite del club devono esserne membri.' : 'Qui compaiono le persone che segui. Seguine qualcuna dal suo profilo per poterla invitare, oppure condividi il link qui sotto.'}</Text> : null}
           {list && list.length > 0 && !shown.length ?<Text style={t.muted}>Nessuna persona che segui corrisponde a “{q.trim()}”.</Text> : null}
           {shown.length ? (
             <View>
               {shown.map((c) => (
-                <Row key={c.user.id} c={c} busy={busyId === c.user.id} onInvite={() => void invite(c)} />
+                <Row key={c.user.id} c={c} busy={busyId !== null} event={!!eventId} onInvite={() => void invite(c)} />
               ))}
             </View>
           ) : null}

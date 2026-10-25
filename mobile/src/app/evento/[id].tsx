@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { InviteSheet } from '@/components/InviteSheet';
 import { ActionSheetIOS, Alert, Platform, Pressable, Share, StyleSheet, Text, View, type AlertButton } from 'react-native';
 
 import { EventScene, EventSigns, GlassChip, JoinStatus, paceNum, PersonRow } from '@/components/cards';
@@ -239,6 +240,7 @@ export default function EventoDettaglio() {
   const [km, setKm] = useState('');
   const [min, setMin] = useState('');
   const [confirming, setConfirming] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const clubImage = useClubImage(state.data?.club?.id);
 
   function organizerMenu(e: EventView) {
@@ -352,6 +354,12 @@ export default function EventoDettaglio() {
             <Weather e={e} />
             <PlanFit e={e} />
             <RecognizeInvite e={e} autoOpen={recognize === '1'} />
+            {!e.isPast && e.status === 'active' && (e.viewer.isOrganizer || e.viewer.isParticipant) && !e.restricted ? (
+              <>
+                <Button title="Invita amici all’uscita" variant="soft" iconName="person-add-outline" onPress={() => setInviting(true)} />
+                <InviteSheet visible={inviting} onClose={() => setInviting(false)} eventId={e.id} />
+              </>
+            ) : null}
             <Pact e={e} />
 
             {/* 2. Percorso, organizzatore, partecipanti, dettagli */}

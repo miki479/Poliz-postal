@@ -40,7 +40,9 @@ const NIGHT_INK = '#1D4FBF';
 /* ---------- finestra di conquista ---------- */
 
 function useStill(): boolean {
-  return useReduceMotion() || useReducedMotion();
+  const app = useReduceMotion();
+  const system = useReducedMotion();
+  return app || system;
 }
 
 /** Raggi e bagliore fermi dietro la medaglia (decorativi). */

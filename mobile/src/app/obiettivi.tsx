@@ -52,7 +52,9 @@ const pctOf = (g: GoalProgress) => (g.goal.target > 0 ? g.current / g.goal.targe
 
 /** Anello di avanzamento che si riempie fino al valore reale (fermo con movimento ridotto). */
 function Ring({ pct, size = 88, stroke = 9, tint, children }: { pct: number; size?: number; stroke?: number; tint: string; children: React.ReactNode }) {
-  const still = useReduceMotion() || useReducedMotion();
+  const appReduce = useReduceMotion();
+  const systemReduce = useReducedMotion();
+  const still = appReduce || systemReduce;
   const target = Math.max(0, Math.min(1, pct));
   const p = useSharedValue(still ? target : 0);
   useEffect(() => {

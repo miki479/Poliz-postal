@@ -24,7 +24,9 @@ const HR = color.danger;
 const ALT = color.success;
 
 function useStill(): boolean {
-  return useReduceMotion() || useReducedMotion();
+  const app = useReduceMotion();
+  const system = useReducedMotion();
+  return app || system;
 }
 
 /* ---------- grafico con assi (solo valori reali della fonte) ---------- */

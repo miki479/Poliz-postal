@@ -39,11 +39,18 @@ export type IconName = keyof typeof Ionicons.glyphMap;
 
 /** true se l'utente ha chiesto di ridurre il movimento: niente animazioni decorative. */
 export function useReduceMotion(): boolean {
-  const [on, setOn] = useState(false);
+  const [on, setOn] = useState(true);
   useEffect(() => {
-    void AccessibilityInfo.isReduceMotionEnabled().then(setOn);
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setOn);
-    return () => sub.remove();
+    let active = true;
+    let changed = false;
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (value) => {
+      changed = true;
+      setOn(value);
+    });
+    void AccessibilityInfo.isReduceMotionEnabled().then((value) => {
+      if (active && !changed) setOn(value);
+    }, () => {});
+    return () => { active = false; sub.remove(); };
   }, []);
   return on;
 }

@@ -63,13 +63,13 @@ export default function Collezione() {
       <Stack.Screen options={{ title: 'Collezione' }} />
       <PillTabs options={MODES} value={mode} onChange={setMode} />
       {mode === 'sport' ? (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }} accessibilityRole="tablist">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: S.xs }} accessibilityRole="tablist">
           {COLLECTION_SPORTS.map((s) => (
             <Tile key={s} on={sport === s} label={SPORT_NAME[s]} onPress={() => setSport(s)}>
               <SportSquare sport={s} tint={sport === s ? color.accent : color.textSecondary} size={44} filled={sport === s} />
             </Tile>
           ))}
-        </View>
+        </ScrollView>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -GUTTER }} contentContainerStyle={{ paddingHorizontal: GUTTER, gap: S.xs }} accessibilityRole="tablist">
           {KINDS.map((k) => (

@@ -30,7 +30,7 @@ const ROW: Record<GoalType, { label: string; icon: IconName; tint: string }> = {
 const ORDER: GoalType[] = ['weekly_km', 'weekly_minutes', 'consistency', 'group'];
 
 const num = (v: number) => String(Math.round(v * 10) / 10).replace('.', ',');
-const hm = (min: number) => `${Math.floor(min / 60)}:${String(Math.round(min % 60)).padStart(2, '0')}`;
+const hm = (min: number) => { const total = Math.round(min); return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`; };
 
 /** "23,4 / 50 km", "3:12 / 5:00 h", "3 / 4". */
 function progressText(g: GoalProgress): string {

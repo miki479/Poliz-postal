@@ -88,7 +88,7 @@ export interface FirestoreLike {
 type Records = Record<string, unknown>;
 const BATCH = 400; // il limite di Firestore è 500 operazioni per batch
 
-const DB_TABLES = ['users', 'clubs', 'memberships', 'events', 'participations', 'activities', 'notifications', 'challenges', 'challengeParticipants', 'routes', 'routeFavorites', 'plans', 'sessions', 'workoutLogs', 'routines', 'checkins', 'planStates', 'planChanges', 'goals', 'recognitions', 'recognitionRounds', 'reports', 'follows', 'sparks', 'comments', 'clubInvites', 'eventInvites'] as const;
+const DB_TABLES = ['users', 'clubs', 'memberships', 'events', 'participations', 'activities', 'notifications', 'challenges', 'challengeParticipants', 'routes', 'routeFavorites', 'plans', 'sessions', 'workoutLogs', 'routines', 'checkins', 'planStates', 'planChanges', 'goals', 'recognitions', 'recognitionRounds', 'reports', 'follows', 'sparks', 'comments', 'clubInvites', 'eventInvites', 'gear'] as const;
 
 export class FirestoreStorage implements Storage {
   kind = 'firestore' as const;

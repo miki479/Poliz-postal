@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { newActivity } from '../shared/activities.ts';
 import { call } from '../shared/api.ts';
 import { AppError, DEFAULT_PRIVACY, emptyDb, type Ctx } from '../shared/engine.ts';
-import type { SocialCounts } from '../shared/social.ts';
-import type { FeedItem, UserPublic } from '../shared/types.ts';
+import { feedTrack, type SocialCounts } from '../shared/social.ts';
+import type { FeedItem, UserPublic, WorkoutLog } from '../shared/types.ts';
 
 const NOW = new Date('2026-10-24T12:00:00.000Z');
 let db: ReturnType<typeof emptyDb>;
@@ -28,6 +28,30 @@ beforeEach(() => {
 const itemOfB = () => run<Array<FeedItem & { social: SocialCounts }>>('a', 'getSocialFeed')[0];
 
 describe('segui, scintille e commenti', () => {
+  it('il percorso nel feed richiede consenso separato e protegge gli estremi', () => {
+    const log: WorkoutLog = { id: 'gps', userId: 'b', plannedSessionId: null, kind: 'run_free', title: 'Corsa GPS', startedAt: NOW.toISOString(), durationSec: 600, distanceKm: 1.2, paceSecPerKm: 500, rpe: null, difficulties: '', notes: '', sets: [], mode: 'timer', activityId: null, shared: true, origin: 'app', track: Array.from({ length: 13 }, (_, i) => ({ lat: 0, lng: i * 0.001, t: NOW.getTime() + i * 50000, alt: 50 })), createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() };
+    db.workoutLogs.gps = log; run('a', 'follow', ['b']);
+    expect(feedTrack(log)).toBeUndefined();
+    log.mapShared = true; expect(feedTrack(log)).toBeUndefined();
+    expect(code(() => run('a', 'setTrackVisibility', ['gps', true]))).toBe('not_found');
+    run('b', 'setTrackVisibility', ['gps', true]);
+    const trace = feedTrack(log)!;
+    expect(trace[0].lng).toBeGreaterThan(0.002); expect(trace.at(-1)!.lng).toBeLessThan(0.01);
+    expect(trace[0]).not.toHaveProperty('alt');
+    const item = run<FeedItem[]>('a', 'getSocialFeed').find((x) => x.kind === 'workout_shared');
+    expect(item?.kind === 'workout_shared' && item.workout.track).toEqual(trace);
+    log.origin = 'strava'; expect(feedTrack(log)).toBeUndefined();
+    log.origin = 'file'; expect(feedTrack(log)).toBeUndefined();
+    log.origin = 'app'; log.shared = false; expect(feedTrack(log)).toBeUndefined();
+  });
+  it('i suggerimenti non pubblicano passi derivati da attività private o Strava altrui', () => {
+    for (let i = 0; i < 2; i++) {
+      const activity = newActivity(NOW, { userId: 'b', source: 'strava', sport: 'running', date: NOW.toISOString(), distanceKm: 10, durationMin: 45, visibility: 'private' });
+      db.activities[activity.id] = activity;
+    }
+    const suggestions = run<Array<{ user: UserPublic; paceSecPerKm: number | null }>>('a', 'suggestRunners');
+    expect(suggestions.find((s) => s.user.id === 'b')?.paceSecPerKm).toBeNull();
+  });
   it('seguire mostra nel feed le attività condivise, anche senza club in comune', () => {
     expect(run<FeedItem[]>('a', 'getSocialFeed')).toHaveLength(0);
     run('a', 'follow', ['b']);

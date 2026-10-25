@@ -9,7 +9,9 @@
  */
 import { AppError, getFeed, notify, toPublic, registerPurger, type Ctx } from './engine.ts';
 import { newId } from './ids.ts';
-import type { FeedItem, Id, UserPublic } from './types.ts';
+import type { FeedItem, Id, UserPublic, WorkoutLog, TrackPoint } from './types.ts';
+import { haversineKm } from './time.ts';
+import { downsample } from './track.ts';
 import { clean } from './validation.ts';
 
 export interface Follow { id: string; fromId: Id; toId: Id; createdAt: string }
@@ -85,7 +87,7 @@ export function listFollowers(ctx: Ctx): UserPublic[] {
 
 function avgPace(ctx: Ctx, uid: Id): number | null {
   const since = ctx.now.getTime() - 60 * 86_400_000;
-  const xs = Object.values(ctx.db.activities).filter((a) => a.userId === uid && a.sport === 'running' && a.distanceKm && a.durationMin && a.distanceKm >= 2 && Date.parse(a.date) >= since);
+  const xs = Object.values(ctx.db.activities).filter((a) => a.userId === uid && (uid === ctx.actorId || (a.visibility === 'shared' && a.source !== 'strava')) && a.sport === 'running' && a.distanceKm && a.durationMin && a.distanceKm >= 2 && Date.parse(a.date) >= since);
   if (xs.length < 2) return null;
   const km = xs.reduce((s, a) => s + a.distanceKm!, 0);
   const sec = xs.reduce((s, a) => s + a.durationMin! * 60, 0);
@@ -191,9 +193,36 @@ export function deleteComment(ctx: Ctx, id: Id): { deleted: true } {
 }
 
 /** Feed con i conteggi social già inclusi (una sola richiesta). */
+export function feedTrack(log: WorkoutLog): TrackPoint[] | undefined {
+  if (!log.shared || !log.traceShared || (log.origin && log.origin !== 'app')) return undefined;
+  const track = (log.track ?? []).filter((p) => Number.isFinite(p.lat) && Math.abs(p.lat) <= 90 && Number.isFinite(p.lng) && Math.abs(p.lng) <= 180 && Number.isFinite(p.t));
+  const dist = [0];
+  for (let i = 1; i < track.length; i++) dist.push(dist[i - 1] + haversineKm(track[i - 1], track[i]));
+  const total = dist.at(-1) ?? 0;
+  const inner = track.filter((p, i) => dist[i] >= 0.3 && total - dist[i] >= 0.3 && haversineKm(track[0], p) >= 0.3 && haversineKm(track[track.length - 1], p) >= 0.3);
+  if (inner.length < 2) return undefined;
+  // Esclude 300 m a ogni estremo e rimuove misure dei sensori e accuratezza.
+  return downsample(inner, 180).map(({ lat, lng, t }) => ({ lat, lng, t }));
+}
+
+export function setTrackVisibility(ctx: Ctx, id: Id, on: boolean): { traceShared: boolean } {
+  const uid = actor(ctx); const log = ctx.db.workoutLogs[id];
+  if (!log || log.userId !== uid) throw new AppError('not_found', 'Attività non trovata.');
+  if (typeof on !== 'boolean') throw new AppError('validation', 'Scegli se condividere il percorso.');
+  if ((log.origin && log.origin !== 'app') || !log.track || log.track.length < 2) throw new AppError('validation', 'Puoi condividere solo un percorso GPS registrato con Runngo.');
+  log.traceShared = on; log.updatedAt = ctx.now.toISOString();
+  return { traceShared: on };
+}
+
 export function getSocialFeed(ctx: Ctx, limit = 40): Array<FeedItem & { social: SocialCounts }> {
   const uid = actor(ctx);
-  return getFeed(ctx, limit).map((f) => ({ ...f, social: countsFor(ctx, f.id, uid) }));
+  return getFeed(ctx, limit).map((f) => {
+    if (f.kind === 'workout_shared') {
+      const log = ctx.db.workoutLogs[f.id.slice(2)]; const track = log ? feedTrack(log) : undefined;
+      if (track) return { ...f, workout: { ...f.workout, track }, social: countsFor(ctx, f.id, uid) };
+    }
+    return { ...f, social: countsFor(ctx, f.id, uid) };
+  });
 }
 
 registerPurger((ctx, userId) => {
@@ -202,5 +231,5 @@ registerPurger((ctx, userId) => {
   for (const [k, c] of Object.entries(ctx.db.comments)) if (c.userId === userId) delete ctx.db.comments[k];
 });
 
-export const socialMethods = { follow, unfollow, removeFollower, followInfo, listFollowers, suggestRunners, toggleSpark, socialFor, sparkersOf, listComments, addComment, deleteComment, getSocialFeed } as const;
+export const socialMethods = { follow, unfollow, removeFollower, followInfo, listFollowers, suggestRunners, toggleSpark, socialFor, sparkersOf, listComments, addComment, deleteComment, getSocialFeed, setTrackVisibility } as const;
 export const SOCIAL_READ_ONLY = ['followInfo', 'listFollowers', 'suggestRunners', 'socialFor', 'sparkersOf', 'listComments', 'getSocialFeed'];

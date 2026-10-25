@@ -49,6 +49,14 @@ function sample(): Persisted {
 }
 
 describe('FirestoreStorage', () => {
+  it('salva e ricarica l’attrezzatura nella tabella dedicata', async () => {
+    const fs = new FakeFirestore(); const storage = new FirestoreStorage(fs, 'gear_');
+    const p = sample();
+    p.db.gear.scarpe = { id: 'scarpe', userId: 'usr_a', name: 'Scarpe strada', sport: 'running', initialKm: null, retired: false, createdAt: '2026-10-25T12:00:00Z', updatedAt: '2026-10-25T12:00:00Z' };
+    await storage.save(p);
+    expect((await new FirestoreStorage(fs, 'gear_').load()).db.gear).toEqual(p.db.gear);
+    expect(fs.data.has('gear_db_gear/scarpe')).toBe(true);
+  });
   it('conserva gli inviti alle uscite nella nuova tabella', async () => {
     const fs = new FakeFirestore(); const storage = new FirestoreStorage(fs, 'inv_');
     const p = sample();

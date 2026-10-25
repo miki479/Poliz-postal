@@ -124,6 +124,7 @@ export function emptyDb(): DbState {
     recognitionRounds: {},
     reports: {},
     clubInvites: {},
+    gear: {},
     eventInvites: {},
     follows: {},
     sparks: {},
@@ -752,6 +753,7 @@ export function deleteAccount(ctx: Ctx): { deleted: true } {
   for (const n of Object.values(db.notifications)) if (n.userId === actor.id) delete db.notifications[n.id];
   for (const i of Object.values(db.clubInvites ?? {})) if (i.fromId === actor.id || i.toId === actor.id) delete db.clubInvites[i.id];
   for (const i of Object.values(db.eventInvites ?? {})) if (i.fromId === actor.id || i.toId === actor.id) delete db.eventInvites[i.id];
+  for (const g of Object.values(db.gear ?? {})) if (g.userId === actor.id) delete db.gear[g.id];
   purgeUserData(ctx, actor.id);
   delete db.users[actor.id];
   ctx.cache = undefined;

@@ -201,6 +201,7 @@ export interface DbState {
   reports: Record<Id, UserReport>;
   follows: Record<string, import('./social.ts').Follow>;
   clubInvites: Record<string, import('./invites.ts').ClubInvite>;
+  gear: Record<string, import('./gear.ts').Gear>;
   eventInvites: Record<string, import('./eventInvites.ts').EventInvite>;
   sparks: Record<string, import('./social.ts').Spark>;
   comments: Record<Id, import('./social.ts').Comment>;
@@ -308,7 +309,7 @@ export type FeedItem =
   | { kind: 'event_created'; id: string; at: string; user: UserPublic; event: EventView }
   | { kind: 'event_joined'; id: string; at: string; user: UserPublic; event: EventView }
   | { kind: 'run_completed'; id: string; at: string; user: UserPublic; activity: Activity }
-  | { kind: 'workout_shared'; id: string; at: string; user: UserPublic; workout: { title: string; kind: SessionKind; durationMin: number; distanceKm: number | null } };
+  | { kind: 'workout_shared'; id: string; at: string; user: UserPublic; workout: { title: string; kind: SessionKind; durationMin: number; distanceKm: number | null; track?: TrackPoint[] } };
 
 export interface EventQuery {
   /** Filtro effimero: non memorizzare la posizione del richiedente. */
@@ -808,6 +809,12 @@ export interface WorkoutLog {
   activityId: Id | null;
   /** L'utente ha scelto di condividere il completamento con i compagni di club. */
   shared: boolean;
+  /** Scelta esplicita per la mappa aggregata anonima (non abilita il percorso nel feed). */
+  mapShared?: boolean;
+  /** Scelta esplicita per mostrare ai compagni una traccia con partenza/arrivo protetti. */
+  traceShared?: boolean;
+  /** Attrezzatura scelta esplicitamente dal proprietario. */
+  gearId?: Id | null;
   /** Tracciato registrato dal GPS dell'app (semplificato). Assente per i log inseriti a mano. */
   track?: TrackPoint[] | null;
   /** Contesto della registrazione nell'app. */

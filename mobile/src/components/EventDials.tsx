@@ -1,12 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useIsFocused } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
+  KeyboardAvoidingView,
+  Modal,
   PanResponder,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -19,13 +24,15 @@ import {
   type ViewInstance,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { alpha, mix } from '@/components/event/colors';
 import { OptionChip } from '@/components/event/OptionChip';
 import { Reveal } from '@/components/event/Reveal';
 import { SectionTitle } from '@/components/event/SectionTitle';
-import { ActivityGlyph, SportGlyph, type Glyph, type Pose } from '@/components/SportIcon';
-import { IconButton, useReduceMotion, type IconName } from '@/components/ui';
+import { ActivityGlyph, AnimatedActivityFigure, type Glyph } from '@/components/SportIcon';
+import { Banner, Button, Field, IconButton, useReduceMotion, type IconName } from '@/components/ui';
+import { paceFromFields } from '@/lib/paceInput';
 import { styleOfSport } from '@/constants/activityColors';
 import { color, HIT, M, R, S, type } from '@/constants/theme';
 import {
@@ -153,7 +160,7 @@ function useScaleDrag(handlers: DragHandlers) {
   const h = useLatest(handlers);
   const touch = useRef({ x0: 0, y0: 0, at: 0, dragged: false, last: 0 });
   const measure = () =>
-    railRef.current?.measure((_x, _y, _w, _h, pageX) => {
+    railRef.current?.measureInWindow((pageX) => {
       if (Number.isFinite(pageX)) origin.current = pageX;
     });
   const [pan] = useState(() => {
@@ -576,108 +583,16 @@ export function DistanceDial({ sport, value, onChange }: { sport: EventSport; va
 
 type PacedSport = Exclude<EventSport, 'other'>;
 
-/** Figura del ritmo per tipo: le stesse di SportIcon (tutte con le due pose). */
+/** Figura del ritmo per tipo: le stesse proporzioni e la stessa geometria di SportIcon. */
 const PACE_GLYPH: Record<PacedSport, Glyph> = { running: 'run', walking: 'walk', trail: 'trail', run_walk: 'run_walk' };
 
-/** Durata di una posa: più veloce = falcate più frequenti. La camminata resta rilassata, corsa + camminata sta in mezzo. */
-const STRIDE: Record<PacedSport, [number, number]> = { running: [430, 180], trail: [460, 220], run_walk: [540, 300], walking: [640, 440] };
-/** Molleggio (px a 44 di figura): la corsa rimbalza, la camminata appena. */
-const BOB: Record<PacedSport, number> = { running: 2.4, trail: 2.2, run_walk: 1.8, walking: 1.2 };
-
-function strideMs(sport: PacedSport, pace: number): number {
-  const f = paceToFrac(sport, pace);
-  const [slow, fast] = STRIDE[sport];
-  return Math.round(slow + (fast - slow) * f);
-}
-function windLines(sport: PacedSport, pace: number): number {
-  const f = paceToFrac(sport, pace);
-  if (sport === 'walking') return f >= 0.8 ? 1 : 0;
-  if (sport === 'run_walk') return f >= 0.66 ? 2 : f >= 0.33 ? 1 : 0;
-  return f >= 0.75 ? 3 : f >= 0.5 ? 2 : f >= 0.25 ? 1 : 0;
-}
-/** Giro delle linee di vento: dipende solo da quante sono, così trascinando il ritmo il ciclo non riparte a ogni passo. */
-const WIND_MS = [0, 1100, 850, 650] as const;
-
-const FIG = 72;
-
-/** La figura che alterna le pose: ha il suo stato, così il resto dell'illustrazione non si ridisegna a ogni passo. */
-function Strider({ glyph, period, moving, tint, bob }: { glyph: Glyph; period: number | null; moving: boolean; tint: string; bob: Animated.Value }) {
-  const [pose, setPose] = useState<Pose>(0);
-  const periodRef = useLatest(period);
-  useEffect(() => {
-    if (!moving) {
-      setPose(0);
-      bob.setValue(0);
-      return;
-    }
-    let timer: ReturnType<typeof setTimeout>;
-    const beat = () => {
-      const p = periodRef.current ?? 400;
-      setPose((q) => (q === 0 ? 1 : 0));
-      Animated.sequence([
-        Animated.timing(bob, { toValue: 1, duration: p * 0.4, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(bob, { toValue: 0, duration: p * 0.5, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ]).start();
-      timer = setTimeout(beat, p);
-    };
-    timer = setTimeout(beat, periodRef.current ?? 400);
-    return () => {
-      clearTimeout(timer);
-      bob.stopAnimation();
-    };
-  }, [moving, bob, periodRef]);
-  return <SportGlyph glyph={glyph} pose={pose} size={FIG} color={tint} />;
-}
-
-/** Illustrazione del ritmo (solo decorativa): falcata, molleggio e linee di vento legati al passo. */
+/** Figura continua e cadenza interpolata: il tipo cambia senza azzerare il ciclo. */
 function PaceRunner({ sport, pace, tint }: { sport: PacedSport; pace: number | null; tint: string }) {
-  const reduce = useReduceMotion();
-  const bob = useRef(new Animated.Value(0)).current;
-  const wind = useRef(new Animated.Value(0.35)).current;
-  const period = pace === null ? null : strideMs(sport, pace);
-  const lines = pace === null ? 0 : windLines(sport, pace);
-  const moving = !reduce && period !== null;
-  const windMs = WIND_MS[lines] ?? 0;
-  const amp = BOB[sport] * (FIG / 44);
-  const bobY = useMemo(() => bob.interpolate({ inputRange: [0, 1], outputRange: [0, amp] }), [bob, amp]);
-  const phases = useMemo(() => [0, 1, 2].map((i) => Animated.modulo(Animated.add(wind, i / 3), 1)), [wind]);
-
-  useEffect(() => {
-    if (!moving || !windMs) {
-      wind.setValue(0.35);
-      return;
-    }
-    wind.setValue(0);
-    const loop = Animated.loop(Animated.timing(wind, { toValue: 1, duration: windMs, easing: Easing.linear, useNativeDriver: true }));
-    loop.start();
-    return () => loop.stop();
-  }, [moving, windMs, wind]);
-
-  return (
-    <View style={{ width: 108, height: 88 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {phases.slice(0, lines).map((v, i) => (
-        <Animated.View
-          key={i}
-          style={{
-            position: 'absolute',
-            left: 2 + i * 4,
-            top: 26 + i * 14,
-            width: 22 - i * 5,
-            height: 3,
-            borderRadius: 1.5,
-            backgroundColor: tint,
-            opacity: v.interpolate({ inputRange: [0, 0.2, 0.75, 1], outputRange: [0, 0.85, 0.4, 0] }),
-            transform: [{ translateX: v.interpolate({ inputRange: [0, 1], outputRange: [6, -12] }) }],
-          }}
-        />
-      ))}
-      {/* Ombra a terra: resta ferma mentre la figura molleggia. */}
-      <View style={{ position: 'absolute', left: 34, bottom: 4, width: 52, height: 6, borderRadius: 3, backgroundColor: alpha(tint, 0.2) }} />
-      <Animated.View style={{ position: 'absolute', left: 26, top: 4, transform: [{ translateY: bobY }] }}>
-        <Strider glyph={PACE_GLYPH[sport]} period={period} moving={moving} tint={tint} bob={bob} />
-      </Animated.View>
-    </View>
-  );
+  const focused = useIsFocused();
+  return <View style={{ width: 108, height: 88, alignItems: 'center', justifyContent: 'center' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <View style={{ position: 'absolute', bottom: 2, width: 48, height: 5, borderRadius: 3, backgroundColor: alpha(tint, 0.18) }} />
+    <AnimatedActivityFigure glyph={PACE_GLYPH[sport]} size={76} color={tint} pace={pace} active={focused && pace !== null} />
+  </View>;
 }
 
 /** Onde morbide dietro la figura, come lo sfondo della card del ritmo nel mockup (decorative). */
@@ -693,13 +608,12 @@ function Waves({ tint }: { tint: string }) {
 }
 
 /** Spiegazione dell'animazione, come sotto la scala del mockup (solo quando la figura si muove davvero). */
-const STRIDE_NOTE = 'Ritmi più lenti mostrano un movimento più rilassato, mentre ritmi più veloci aumentano la frequenza delle falcate e gli effetti del vento.';
+const STRIDE_NOTE = 'La figura segue il ritmo scelto: una falcata più rilassata o più frequente. È un’illustrazione, non una misura della tua cadenza.';
 const MOTION_NOTE: Record<PacedSport, string> = {
   running: STRIDE_NOTE,
   trail: STRIDE_NOTE,
   run_walk: STRIDE_NOTE,
-  // La camminata ha al massimo una linea di vento, e solo al passo più svelto: si parla dei passi.
-  walking: 'Ritmi più lenti mostrano un movimento più rilassato, mentre ritmi più veloci aumentano la frequenza dei passi.',
+  walking: 'La figura segue il ritmo scelto: passi più rilassati o più frequenti. È un’illustrazione, non una misura della tua cadenza.',
 };
 
 /**
@@ -710,10 +624,14 @@ const MOTION_NOTE: Record<PacedSport, string> = {
  */
 export function PaceDial({ sport, value, km, onChange }: { sport: PacedSport; value: number | null; km: number | null; onChange: (sec: number | null) => void }) {
   const reduce = useReduceMotion();
+  const insets = useSafeAreaInsets();
   const tint = styleOfSport(sport).solid;
   const scale = PACE_SCALE[sport];
   const [live, setLive] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [minutes, setMinutes] = useState('');
+  const [seconds, setSeconds] = useState('');
+  const [inputError, setInputError] = useState('');
   const lastTick = useRef<number | null>(null);
   const turn = useRef(new Animated.Value(0)).current;
   const shown = live ?? value;
@@ -725,6 +643,10 @@ export function PaceDial({ sport, value, km, onChange }: { sport: PacedSport; va
     Animated.timing(turn, { toValue: open ? 1 : 0, duration: M.local, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [open, reduce, turn]);
 
+  const draft = (v: number) => { setMinutes(String(Math.floor(v / 60))); setSeconds(String(v % 60).padStart(2, '0')); setLive(v); setInputError(''); };
+  const openPicker = () => { if (value !== null) draft(value); else { setMinutes(''); setSeconds(''); setLive(null); } setInputError(''); setOpen(true); };
+  const closePicker = () => { setLive(null); setOpen(false); };
+  const savePicker = () => { const v = paceFromFields(minutes, seconds); if (v === null) return setInputError('Indica minuti e secondi: da 2:00 a 15:00 min/km, con secondi da 00 a 59.'); commit(v); closePicker(); };
   const valueAt = (f: number, tick: number) => (tick >= 0 ? scale.labels[tick] : fracToPace(sport, 1 - f));
   const feel = (v: number) => {
     const isTick = scale.labels.includes(v);
@@ -737,20 +659,16 @@ export function PaceDial({ sport, value, km, onChange }: { sport: PacedSport; va
   const onDrag = (f: number, tick: number, end: boolean) => {
     const v = valueAt(f, tick);
     if (end) {
-      setLive(null);
       lastTick.current = null;
-      return commit(v);
+      return draft(v);
     }
     feel(v);
-    if (v !== live) setLive(v);
+    if (v !== live) draft(v);
   };
   const onTap = (f: number, tick: number) => {
-    const v = valueAt(f, tick);
-    feel(v);
-    lastTick.current = null;
-    commit(v);
+    const v = valueAt(f, tick); feel(v); lastTick.current = null; draft(v);
   };
-  const step = (dir: 1 | -1) => commit(stepPace(value, dir, sport));
+  const step = (dir: 1 | -1) => draft(stepPace(shown, dir, sport));
   const speed = shown ? `${fmtNum(3600 / shown, 1)} km/h` : '';
   const note = shown === null ? 'Facoltativo: trascina la scala o tocca un valore' : [speed, km ? `${kmText(km)} km in circa ${aboutDuration(km * shown)}` : null].filter(Boolean).join(' · ');
   const said = shown === null ? 'non indicato' : `${clock(shown)} minuti al chilometro`;
@@ -769,10 +687,10 @@ export function PaceDial({ sport, value, km, onChange }: { sport: PacedSport; va
         <LinearGradient colors={[alpha(tint, 0.26), alpha(tint, 0.06)]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
         <Waves tint={tint} />
         <Pressable
-          onPress={() => setOpen((o) => !o)}
+          onPress={openPicker}
           accessibilityRole="button"
           accessibilityLabel={`Ritmo: ${said}`}
-          accessibilityHint={open ? 'Nasconde la scala del ritmo' : 'Mostra la scala per scegliere il ritmo'}
+          accessibilityHint="Apre il pannello per impostare minuti e secondi al chilometro"
           accessibilityState={{ expanded: open }}
           style={({ pressed }) => [st.paceHead, pressed && { opacity: 0.8 }]}>
           <PaceRunner sport={sport} pace={shown} tint={tint} />
@@ -785,12 +703,27 @@ export function PaceDial({ sport, value, km, onChange }: { sport: PacedSport; va
               )}
             </Count>
             <Text style={st.unit}>min/km</Text>
+            {value === null ? <Text style={[type.caption, { color: color.textSecondary, marginTop: S.xs }]}>Tocca per impostare</Text> : null}
           </View>
           <Animated.View style={{ transform: [{ rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '90deg'] }) }] }}>
             <Ionicons name="chevron-forward" size={22} color={color.textSecondary} />
           </Animated.View>
         </Pressable>
-        <Reveal open={open}>
+        <Modal visible={open} transparent animationType={reduce ? 'none' : 'fade'} onRequestClose={closePicker} statusBarTranslucent>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+            <Pressable style={{ flex: 1, backgroundColor: color.overlay }} onPress={closePicker} accessibilityRole="button" accessibilityLabel="Chiudi il selettore del ritmo" />
+            <View accessibilityViewIsModal style={{ maxHeight: '90%', backgroundColor: color.surface, borderTopLeftRadius: R.sheet, borderTopRightRadius: R.sheet, paddingBottom: insets.bottom + S.md }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, paddingHorizontal: S.xl, paddingTop: S.md }}>
+                <Text style={[type.title2, { flex: 1, color: color.text }]} accessibilityRole="header">Imposta il ritmo</Text>
+                <IconButton name="close" label="Chiudi il selettore del ritmo" onPress={closePicker} filled />
+              </View>
+              <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }} contentContainerStyle={{ padding: S.xl, gap: S.lg }}>
+          <View style={{ flexDirection: 'row', gap: S.md }}>
+            <View style={{ flex: 1 }}><Field label="Minuti" value={minutes} onChangeText={(text) => { const value = text.replace(/\D/g, '').slice(0, 2); setMinutes(value); setLive(paceFromFields(value, seconds)); setInputError(''); }} keyboardType="number-pad" maxLength={2} placeholder="5" /></View>
+            <View style={{ flex: 1 }}><Field label="Secondi" value={seconds} onChangeText={(text) => { const value = text.replace(/\D/g, '').slice(0, 2); setSeconds(value); setLive(paceFromFields(minutes, value)); setInputError(''); }} keyboardType="number-pad" maxLength={2} placeholder="30" /></View>
+          </View>
+          <Text style={[type.footnote, { color: color.textSecondary }]}>Minuti al chilometro. Scrivi il valore esatto oppure trascina la scala.</Text>
+          {inputError ? <Banner tone="error" text={inputError} /> : null}
           <View style={{ paddingHorizontal: S.md, paddingBottom: S.md }}>
             <DialScale
               frac={pos}
@@ -809,7 +742,11 @@ export function PaceDial({ sport, value, km, onChange }: { sport: PacedSport; va
             </Text>
             {!reduce ? <Text style={[st.note, { color: color.textSecondary, paddingTop: S.xs }]}>{MOTION_NOTE[sport]}</Text> : null}
           </View>
-        </Reveal>
+              </ScrollView>
+              <View style={{ paddingHorizontal: S.xl }}><Button title="Conferma ritmo" onPress={savePicker} /></View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       </View>
     </View>
   );
@@ -821,7 +758,7 @@ export function PaceDial({ sport, value, km, onChange }: { sport: PacedSport; va
 const LEVEL_COLORS = ['#38D39F', '#B5D957', '#F2C14E', '#FF8A5C', '#E86AD6'] as const;
 const BAR_H = 10;
 const BAR_THUMB = 28;
-const BAR_AREA = 40;
+const BAR_AREA = 48;
 /** Titolo + due righe di descrizione: altezza fissa, così il cambio di livello non sposta nulla. */
 const LEVEL_TEXT_H = type.title2.lineHeight + 2 * type.footnote.lineHeight;
 /** Etichette sotto la barra (come nel mockup): i tre livelli di riferimento. */
@@ -844,6 +781,7 @@ function levelIntro(sport: EventSport): string {
  */
 export function LevelBar({ sport, level, auto, estimate, onChange, onReset }: { sport: EventSport; level: UiLevel; auto: boolean; estimate?: UiLevel; onChange: (l: UiLevel) => void; onReset: () => void }) {
   const reduce = useReduceMotion();
+  const focused = useIsFocused();
   const [w, setW] = useState(0);
   const [live, setLiveState] = useState<UiLevel | null>(null);
   // Copia sincrona del livello trascinato: più eventi di movimento possono arrivare prima del nuovo render,
@@ -920,7 +858,7 @@ export function LevelBar({ sport, level, auto, estimate, onChange, onReset }: { 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md }}>
           {/* Come nel mockup: la figura dell'attività da sola, senza cerchio, nel colore del livello. */}
           <View style={st.levelIcon} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-            <ActivityGlyph style={sportStyle} size={44} color={tint} />
+            {sportStyle.glyph ? <AnimatedActivityFigure glyph={sportStyle.glyph} size={44} color={tint} level={shown} active={focused} /> : <ActivityGlyph style={sportStyle} size={44} color={tint} />}
           </View>
           <View style={{ flex: 1, minHeight: LEVEL_TEXT_H, justifyContent: 'center' }} accessible accessibilityLabel={`Livello ${levelLabel(shown)}. ${levelHint(shown)}`}>
             <Text style={[type.title2, { color: color.text, fontWeight: '800' }]} numberOfLines={1}>

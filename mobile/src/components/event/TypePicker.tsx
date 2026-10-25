@@ -1,21 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useIsFocused } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 
 import { alpha, shade } from '@/components/event/colors';
-import { ActivityGlyph } from '@/components/SportIcon';
+import { ActivityGlyph, AnimatedActivityFigure } from '@/components/SportIcon';
 import { useReduceMotion } from '@/components/ui';
 import { EVENT_SPORTS, eventSportStyle } from '@/constants/eventStyle';
 import { color, R, S, type } from '@/constants/theme';
 import { SPORT_LABEL } from '@/lib/format';
 import type { SportId } from '@shared/types.ts';
-
-/** Tre tessere per riga, come nel mockup "Tipo di attività". */
-const PER_ROW = 3;
-const ROWS: SportId[][] = [];
-for (let i = 0; i < EVENT_SPORTS.length; i += PER_ROW) ROWS.push(EVENT_SPORTS.slice(i, i + PER_ROW));
 
 /**
  * Selezione animata comune: la tessera scelta si accende (dissolvenza) e "pulsa" una volta.
@@ -31,19 +28,49 @@ function useSelect(on: boolean) {
     lit.value = reduce ? (on ? 1 : 0) : withTiming(on ? 1 : 0, { duration: 220, easing: Easing.out(Easing.cubic) });
     const turnedOn = on && !was.current;
     was.current = on;
-    if (reduce || !turnedOn) return;
+    if (reduce) { cancelAnimation(pop); pop.value = 1; return; }
+    if (!turnedOn) return;
     pop.value = withSequence(withTiming(0.94, { duration: 90 }), withSpring(1, { damping: 10, stiffness: 220 }));
   }, [on, reduce, lit, pop]);
   return { lit, pop };
 }
 
+/** Onde astratte: nessun percorso inventato, animazione sul thread UI e ferma fuori schermata. */
+function CardAmbient({ on, tint }: { on: boolean; tint: string }) {
+  const reduce = useReduceMotion();
+  const focused = useIsFocused();
+  const drift = useSharedValue(0);
+  const strength = useSharedValue(on ? 1 : 0);
+  useEffect(() => {
+    strength.value = reduce ? Number(on) : withTiming(Number(on), { duration: 300 });
+  }, [on, reduce, strength]);
+  useEffect(() => {
+    if (reduce || !focused) { cancelAnimation(drift); drift.value = 0; return; }
+    drift.value = withRepeat(withTiming(1, { duration: 4200, easing: Easing.inOut(Easing.sin) }), -1, true);
+    return () => cancelAnimation(drift);
+  }, [reduce, focused, drift]);
+  const motion = useAnimatedStyle(() => ({ opacity: 0.1 + strength.value * 0.19, transform: [{ translateX: -8 + drift.value * 16 }, { translateY: drift.value * -7 }] }));
+  const halo = useAnimatedStyle(() => ({ opacity: strength.value * 0.28, transform: [{ scale: 0.9 + drift.value * 0.1 }] }));
+  return <View pointerEvents="none" style={StyleSheet.absoluteFill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <Animated.View style={[{ position: 'absolute', width: 132, height: 132, borderRadius: 66, left: -28, top: -52, backgroundColor: tint }, halo]} />
+    <Animated.View style={[{ position: 'absolute', left: -24, right: -24, bottom: -16, height: 100 }, motion]}>
+      <Svg width="100%" height="100%" viewBox="0 0 160 100" preserveAspectRatio="none">
+        <Path d="M-10 40 C35 5 70 75 110 43 S175 25 185 48" stroke={color.storyInk} strokeWidth={1.3} fill="none" />
+        <Path d="M-10 60 C35 25 70 95 110 63 S175 45 185 68" stroke={tint} strokeWidth={12} fill="none" />
+        <Path d="M-10 78 C35 43 70 113 110 81 S175 63 185 86" stroke={color.storyInk} strokeWidth={0.8} fill="none" />
+      </Svg>
+    </Animated.View>
+  </View>;
+}
+
 /**
  * Tessera grande del tipo di attività: sfumatura piena nei colori ufficiali dell'attività (corsa + camminata unisce i due),
  * figura e nome in bianco. Come nel mockup tutte le tessere restano a tutto colore: la scelta si riconosce dalla spunta,
- * dal bordo bianco e dalla sfumatura più luminosa (mai dal solo colore).
+ * dal bordo turchese e dalla sfumatura più luminosa (mai dal solo colore).
  * Il bianco resta leggibile: le sfumature sono scurite (≥ 0,4, vedi colors.ts).
  */
 function TypeCard({ sport, on, onPress }: { sport: SportId; on: boolean; onPress: () => void }) {
+  const focused = useIsFocused();
   const st = eventSportStyle(sport);
   const [c1, c2] = st.blend ?? [st.solid, st.solid];
   const { lit, pop } = useSelect(on);
@@ -53,18 +80,19 @@ function TypeCard({ sport, on, onPress }: { sport: SportId; on: boolean; onPress
   const label = SPORT_LABEL[sport];
   return (
     <Animated.View style={[{ flex: 1 }, wrap]}>
-      <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={label} style={({ pressed }) => [s.card, { borderColor: on ? color.text : 'transparent' }, pressed && { opacity: 0.85 }]}>
+      <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={label} style={({ pressed }) => [s.card, { borderColor: on ? color.accent : 'transparent' }, pressed && { opacity: 0.85 }]}>
         <LinearGradient colors={[shade(c1, 0.52), shade(c2, 0.68)]} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={StyleSheet.absoluteFill} />
         <Animated.View style={[StyleSheet.absoluteFill, bright]}>
           <LinearGradient colors={[shade(c1, 0.4), shade(c2, 0.6)]} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={StyleSheet.absoluteFill} />
         </Animated.View>
+        <CardAmbient on={on} tint={color.brandText} />
         <Animated.View style={[s.check, check]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
           <Ionicons name="checkmark-circle" size={22} color={color.storyInk} />
         </Animated.View>
         <View>
-          <ActivityGlyph style={st} size={48} color={color.storyInk} />
+          {st.glyph ? <AnimatedActivityFigure glyph={st.glyph} size={46} color={color.storyInk} active={on && focused} /> : <ActivityGlyph style={st} size={46} color={color.storyInk} />}
         </View>
-        <Text style={[type.headline, s.cardLabel, { color: color.storyInk }]} numberOfLines={2}>
+        <Text style={[type.headline, s.cardLabel, { color: color.storyInk }]}>
           {label}
         </Text>
       </Pressable>
@@ -72,17 +100,21 @@ function TypeCard({ sport, on, onPress }: { sport: SportId; on: boolean; onPress
   );
 }
 
-/** Scelta del tipo come nel mockup "Creazione uscita": tessere verticali a tutto colore, tre per riga. */
+/** Tre colonne standard; meno colonne con testo grande per conservare tutte le etichette. */
 export function TypeCards({ value, onChange }: { value: SportId; onChange: (s: SportId) => void }) {
+  const { width, fontScale } = useWindowDimensions();
+  const columns = Math.max(1, Math.min(3, Math.floor((width - S.xl * 2 + S.sm) / (100 * Math.max(1, fontScale) + S.sm))));
+  const rows: SportId[][] = [];
+  for (let i = 0; i < EVENT_SPORTS.length; i += columns) rows.push(EVENT_SPORTS.slice(i, i + columns));
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel="Tipo di attività" style={{ gap: S.sm }}>
-      {ROWS.map((row) => (
+      {rows.map((row) => (
         <View key={row.join('-')} style={{ flexDirection: 'row', gap: S.sm }}>
           {row.map((sp) => (
             <TypeCard key={sp} sport={sp} on={value === sp} onPress={() => onChange(sp)} />
           ))}
           {/* Le tessere dell'ultima riga restano larghe come le altre. */}
-          {Array.from({ length: PER_ROW - row.length }, (_, k) => (
+          {Array.from({ length: columns - row.length }, (_, k) => (
             <View key={`gap-${k}`} style={{ flex: 1 }} />
           ))}
         </View>
@@ -125,9 +157,8 @@ export function TypeTiles({ value, onChange }: { value: SportId; onChange: (s: S
 }
 
 const s = StyleSheet.create({
-  // Tessera verticale come nel mockup: figura e nome nella parte alta, sotto la sfumatura libera.
-  // Più alta che larga (circa 2:1, come nel mockup 27-8); flexGrow: le tessere di una riga restano alte uguali anche con testo grande.
-  card: { flexGrow: 1, minHeight: 200, borderRadius: R.card, borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'flex-start', gap: S.md, paddingHorizontal: S.sm, paddingTop: S.xxl + S.xs, paddingBottom: S.lg },
+  // L'altezza cresce con il testo; le tessere di ogni riga restano alte uguali.
+  card: { flexGrow: 1, minHeight: 124, borderRadius: R.card, borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: S.sm, paddingHorizontal: S.sm, paddingTop: S.lg, paddingBottom: S.lg },
   cardLabel: { textAlign: 'center', fontWeight: '700' },
   check: { position: 'absolute', top: S.sm, right: S.sm },
   tile: { flexGrow: 1, minHeight: 84,borderRadius: R.card - 2, borderWidth: 1.5, backgroundColor: color.surface, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: S.xs + 2, paddingHorizontal: 1, paddingVertical: S.sm },

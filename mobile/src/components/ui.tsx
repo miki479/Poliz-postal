@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -574,7 +575,7 @@ export function Async<T>({ state, children, skeleton }: { state: { data: T | nul
 }
 
 /** Bottom sheet accessibile: chiusura con icona, tocco fuori o gesto di sistema. */
-export function Sheet({ visible, onClose, title, children, footer }: { visible: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode }) {
+export function Sheet({ visible, onClose, title, children, footer, avoidKeyboard = false }: { visible: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; avoidKeyboard?: boolean }) {
   const insets = useSafeAreaInsets();
   const reduce = useReduceMotion();
   const y = useRef(new Animated.Value(1)).current;
@@ -585,6 +586,7 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
   }, [visible, reduce, y]);
   return (
     <Modal visible={visible} transparent animationType={reduce ? 'none' : 'fade'} onRequestClose={onClose} statusBarTranslucent>
+        <KeyboardAvoidingView enabled={avoidKeyboard} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <Pressable style={{ flex: 1, backgroundColor: color.overlay }} onPress={onClose} accessibilityLabel="Chiudi" accessibilityRole="button" />
       <Animated.View accessibilityViewIsModal style={{ maxHeight: '86%', backgroundColor: color.surface, borderTopLeftRadius: R.sheet, borderTopRightRadius: R.sheet, paddingBottom: insets.bottom + S.md, transform: [{ translateY: y.interpolate({ inputRange: [0, 1], outputRange: [0, 480] }) }] }}>
         <View style={{ alignItems: 'center', paddingTop: S.sm }}>
@@ -596,9 +598,10 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
           </Text>
           <IconButton name="close" label="Chiudi" onPress={onClose} filled />
         </Row>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: GUTTER, paddingVertical: S.lg, gap: S.xl }}>{children}</ScrollView>
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: GUTTER, paddingVertical: S.lg, gap: S.xl }}>{children}</ScrollView>
         {footer ? <View style={{ paddingHorizontal: GUTTER, gap: S.sm }}>{footer}</View> : null}
       </Animated.View>
+        </KeyboardAvoidingView>
     </Modal>
   );
 }

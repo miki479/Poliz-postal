@@ -6,11 +6,10 @@ import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Alert, AppState, Linking, Pressable, ScrollView, Text, View } from 'react-native';
-import MapView, { Polyline } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Banner, Button, Divider, Field, IconButton, LinkText, Pills, Row, Segmented, SwitchRow, t, Panel } from '@/components/ui';
-import { color, GUTTER, HIT, R, S, type } from '@/constants/theme';
+import { color, GUTTER, HIT, S, type } from '@/constants/theme';
 import { call } from '@/lib/api';
 import { deviceTimezone, fmtClock, fmtPace, KIND_LABEL, whenLabel } from '@/lib/format';
 import { activeSec, clearDraft, currentPace, loadDraft, saveDraft, type RecordingDraft } from '@/lib/recording';
@@ -20,6 +19,7 @@ import { downsample } from '@shared/track.ts';
 import type { EventView, PlannedSession, SessionKind, WorkoutLog } from '@shared/types.ts';
 
 import { humanError } from '@/lib/errors';
+import { RecordingMap, WorkoutSuggestions } from '@/components/RecordingDiscovery';
 type Phase = 'setup' | 'live' | 'finish';
 type Gps = 'off' | 'searching' | 'good' | 'weak' | 'lost' | 'denied';
 
@@ -42,6 +42,7 @@ export default function Registra() {
   const [sessionId, setSessionId] = useState<string | null>(sessionParam ?? null);
   const [eventId, setEventId] = useState<string | null>(null);
   const [shared, setShared] = useState(false);
+  const [gearId, setGearId] = useState<string | null>(null);
   const [perm, setPerm] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [battery, setBattery] = useState<number | null>(null);
   const [recovered, setRecovered] = useState<RecordingDraft | null>(null);
@@ -190,7 +191,7 @@ export default function Registra() {
 
   async function start() {
     const environment = kind === 'treadmill' ? 'treadmill' : 'outdoor';
-    draft.current = { v: 1, startedAt: new Date().toISOString(), sport: kind === 'walking' ? 'walking' : 'running', environment, sessionId: ctxKind === 'session' ? sessionId : null, eventId: ctxKind === 'event' ? eventId : null, shared, track: [], km: 0, pausedMs: 0, pausedAt: null, gaps: 0, lostSec: 0, savedAt: Date.now(), status: 'recording', endedAt: null };
+    draft.current = { v: 1, startedAt: new Date().toISOString(), sport: kind === 'walking' ? 'walking' : 'running', environment, sessionId: ctxKind === 'session' ? sessionId : null, eventId: ctxKind === 'event' ? eventId : null, shared, gearId, track: [], km: 0, pausedMs: 0, pausedAt: null, gaps: 0, lostSec: 0, savedAt: Date.now(), status: 'recording', endedAt: null };
     splits.current = [];
     setNotice('');
     setPhase('live');
@@ -279,6 +280,10 @@ export default function Registra() {
         eventId: d.eventId,
       };
       const r = s ? await call<{ log: WorkoutLog }>('completeSession', s.id, input) : await call<{ log: WorkoutLog }>('logWorkout', input);
+      if (d.gearId) {
+        try { await call('setWorkoutGear', r.log.id, d.gearId); }
+        catch { Alert.alert('Attività salvata', 'Puoi associare l’attrezzatura dal dettaglio dell’attività, in Modifica.'); }
+      }
       await clearDraft();
       draft.current = null;
       router.replace({ pathname: '/allenamento/log/[id]', params: { id: r.log.id, fresh: '1' } });
@@ -314,6 +319,8 @@ export default function Registra() {
             <IconButton name="close" label="Chiudi" filled onPress={() => router.back()} />
           </Row>
 
+          {kind !== 'treadmill' ? <RecordingMap /> : null}
+
           {recovered ? (
             <Panel style={{ padding: S.lg, gap: S.sm }}>
               <Text style={t.title}>Attività interrotta</Text>
@@ -325,6 +332,12 @@ export default function Registra() {
               <Button small variant="danger" title="Scarta" onPress={async () => { await clearDraft(); setRecovered(null); }} />
             </Panel>
           ) : null}
+
+          <WorkoutSuggestions onGearChange={setGearId} onChoose={(session) => {
+            setSessions((current) => current.some((s) => s.id === session.id) ? current : [...current, session]);
+            setCtxKind('session'); setSessionId(session.id);
+            setKind(session.kind === 'aerobic' ? 'walking' : 'running');
+          }} />
 
           {chosen ? (
             // Seduta del piano scelta: il tipo di attività lo decide il piano, non l'utente.
@@ -441,9 +454,7 @@ export default function Registra() {
       </Row>
 
       {showMap && d.track.length > 1 ? (
-        <MapView style={{ height: 180, marginHorizontal: GUTTER, borderRadius: R.card }} userInterfaceStyle="dark" mapType="mutedStandard" showsUserLocation followsUserLocation pitchEnabled={false}>
-          <Polyline coordinates={d.track.map((p) => ({ latitude: p.lat, longitude: p.lng }))} strokeColor={color.storyInk} strokeWidth={5} />
-        </MapView>
+        <View style={{ marginHorizontal: GUTTER }}><RecordingMap track={d.track} height={180} showLocation={perm === 'granted'} /></View>
       ) : null}
 
       <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: GUTTER, gap: S.xxl }}>

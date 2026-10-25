@@ -14,6 +14,8 @@ import { GradientButton } from '@/components/event/GradientButton';
 import { color, GUTTER, HIT, M, R, S, type } from '@/constants/theme';
 import { dayAgo, eventShareText, fmtClock, fmtDayShort, fmtKm, formatPace, KIND_LABEL, LEVEL_LABEL, relativeFromNow, SPORT_LABEL, whenLabel } from '@/lib/format';
 import { SocialBar } from '@/components/SocialBar';
+import { useInView } from '@/components/Motion';
+import { RouteTrace } from '@/components/RouteTrace';
 import type { SocialCounts } from '@shared/social.ts';
 import type { ClubView, EventView, FeedItem, SportId, UserPublic, WorkoutLog } from '@shared/types.ts';
 
@@ -658,6 +660,9 @@ export function PersonRow({ p, status, tint = color.textSecondary, isMe, onPress
 
 /** Attività di una persona: chi, quando, cosa, numeri essenziali. */
 export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }) {
+  const { ref: viewportRef, onLayout: checkViewport, inView } = useInView();
+  const [previewWidth, setPreviewWidth] = useState(0);
+  const trace = item.kind === 'workout_shared' ? item.workout.track : undefined;
   const who = item.user;
   let title = '';
   let detail = '';
@@ -711,13 +716,16 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
       {body}
     </View>
   );
-  if (!item.social) return main;
   return (
-    <View>
+    <View ref={viewportRef} onLayout={(e) => { setPreviewWidth(e.nativeEvent.layout.width); checkViewport(); }}>
       {main}
-      <View style={{ marginLeft: 52, marginTop: -S.sm }}>
+      {trace && trace.length > 1 ? <LinearGradient colors={[color.accentTint, color.bg, color.brandTint]} style={{ height: 172, borderRadius: R.card, overflow: 'hidden', marginBottom: S.md }}>
+        {inView && previewWidth > 0 ? <RouteTrace track={trace} width={previewWidth} height={148} tint={[color.accent, color.brand]} dotEvery={null} /> : null}
+        <Text style={[type.caption, { textAlign: 'center', color: color.textSecondary }]}>Percorso condiviso · estremità protette</Text>
+      </LinearGradient> : null}
+      {item.social ? <View style={{ marginLeft: 52, marginTop: -S.sm }}>
         <SocialBar itemId={item.id} initial={item.social} />
-      </View>
+      </View> : null}
     </View>
   );
 }

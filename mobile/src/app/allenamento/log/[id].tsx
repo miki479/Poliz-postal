@@ -27,6 +27,7 @@ import type { SocialCounts } from '@shared/social.ts';
 import { countLaps } from '@shared/track.ts';
 import { buildMarks, type TrackMark } from '@shared/trackMarks.ts';
 import type { PlannedSession, UserPublic, WorkoutLog } from '@shared/types.ts';
+import type { GearView } from '@shared/gear.ts';
 
 const MAP_H = 380;
 const timeOf = (iso: string) => new Intl.DateTimeFormat('it-IT', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
@@ -366,6 +367,10 @@ export default function LogDettaglio() {
   const [eKm, setEKm] = useState('');
   const [eSport, setESport] = useState<'running' | 'walking'>('running');
   const [eShared, setEShared] = useState(false);
+  const [eTrace, setETrace] = useState(false);
+  const [eMap, setEMap] = useState(false);
+  const [eGear, setEGear] = useState<string | null>(null);
+  const [gear, setGear] = useState<GearView[]>([]);
   const [busy, setBusy] = useState(false);
 
   const l = state.data?.l;
@@ -407,6 +412,10 @@ export default function LogDettaglio() {
             setEKm(l.distanceKm ? String(l.distanceKm) : '');
             setESport(l.sport ?? 'running');
             setEShared(l.shared);
+            setETrace(l.traceShared ?? false);
+            setEMap(l.mapShared ?? false);
+            setEGear(l.gearId ?? null);
+            void call<GearView[]>('listGear').then((items) => setGear(items.filter((g) => !g.retired || g.id === l.gearId)), () => setGear([]));
             setEdit(true);
           },
         },
@@ -433,14 +442,21 @@ export default function LogDettaglio() {
   }
 
   async function saveEdit() {
-    if (!l) return;
+    if (!l || busy) return;
     setBusy(true);
+    let updated = false;
     try {
       await call('updateWorkoutLog', l.id, { title: eTitle.trim(), distanceKm: eKm.trim() ? Number(eKm.replace(',', '.')) : null, sport: eSport, shared: eShared });
+      updated = true;
+      if ((!l.origin || l.origin === 'app') && l.track && l.track.length > 1) {
+        if (eTrace !== (l.traceShared ?? false)) await call('setTrackVisibility', l.id, eTrace);
+        if (eMap !== (l.mapShared ?? false)) await call('setMapVisibility', l.id, eMap);
+      }
+      if ((!l.origin || l.origin === 'app') && eGear !== (l.gearId ?? null)) await call('setWorkoutGear', l.id, eGear);
       setEdit(false);
       await state.reload();
     } catch (e) {
-      Alert.alert('Non salvato', humanError(e, 'Riprova tra poco.'));
+      Alert.alert(updated ? 'Attività aggiornata in parte' : 'Non salvato', updated ? 'Le modifiche all’attività sono salvate, ma alcune impostazioni non sono state aggiornate. Riprova per completare.' : humanError(e, 'Riprova tra poco.'));
     } finally {
       setBusy(false);
     }
@@ -618,7 +634,7 @@ export default function LogDettaglio() {
         <Text style={t.small}>Non vengono condivisi il percorso, la fatica che hai indicato né altri dati personali.</Text>
       </Sheet>
 
-      <Sheet visible={edit} onClose={() => setEdit(false)} title="Modifica allenamento" footer={<Button title="Salva" busy={busy} onPress={saveEdit} />}>
+      <Sheet avoidKeyboard visible={edit} onClose={() => { if (!busy) setEdit(false); }} title="Modifica allenamento" footer={<Button title="Salva" busy={busy} onPress={saveEdit} />}>
         <Field label="Titolo" value={eTitle} onChangeText={setETitle} />
         {!l?.plannedSessionId ? (
           <Pills
@@ -631,7 +647,18 @@ export default function LogDettaglio() {
           />
         ) : null}
         <Field label="Distanza (km)" value={eKm} onChangeText={setEKm} keyboardType="decimal-pad" optional hint={l?.track ? 'Se la correggi, la corsa resta nello storico ma non conta per i record sulla traccia.' : undefined} />
-        <SwitchRow label="Visibile ai compagni di club" value={eShared} onChange={setEShared} />
+        {l?.origin !== 'strava' ? <SwitchRow label="Visibile ai compagni di club" value={eShared} onChange={setEShared} /> : <Text style={t.small}>Le attività Strava restano nel tuo spazio privato.</Text>}
+        {l && (!l.origin || l.origin === 'app') ? <View style={{ gap: S.sm }}>
+          <Text style={t.title}>Scarpe e attrezzatura</Text>
+          {gear.length ? <Pills value={eGear ?? ''} onChange={(value) => setEGear(value || null)} options={[{ value: '', label: 'Nessuna' }, ...gear.map((g) => ({ value: g.id, label: g.name }))]} /> : <Text style={t.small}>Puoi registrare le tue scarpe e associarle alle uscite.</Text>}
+          <LinkText title="Gestisci attrezzatura" onPress={() => { setEdit(false); router.push('/attrezzatura'); }} />
+        </View> : null}
+        {l && (!l.origin || l.origin === 'app') && l.track && l.track.length > 1 ? <>
+          <SwitchRow label="Percorso nel feed dei compagni" value={eTrace} onChange={setETrace} />
+          <Text style={t.small}>Quando l’attività è visibile ai compagni, mostra anche il percorso. I primi e gli ultimi 300 metri vengono esclusi; i percorsi troppo brevi non vengono mostrati.</Text>
+          <SwitchRow label="Contribuisci alla mappa di calore" value={eMap} onChange={setEMap} />
+          <Text style={t.small}>Condividi celle approssimate e anonime, visibili solo dove contribuiscono almeno tre atleti. Questa scelta è separata dal percorso nel feed.</Text>
+        </> : null}
       </Sheet>
     </View>
   );

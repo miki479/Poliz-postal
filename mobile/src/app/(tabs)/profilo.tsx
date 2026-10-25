@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 import { AwardsSummary, LatestAwards, RecordRow, SectionHead } from '@/components/BadgeParts';
 import { ProfileHeader } from '@/components/ProfileHeader';
 import { Rise } from '@/components/Results';
 import { ActivityGlyph } from '@/components/SportIcon';
+import { StoryCard } from '@/components/StoryCard';
 import { Async, Divider, IconButton, PressableScale, Screen, Skeleton, t, useLoad, type IconName } from '@/components/ui';
 import { styleOfKind, styleOfSport } from '@/constants/activityColors';
 import { awardsOf, BADGE_KINDS, kindOf, mainRecords } from '@/constants/achievements';
@@ -17,7 +17,7 @@ import { color, GUTTER, HIT, R, S, type } from '@/constants/theme';
 import { call, ext, type StravaStatus } from '@/lib/api';
 import { addDaysIso, fmtDate, fmtDuration, fmtKm, toISODate } from '@/lib/format';
 import { seenSet } from '@/lib/seen';
-import { storyPalette, styleOfLog } from '@/lib/storyPalette';
+import { styleOfLog } from '@/lib/storyPalette';
 import type { FameView } from '@shared/fame.ts';
 import type { Award, RecordEntry } from '@shared/records.ts';
 import type { Activity, PlannedSession, ProfileView, WorkoutLog } from '@shared/types.ts';
@@ -228,44 +228,6 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
   );
 }
 
-function Sun({ tint, size }: { tint: string; size: number }) {
-  const id = `s${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
-  return (
-    <Svg width={size} height={size} style={{ position: 'absolute', top: -size * 0.25, right: -size * 0.2 }} pointerEvents="none">
-      <Defs>
-        <RadialGradient id={id} cx="50%" cy="50%" r="50%">
-          <Stop offset="0" stopColor={tint} stopOpacity={0.75} />
-          <Stop offset="1" stopColor={tint} stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${id})`} />
-    </Svg>
-  );
-}
-
-/** Racconto in griglia: sfumatura dei colori reali dell'attività con la sua figura (nessuna foto), tipo e giorno. */
-function StoryTile({ log, all, seen, width }: { log: WorkoutLog; all: WorkoutLog[]; seen: boolean; width: number }) {
-  const p = useMemo(() => storyPalette(log, all), [log, all]);
-  const st = styleOfLog(log);
-  const h = Math.round(width * 1.12);
-  return (
-    <PressableScale onPress={() => router.push({ pathname: '/allenamento/storie/[id]', params: { id: log.id } })} accessibilityRole="button" accessibilityLabel={`Apri il racconto: ${log.title || p.label}, ${fmtDate(log.startedAt)}${seen ? '' : ', da vedere'}`} style={{ width, height: h }}>
-      <LinearGradient colors={[p.a, p.second, p.deep]} locations={[0, 0.45, 1]} start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }} style={{ flex: 1, borderRadius: R.card, overflow: 'hidden', padding: S.md, justifyContent: 'flex-end' }}>
-        <Sun tint={color.storyInk} size={width * 0.9} />
-        <View style={{ position: 'absolute', top: h * 0.12, left: 0, right: 0, alignItems: 'center' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <ActivityGlyph style={st} size={width * 0.5} color="rgba(255,255,255,0.9)" />
-        </View>
-        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.45)']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: h * 0.45 }} />
-        <Text style={[type.headline, { color: color.storyInk, fontWeight: '700' }]} numberOfLines={1}>
-          {p.label}
-        </Text>
-        <Text style={[type.caption, { color: color.storyInkSecondary }]}>{fmtDate(log.startedAt)}</Text>
-        {!seen ? <View style={{ position: 'absolute', top: S.sm, right: S.sm, width: 10, height: 10, borderRadius: 5, backgroundColor: color.storyInk }} /> : null}
-      </LinearGradient>
-    </PressableScale>
-  );
-}
-
 function StoriesTab({ logs, seen }: { logs: WorkoutLog[]; seen: Set<string> }) {
   const { width } = useWindowDimensions();
   const w = Math.floor((Math.min(width, 640) - GUTTER * 2 - S.md) / 2);
@@ -273,7 +235,7 @@ function StoriesTab({ logs, seen }: { logs: WorkoutLog[]; seen: Set<string> }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: S.md }}>
       {logs.slice(0, 6).map((l) => (
-        <StoryTile key={l.id} log={l} all={logs} seen={seen.has(`story:${l.id}`)} width={w} />
+        <StoryCard key={l.id} log={l} all={logs} seen={seen.has(`story:${l.id}`)} width={w} />
       ))}
     </View>
   );
@@ -342,6 +304,8 @@ export default function Profilo() {
               <NavRow icon="shield-checkmark-outline" title="Obiettivi" onPress={() => router.push('/obiettivi')} />
               <Divider inset={34} />
               <NavRow icon="stats-chart-outline" title="Statistiche" onPress={() => router.push('/statistiche')} />
+              <Divider inset={34} />
+              <NavRow icon="footsteps-outline" title="Attrezzatura" onPress={() => router.push('/attrezzatura')} />
               <Divider inset={34} />
               <NavRow icon="settings-outline" title="Impostazioni" onPress={() => router.push('/impostazioni')} />
             </View>

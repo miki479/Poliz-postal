@@ -1,14 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useId, useMemo } from 'react';
-import { Text, View } from 'react-native';
+import { Text, useWindowDimensions, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
-import { ActivityGlyph } from '@/components/SportIcon';
+import { ActivityGlyph, AnimatedActivityFigure } from '@/components/SportIcon';
+import { isDrawableTrack, RouteTrace } from '@/components/RouteTrace';
+import { useVisible } from '@/components/Motion';
 import { PressableScale, useReduceMotion } from '@/components/ui';
 import { color, R, S, type } from '@/constants/theme';
-import { dayAgo, fmtDate } from '@/lib/format';
+import { dayAgo, fmtDate, fmtClock, fmtKm } from '@/lib/format';
 import { alpha, mix, storyPalette, type StoryPalette } from '@/lib/storyPalette';
 import type { WorkoutLog } from '@shared/types.ts';
 
@@ -22,7 +24,7 @@ const CYCLE_MS = { trace: 2600, sweep: 2200, spark: 2400, wave: 2600 } as const;
 
 /**
  * Card di un racconto (mockup "Racconti nel Profilo"): al posto della foto, la sfumatura dei colori REALI dell'attività
- * (o delle attività del giorno) con la sua figura grande e un alone; in basso tipo e data. Nessun numero prima dell'apertura.
+ * (o delle attività del giorno) con il percorso reale o la figura; in basso tipo, data e misure presenti.
  * Ogni tanto (intervalli irregolari, ma sempre gli stessi per quel racconto) compare un piccolo effetto diverso da racconto
  * a racconto: riflesso, particelle, onda cromatica o un passo della figura. Le pause non consumano frame; tutto si ferma
  * fuori schermata e con "Riduci movimento" (card statica).
@@ -32,16 +34,24 @@ const CYCLE_MS = { trace: 2600, sweep: 2200, spark: 2400, wave: 2600 } as const;
 export function StoryCard({ log, all, seen, width }: { log: WorkoutLog; all: WorkoutLog[]; seen?: boolean; width?: number }) {
   const still = useReduceMotion();
   const focused = useIsFocused();
+  const { ref: viewportRef, onLayout: checkVisibility, visible } = useVisible();
+  const { fontScale } = useWindowDimensions();
   const p = useMemo(() => storyPalette(log, all), [log, all]);
   const cyc = useSharedValue(0);
   const w = width ?? W;
-  const h = width ? Math.round(width * 1.12) : H;
-  const fig = Math.round(Math.min(w * 0.62, h * 0.5));
+  const baseHeight = width ? Math.round(width * 1.12) : H;
+  const measures = [log.distanceKm != null ? fmtKm(log.distanceKm) : null, log.durationSec > 0 ? fmtClock(log.durationSec) : null].filter(Boolean).join(' · ');
+  const textHeight = type.headline.lineHeight + type.caption.lineHeight * (measures ? 2 : 1);
+  // Il testo cresce senza coprire la miniatura quando l'utente ingrandisce i caratteri.
+  const h = baseHeight + Math.ceil(Math.max(0, fontScale - 1) * textHeight);
+  const routeHeight = Math.round(baseHeight * 0.54);
+  const track = isDrawableTrack(log.track, w, routeHeight, 20) ? log.track : null;
+  const fig = Math.round(Math.min(w * 0.62, baseHeight * 0.5));
 
   // Effetto periodico: timer JS tra un ciclo e l'altro, animazione sul thread UI.
   const effect = p.variant;
   useEffect(() => {
-    if (still || !focused) {
+    if (still || !focused || !visible) {
       cancelAnimation(cyc);
       cyc.set(0);
       return;
@@ -65,17 +75,21 @@ export function StoryCard({ log, all, seen, width }: { log: WorkoutLog; all: Wor
       clearTimeout(timer);
       cancelAnimation(cyc);
     };
-  }, [still, focused, effect, p.seed, cyc]);
+  }, [still, focused, visible, effect, p.seed, cyc]);
 
   return (
-    <PressableScale onPress={() => router.push({ pathname: '/allenamento/storie/[id]', params: { id: log.id } })} accessibilityRole="button" accessibilityLabel={`Apri il racconto: ${log.title}, ${p.label}, ${dayAgo(log.startedAt)}${seen ? '' : ', da vedere'}`} style={{ width: w, height: h }}>
+    <View ref={viewportRef} onLayout={checkVisibility} style={{ width: w, height: h }}>
+    <PressableScale onPress={() => router.push({ pathname: '/allenamento/storie/[id]', params: { id: log.id } })} accessibilityRole="button" accessibilityLabel={`Apri il racconto: ${log.title || p.label}, ${p.label}, ${dayAgo(log.startedAt)}${seen ? '' : ', da vedere'}`} style={{ width: w, height: h }}>
       <View style={{ flex: 1, borderRadius: R.card, overflow: 'hidden', borderWidth: seen ? 1 : 2, borderColor: seen ? 'rgba(255,255,255,0.12)' : alpha(p.a, 0.85), backgroundColor: p.deep }}>
         <LinearGradient colors={[mix(p.a, p.deep, 0.08), mix(p.mid, p.deep, 0.42), p.deep]} locations={[0, 0.6, 1]} start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }} style={FILL} />
         {/* riflesso fisso in alto e velo in basso: profondità e leggibilità del testo */}
         <LinearGradient colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 0.4 }} style={FILL} pointerEvents="none" />
         <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.45)']} locations={[0.5, 1]} style={FILL} pointerEvents="none" />
 
-        <Figure p={p} cyc={cyc} size={fig} top={Math.round(h * 0.1)} animate={!still && effect === 'trace'} />
+        {track ? <View pointerEvents="none" style={{ position: 'absolute', top: 10, left: 0, right: 0, height: routeHeight }}>
+          {focused && visible ? <RouteTrace track={track} width={w} height={routeHeight} tint={[mix(p.a, '#FFFFFF', 0.65), mix(p.second, '#FFFFFF', 0.2)]} pad={20} strokeWidth={2.3} dotEvery={null} /> : null}
+          <View style={{ position: 'absolute', bottom: 0, right: S.sm }}>{p.styles[0].glyph ? <AnimatedActivityFigure glyph={p.styles[0].glyph} size={32} color={color.storyInk} pace={log.paceSecPerKm} active={focused && visible} /> : <ActivityGlyph style={p.styles[0]} size={32} color={color.storyInk} />}</View>
+        </View> : <Figure p={p} cyc={cyc} size={fig} top={Math.round(baseHeight * 0.08)} animate={!still && effect === 'trace'} active={focused && visible} pace={log.paceSecPerKm} />}
         {!still && effect !== 'trace' ? <Ambient effect={effect} p={p} cyc={cyc} w={w} h={h} /> : null}
 
         <View style={{ flex: 1, padding: S.md, justifyContent: 'flex-end' }}>
@@ -85,16 +99,19 @@ export function StoryCard({ log, all, seen, width }: { log: WorkoutLog; all: Wor
           <Text style={[type.caption, { color: 'rgba(255,255,255,0.82)' }]} numberOfLines={1}>
             {fmtDate(log.startedAt)}
           </Text>
+          {measures ? <Text style={[type.caption, { color: color.storyInkSecondary, marginTop: 2 }]} numberOfLines={1} adjustsFontSizeToFit>{measures}</Text> : null}
         </View>
+        {!seen ? <View style={{ position: 'absolute', top: S.sm, right: S.sm, width: 10, height: 10, borderRadius: 5, backgroundColor: color.storyInk }} /> : null}
       </View>
     </PressableScale>
+    </View>
   );
 }
 
 /* ---------- figura (al posto della foto) ---------- */
 
 /** Alone sfumato e figura dell'attività; nella variante "trace" la figura fa un piccolo passo ogni tanto. */
-function Figure({ p, cyc, size, top, animate }: { p: StoryPalette; cyc: SharedValue<number>; size: number; top: number; animate: boolean }) {
+function Figure({ p, cyc, size, top, animate, active, pace }: { p: StoryPalette; cyc: SharedValue<number>; size: number; top: number; animate: boolean; active: boolean; pace: number | null }) {
   const gid = `sc${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const amp = animate ? 1 : 0;
   const step = useAnimatedStyle(() => {
@@ -115,7 +132,7 @@ function Figure({ p, cyc, size, top, animate }: { p: StoryPalette; cyc: SharedVa
         <Circle cx={halo / 2} cy={halo / 2} r={halo / 2} fill={`url(#${gid})`} />
       </Svg>
       <Animated.View style={[{ opacity: 0.9 }, step]}>
-        <ActivityGlyph style={p.styles[0]} size={size} color={color.storyInk} />
+        {p.styles[0].glyph ? <AnimatedActivityFigure glyph={p.styles[0].glyph} size={size} color={color.storyInk} pace={pace} active={active} /> : <ActivityGlyph style={p.styles[0]} size={size} color={color.storyInk} />}
       </Animated.View>
     </View>
   );

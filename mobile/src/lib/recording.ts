@@ -14,6 +14,8 @@ export interface RecordingDraft {
   sessionId: string | null;
   eventId: string | null;
   shared: boolean;
+  /** Scelta esplicita prima dell'avvio; facoltativa per le bozze già presenti. */
+  gearId?: string | null;
   track: TrackPoint[];
   km: number;
   /** Millisecondi totali in pausa (escluse le pause in corso). */

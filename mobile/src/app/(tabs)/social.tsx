@@ -16,12 +16,14 @@ type Suggestion = { user: UserPublic; paceSecPerKm: number | null; reason: strin
 /** "Con chi correre": persone reali vicine per zona o club e con passo simile. */
 function Runners() {
   const s = useLoad(() => call<Suggestion[]>('suggestRunners'));
-  if (!s.data?.length) return null;
+  const [hidden, setHidden] = useState<string[]>([]);
+  const shown = (s.data ?? []).filter((x) => !hidden.includes(x.user.id));
+  if (!shown.length) return null;
   return (
-    <Section title="Con chi correre">
+    <Section title="Chi seguire">
       <Text style={[t.small, { marginTop: -S.sm }]}>Stessa zona o club in comune, con un passo simile al tuo.</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: S.md, paddingRight: S.xl }} style={{ marginHorizontal: -S.xl, paddingLeft: S.xl }}>
-        {s.data.map((x) => (
+        {shown.map((x) => (
           <View key={x.user.id} style={{ width: 156, backgroundColor: color.surface, borderRadius: R.card, padding: S.md, gap: S.sm }}>
             <Pressable onPress={() => router.push({ pathname: '/utente/[id]', params: { id: x.user.id } })} accessibilityRole="button" accessibilityLabel={`Profilo di ${x.user.displayName}. ${x.reason}`} style={{ gap: S.sm }}>
               <Avatar name={x.user.displayName} hue={x.user.hue} uri={x.user.avatar} size={48} />
@@ -33,7 +35,8 @@ function Runners() {
                 {x.reason}
               </Text>
             </Pressable>
-            <FollowButton userId={x.user.id} initial={false} compact />
+            <FollowButton userId={x.user.id} initial={false} compact onChange={(on) => { if (on) setHidden((list) => [...list, x.user.id]); }} />
+            <Pressable onPress={() => setHidden((list) => [...list, x.user.id])} accessibilityRole="button" accessibilityLabel={`Nascondi il suggerimento di ${x.user.displayName}`} style={{ minHeight: 36, alignItems: 'center', justifyContent: 'center' }}><Text style={t.small}>Nascondi</Text></Pressable>
           </View>
         ))}
       </ScrollView>

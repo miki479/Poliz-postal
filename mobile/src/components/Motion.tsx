@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Animated, Dimensions, Easing, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { ClipPath, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
@@ -55,6 +55,24 @@ function useReveal(duration = 900, delay = 0) {
 }
 
 /* ---------- barre ---------- */
+
+/** Visibilità corrente per gli elementi che animano: si ferma anche quando una card esce dallo scroll. */
+export function useVisible() {
+  const ref = useRef<ComponentRef<typeof View>>(null);
+  const ctx = useContext(ScrollCtx);
+  const [visible, setVisible] = useState(false);
+  const check = useCallback(() => {
+    ref.current?.measureInWindow((_x, y, _w, h) => {
+      setVisible(h > 0 && y < Dimensions.get('window').height && y + h > 0);
+    });
+  }, []);
+  useEffect(() => {
+    const timer = setTimeout(check, 80);
+    const off = ctx?.subscribe(check);
+    return () => { clearTimeout(timer); off?.(); };
+  }, [ctx, check]);
+  return { ref, onLayout: check, visible };
+}
 
 /** Barra di progresso che cresce da zero quando diventa visibile. */
 export function AnimatedBar({ pct, tint = color.accent, height = 8, delay = 0, style, track = color.surfaceElevated }: { pct: number; tint?: string; height?: number; delay?: number; style?: StyleProp<ViewStyle>; track?: string }) {

@@ -9,7 +9,7 @@ import { ActivityStatsModal } from '@/components/ActivityStats';
 import { AwardDetailSheet, ConquestModal } from '@/components/AwardConquest';
 import { ScrollProvider, useScrollEmitter } from '@/components/Motion';
 import { AwardBanner, AwardMark, AwardRow, awardFxKey } from '@/components/Results';
-import { RouteReplay } from '@/components/RouteReplay';
+import { ActivityRouteReplay as RouteReplay } from '@/components/ActivityRouteReplay';
 import { SocialBar } from '@/components/SocialBar';
 import { ActivityGlyph } from '@/components/SportIcon';
 import { TypeHex } from '@/components/TypeBadge';
@@ -28,6 +28,7 @@ import { countLaps } from '@shared/track.ts';
 import { buildMarks, type TrackMark } from '@shared/trackMarks.ts';
 import type { PlannedSession, UserPublic, WorkoutLog } from '@shared/types.ts';
 import type { GearView } from '@shared/gear.ts';
+import { hasMapConsent } from '@shared/mapConsent.ts';
 
 const MAP_H = 380;
 const timeOf = (iso: string) => new Intl.DateTimeFormat('it-IT', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
@@ -36,6 +37,7 @@ const timeOf = (iso: string) => new Intl.DateTimeFormat('it-IT', { hour: '2-digi
 
 /** Fatti misurati, confronti calcolati e interpretazione AI restano separati. */
 function Brief({ log }: { log: WorkoutLog }) {
+  const [dismissed, setDismissed] = useState(false);
   const [r, setR] = useState<WorkoutBriefResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -46,7 +48,8 @@ function Brief({ log }: { log: WorkoutLog }) {
     briefFor(log.id).then(setR, (e) => setErr(humanError(e, 'Briefing non disponibile.'))).finally(() => setLoading(false));
   }, [log.id]);
 
-  if (loading) return <Skeleton height={140} />;
+  if (dismissed) return <LinkText title="Mostra briefing" onPress={() => setDismissed(false)} />;
+  if (loading) return <View><Skeleton height={100} /><LinkText title="Salta briefing" onPress={() => setDismissed(true)} /></View>;
   if (!r) return <Banner tone="warn" text={err || 'Briefing non disponibile.'} />;
   const f = r.facts;
   const [first, ...rest] = r.brief.text.split(/(?<=[.!?])\s+|\n+/).filter(Boolean);
@@ -60,6 +63,7 @@ function Brief({ log }: { log: WorkoutLog }) {
         <Text style={t.h2} accessibilityRole="header">
           Briefing
         </Text>
+        <LinkText title="Salta" onPress={() => setDismissed(true)} />
         <Text style={t.small}>{r.brief.ai ? 'Interpretazione del Coach AI' : 'Riepilogo automatico'}</Text>
       </Row>
       <Text style={[type.title2, { color: color.text }]}>{first}</Text>
@@ -79,7 +83,7 @@ function Brief({ log }: { log: WorkoutLog }) {
       </Pressable>
       {open ? (
         <View style={{ gap: S.xs }}>
-          <Text style={t.small}>Misurato: {f.distanceKm ? `${fmtKm(f.distanceKm)}, ` : ''}{f.durationMin} min{f.rpe ? `, fatica dichiarata ${f.rpe}/10` : ''}.</Text>
+          <Text style={t.small}>{f.evidence === 'gps' ? 'Registrato con GPS' : f.evidence === 'imported' ? 'Importato' : 'Dichiarato'}: {f.distanceKm ? `${fmtKm(f.distanceKm)}, ` : ''}{f.durationMin} min{f.rpe ? `, fatica dichiarata ${f.rpe}/10` : ''}.</Text>
           <Text style={t.small}>Confronto personale: ultime 5 uscite dello stesso tipo nei 60 giorni precedenti{f.vsHistory ? ` (${f.vsHistory.count} trovate)` : ' (nessuna)'}.</Text>
           <Text style={t.small}>Altri runner: solo allenamenti condivisi negli ultimi 30 giorni, distanza ±50%, almeno 5 persone{f.vsOthers ? '' : ' (dati insufficienti)'}.</Text>
           <Text style={t.small}>Frequenza cardiaca non disponibile: nessuna zona o carico viene calcolato. Non è un consiglio medico.</Text>
@@ -350,7 +354,8 @@ export default function LogDettaglio() {
     const s = l.plannedSessionId ? await call<PlannedSession>('getSession', l.plannedSessionId).catch(() => null) : null;
     const all = await call<WorkoutLog[]>('listWorkoutLogs', null).catch(() => [] as WorkoutLog[]);
     const awards = activityAwards(l.id, all.some((x) => x.id === l.id) ? all : [...all, l]);
-    return { l, s, awards, hint: awards.length ? null : nextHint(l, all) };
+    const companions = await call<UserPublic[]>('runCompanions', l.id).catch(() => []);
+    return { l, s, awards, group: !!l.eventId || companions.length > 0, hint: awards.length ? null : nextHint(l, all) };
   }, [id]);
   const [refreshing, setRefreshing] = useState(false);
   const [share, setShare] = useState(false);
@@ -403,6 +408,9 @@ export default function LogDettaglio() {
   const actions: Array<{ label: string; icon: keyof typeof Ionicons.glyphMap; danger?: boolean; run: () => void }> = l
     ? [
         { label: 'Guarda il racconto', icon: 'play-circle-outline', run: () => router.push({ pathname: '/allenamento/storie/[id]', params: { id: l.id } }) },
+        ...(hasMapConsent(l) ? [{ label: 'Rimuovi dalla mappa di calore', icon: 'eye-off-outline' as const, run: () => {
+          call('setMapVisibility', l.id, false).then(() => state.reload(), (e) => Alert.alert('Non aggiornato', humanError(e, 'Riprova.')));
+        } }] : []),
         { label: 'Condividi', icon: 'share-outline', run: () => setShare(true) },
         {
           label: 'Modifica',
@@ -413,7 +421,7 @@ export default function LogDettaglio() {
             setESport(l.sport ?? 'running');
             setEShared(l.shared);
             setETrace(l.traceShared ?? false);
-            setEMap(l.mapShared ?? false);
+            setEMap(hasMapConsent(l));
             setEGear(l.gearId ?? null);
             void call<GearView[]>('listGear').then((items) => setGear(items.filter((g) => !g.retired || g.id === l.gearId)), () => setGear([]));
             setEdit(true);
@@ -450,7 +458,7 @@ export default function LogDettaglio() {
       updated = true;
       if ((!l.origin || l.origin === 'app') && l.track && l.track.length > 1) {
         if (eTrace !== (l.traceShared ?? false)) await call('setTrackVisibility', l.id, eTrace);
-        if (eMap !== (l.mapShared ?? false)) await call('setMapVisibility', l.id, eMap);
+        if (eMap !== hasMapConsent(l)) await call('setMapVisibility', l.id, eMap);
       }
       if ((!l.origin || l.origin === 'app') && eGear !== (l.gearId ?? null)) await call('setWorkoutGear', l.id, eGear);
       setEdit(false);
@@ -514,7 +522,7 @@ export default function LogDettaglio() {
               <ScrollProvider value={em.value}>
                 {track ? (
                   <View style={{ height: MAP_H }}>
-                    <RouteReplay track={track} marks={marks} chrome insetTop={headerH} onOpenMark={openMark} style={{ flex: 1 }} />
+                    <RouteReplay track={track} marks={marks} tint={state.data?.group ? color.brand : styleOfLog(l).solid} chrome insetTop={headerH} onOpenMark={openMark} style={{ flex: 1 }} />
                     {/* velo per la leggibilità dell'intestazione trasparente */}
                     <LinearGradient pointerEvents="none" colors={['rgba(5,7,9,0.7)', 'rgba(5,7,9,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: headerH + S.lg }} />
                   </View>

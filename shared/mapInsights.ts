@@ -3,6 +3,7 @@ import { listRoutes } from './routes.ts';
 import { haversineKm } from './time.ts';
 import type { PlannedSession } from './types.ts';
 import { listGear, type GearView } from './gear.ts';
+import { hasMapConsent } from './mapConsent.ts';
 
 export interface MapQuery { period?: 'global' | 'week'; nearby?: { lat: number; lng: number; radiusKm: number } | null; gearId?: string | null }
 export interface HeatCell { lat: number; lng: number; weight: number }
@@ -31,12 +32,13 @@ export function mapInsights(ctx: Ctx, query: MapQuery = {}): MapInsights {
   const since = q.period === 'week' ? ctx.now.getTime() - 7 * 86400000 : -Infinity;
   const cells = new Map<string, { lat: number; lng: number; users: Set<string>; logs: Set<string> }>();
   for (const log of Object.values(ctx.db.workoutLogs)) {
-    if (log.mapShared !== true || (log.origin != null && log.origin !== 'app') || !log.track?.length || !ctx.db.users[log.userId]) continue;
+    if (!hasMapConsent(log) || !log.track?.length || !ctx.db.users[log.userId]) continue;
     const started = Date.parse(log.startedAt);
     if (!Number.isFinite(started) || started < since || started > ctx.now.getTime()) continue;
+    const first = log.track[0], last = log.track[log.track.length - 1];
     const visited = new Set<string>();
     for (const point of log.track) {
-      if (!validPoint(point) || (near && haversineKm(near, point) > near.radiusKm)) continue;
+      if (!validPoint(point) || !validPoint(first) || !validPoint(last) || haversineKm(first, point) < 0.3 || haversineKm(last, point) < 0.3 || (near && haversineKm(near, point) > near.radiusKm)) continue;
       const cell = cellOf(point.lat, point.lng);
       if (visited.has(cell.key)) continue;
       visited.add(cell.key);
@@ -57,7 +59,7 @@ export function mapInsights(ctx: Ctx, query: MapQuery = {}): MapInsights {
   const today = ctx.now.toISOString().slice(0, 10);
   const workouts = Object.values(ctx.db.sessions).filter((s) => s.userId === me.id && s.date >= today && (s.status === 'planned' || s.status === 'rescheduled') && (s.kind === 'aerobic' || s.kind.startsWith('run_')) && (!gear || (gear.sport === 'walking' ? s.kind === 'aerobic' : s.kind.startsWith('run_')))).sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '').localeCompare(b.time ?? '')).slice(0, 5);
   const basis = gearLogs.length ? `Basato sulle tue ultime ${gearLogs.length} attività con ${gear!.name}.` : gear && recent.length ? `Non hai ancora uscite associate a ${gear.name}: uso le tue ultime ${recent.length} attività dello stesso sport.` : gear ? `Nessuna uscita associata a ${gear.name}: mostra i percorsi disponibili senza dedurre usura o distanze adatte.` : recent.length ? `Basato sulle tue ultime ${recent.length} attività registrate in Runngo o importate da file.` : null;
-  return { heat, routes, workouts, basis, gear: gear ?? null, hasSharedTrace: Object.values(ctx.db.workoutLogs).some((l) => l.userId === me.id && l.mapShared === true) };
+  return { heat, routes, workouts, basis, gear: gear ?? null, hasSharedTrace: Object.values(ctx.db.workoutLogs).some((l) => l.userId === me.id && hasMapConsent(l)) };
 }
 
 /** La condivisione del completamento non autorizza mai il GPS: serve questa scelta distinta. */
@@ -67,7 +69,7 @@ export function setMapVisibility(ctx: Ctx, id: string, on: boolean): { id: strin
   if (!log || log.userId !== me.id) throw new AppError('not_found', 'Attività non trovata.');
   if (typeof on !== 'boolean') throw new AppError('validation', 'Scegli se contribuire alla mappa di calore.');
   if ((log.origin != null && log.origin !== 'app') || !log.track?.length) throw new AppError('forbidden', 'Puoi contribuire solo con un percorso registrato da Runngo.');
-  log.mapShared = on; log.updatedAt = ctx.now.toISOString();
+  log.mapShared = on; log.heatmapConsent = on; log.updatedAt = ctx.now.toISOString();
   return { id, mapShared: on };
 }
 

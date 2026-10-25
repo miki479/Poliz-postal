@@ -8,6 +8,7 @@ export type Tone = 'default' | 'accent' | 'success' | 'danger' | 'warn' | 'brand
  * non vengono mai salvati, quindi un'importazione in ritardo non marca nulla come "non svolto".
  */
 export function sessionOutcome(s: PlannedSession, today: string, sync: { connected: boolean; lastSyncAt: string | null }): { label: string; tone: Tone; icon: IconName } {
+  if (s.manualDone) return { label: 'Fatta · dichiarata, senza registrazione', tone: 'default', icon: 'checkbox-outline' };
   if (s.status === 'completed') return { label: s.linkedActivityId ? 'Completata · corsa associata' : 'Completata', tone: 'success', icon: 'checkmark-circle' };
   if (s.status === 'skipped') return { label: 'Saltata per scelta', tone: 'default', icon: 'remove-circle-outline' };
   if (s.status === 'paused') return { label: 'In pausa', tone: 'default', icon: 'pause-circle-outline' };

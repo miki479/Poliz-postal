@@ -7,6 +7,7 @@ import { isRunKind } from './exercises.ts';
 import type { DbState, Id, PlannedSession, WorkoutLog } from './types.ts';
 
 export interface BriefFacts {
+  evidence?: 'gps' | 'imported' | 'declared';
   title: string;
   distanceKm: number | null;
   durationMin: number;
@@ -97,14 +98,14 @@ export function analyzeWorkout(db: DbState, log: WorkoutLog, now = new Date()): 
     .slice(0, 3)
     .map((s) => ({ date: s.date, title: s.title, durationMin: s.durationMin, kind: s.kind }));
 
-  return { title: log.title, distanceKm: log.distanceKm, durationMin: Math.round(log.durationSec / 60), paceSecPerKm: pace ? Math.round(pace) : null, rpe: log.rpe, vsPlan, vsHistory, vsOthers, next };
+  return { evidence: log.origin === 'strava' || log.origin === 'file' ? 'imported' : log.track?.length && log.distanceSource === 'gps' && !log.edited ? 'gps' : 'declared', title: log.title, distanceKm: log.distanceKm, durationMin: Math.round(log.durationSec / 60), paceSecPerKm: pace ? Math.round(pace) : null, rpe: log.rpe, vsPlan, vsHistory, vsOthers, next };
 }
 
 /** Riepilogo scritto con regole fisse (funziona anche senza AI). */
 export function factsToText(f: BriefFacts): string {
   const out: string[] = [];
   const where = f.distanceKm ? `${f.distanceKm.toString().replace('.', ',')} km in ${f.durationMin} min${f.paceSecPerKm ? ` (${fmtPace(f.paceSecPerKm)})` : ''}` : `${f.durationMin} minuti`;
-  let verdict = `Hai completato ${where}.`;
+  let verdict = f.evidence === 'declared' ? `Hai dichiarato ${where}. Senza una traccia o un’attività importata non posso verificare lo svolgimento.` : `Hai completato ${where}.`;
   if (f.rpe !== null) verdict += f.rpe >= 9 ? ' Lo sforzo percepito è stato molto alto.' : f.rpe >= 7 ? ' Sforzo percepito impegnativo.' : f.rpe <= 4 ? ' Sforzo percepito leggero: hai margine.' : ' Sforzo percepito nella norma.';
   out.push(verdict);
 
@@ -132,6 +133,7 @@ export function factsToText(f: BriefFacts): string {
 /** Blocco di fatti passato al Coach AI: solo numeri, niente identificativi. */
 export function factsToContext(f: BriefFacts): string {
   const L: string[] = ['DATI ALLENAMENTO (calcolati dal server, non inventare altri numeri):'];
+  L.push(`- Fonte: ${f.evidence ?? 'declared'}. Se dichiarata, non affermare che l’allenamento è stato verificato o realmente svolto. Non dedurre lo svolgimento dalla sola spunta del piano.`);
   L.push(`- Appena concluso: ${f.distanceKm ?? 'distanza n.d.'} km, ${f.durationMin} min${f.paceSecPerKm ? `, passo ${fmtPace(f.paceSecPerKm)}` : ''}${f.rpe !== null ? `, fatica percepita ${f.rpe}/10` : ''}.`);
   if (f.vsPlan) L.push(`- Piano: previsti ${f.vsPlan.plannedMin} min${f.vsPlan.plannedKm ? ` e ${f.vsPlan.plannedKm} km` : ''}; durata ${f.vsPlan.durationDeltaPct >= 0 ? '+' : ''}${f.vsPlan.durationDeltaPct}% rispetto al previsto; ${f.vsPlan.asPlanned ? 'in linea' : 'fuori dalla tolleranza del 15%'}.`);
   if (f.vsHistory) L.push(`- Ultime ${f.vsHistory.count} uscite simili: passo medio ${f.vsHistory.avgPaceSecPerKm ? fmtPace(f.vsHistory.avgPaceSecPerKm) : 'n.d.'}${f.vsHistory.paceDeltaSec !== null ? ` (oggi ${f.vsHistory.paceDeltaSec >= 0 ? '+' : ''}${f.vsHistory.paceDeltaSec} s/km)` : ''}.`);

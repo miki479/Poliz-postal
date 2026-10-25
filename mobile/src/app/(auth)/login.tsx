@@ -1,8 +1,11 @@
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ScreenEntrance } from '@/components/ScreenEntrance';
+import { GoogleButton } from '@/components/GoogleButton';
 import { Banner, Button, Field, LinkText, Segmented, t } from '@/components/ui';
 import { color, GUTTER, R, S } from '@/constants/theme';
 import { auth, ApiError, API_URL, post } from '@/lib/api';
@@ -13,9 +16,15 @@ import { humanError } from '@/lib/errors';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login() {
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  if (mode !== 'login' && mode !== 'register') return <Redirect href="/(auth)/benvenuto" />;
+  const initialMode = mode === 'register' ? 'register' : 'login';
+  return <LoginForm key={initialMode} initialMode={initialMode} />;
+}
+function LoginForm({ initialMode }: { initialMode: 'login' | 'register' }) {
   const { login, register, refresh } = useSession();
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -85,6 +94,7 @@ export default function Login() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: color.bg }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: S.xxl, paddingHorizontal: GUTTER, paddingTop: insets.top + S.xl, paddingBottom: insets.bottom + S.xl }} keyboardShouldPersistTaps="handled">
+        <ScreenEntrance changeKey={mode} style={{ gap: S.xxl }}>
         <View style={{ alignItems: 'center', gap: S.lg }}>
           <Image source={require('@/assets/images/icon.png')} style={{ width: 88, height: 88, borderRadius: R.card + 6 }} accessibilityIgnoresInvertColors accessible={false} />
           <Image source={require('@/assets/images/wordmark.png')} style={{ width: 172, height: 172 * (207 / 893) }} resizeMode="contain" accessibilityLabel="Runngo" accessibilityRole="header" />
@@ -94,6 +104,10 @@ export default function Login() {
         <Segmented value={mode} onChange={(m) => { setMode(m); setError(''); setFieldErr({}); }} options={[{ value: 'login', label: 'Accedi' }, { value: 'register', label: 'Crea account' }]} />
 
         <View style={{ gap: S.lg }}>
+          <GoogleButton onPress={() => void withGoogle()} busy={googleBusy} disabled={busy || googleBusy} />
+          {error ? <Banner tone="error" text={error} /> : null}
+          {googleBusy ? <LinkText title="Annulla accesso Google" onPress={() => { if (googleRequest.current) googleRequest.current.cancelled = true; setGoogleBusy(false); }} /> : null}
+          <Text style={[t.small, { textAlign: 'center' }]}>oppure usa la tua email</Text>
           <Field label="Email" value={email} onChangeText={(v) => { setEmail(v); setFieldErr((f) => ({ ...f, email: undefined })); }} autoCapitalize="none" autoCorrect={false} autoComplete="email" keyboardType="email-address" textContentType="username" returnKeyType="next" error={fieldErr.email} />
           <Field
             label="Password"
@@ -107,13 +121,11 @@ export default function Login() {
             error={fieldErr.password}
             hint={mode === 'register' ? 'Almeno 8 caratteri.' : undefined}
           />
-          {error ? <Banner tone="error" text={error} /> : null}
           {notice ? <Banner tone="success" text={notice} /> : null}
-          <Button title={mode === 'login' ? 'Accedi' : 'Crea il tuo account'} onPress={submit} busy={busy} disabled={googleBusy} />
-          <Button title="Continua con Google" variant="soft" iconName="logo-google" onPress={() => void withGoogle()} busy={googleBusy} disabled={busy} />
-          {googleBusy ? <LinkText title="Annulla accesso Google" onPress={() => { if (googleRequest.current) googleRequest.current.cancelled = true; setGoogleBusy(false); }} style={{ alignSelf: 'center' }} /> : null}
-          {mode === 'login' ? <LinkText title="Password dimenticata?" onPress={forgot} style={{ alignSelf: 'center' }} /> : <Text style={[t.small, { textAlign: 'center' }]}>Dopo l’accesso decidi tu cosa mostrare agli altri dal tuo profilo.</Text>}
+          <Button title={mode === 'login' ? 'Accedi' : 'Crea il tuo account'} onPress={submit} busy={busy && !googleBusy} disabled={busy || googleBusy} />
+          {mode === 'login' ? <LinkText title="Password dimenticata?" onPress={forgot} disabled={busy} style={{ alignSelf: 'center' }} /> : <Text style={[t.small, { textAlign: 'center' }]}>Dopo l’accesso decidi tu cosa mostrare agli altri dal tuo profilo.</Text>}
         </View>
+        </ScreenEntrance>
       </ScrollView>
     </KeyboardAvoidingView>
   );

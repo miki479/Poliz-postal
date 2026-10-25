@@ -45,7 +45,7 @@ export function StoryCard({ log, all, seen, width }: { log: WorkoutLog; all: Wor
   // Il testo cresce senza coprire la miniatura quando l'utente ingrandisce i caratteri.
   const h = baseHeight + Math.ceil(Math.max(0, fontScale - 1) * textHeight);
   const routeHeight = Math.round(baseHeight * 0.54);
-  const track = isDrawableTrack(log.track, w, routeHeight, 20) ? log.track : null;
+  const track = !log.track?.some((p) => p.breakBefore) && isDrawableTrack(log.track, w, routeHeight, 20) ? log.track : null;
   const fig = Math.round(Math.min(w * 0.62, baseHeight * 0.5));
 
   // Effetto periodico: timer JS tra un ciclo e l'altro, animazione sul thread UI.

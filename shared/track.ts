@@ -13,7 +13,7 @@ export function isTimed(track: TrackPoint[]): boolean {
 /** Distanza totale lungo il tracciato, in km. */
 export function trackDistanceKm(track: TrackPoint[]): number {
   let d = 0;
-  for (let i = 1; i < track.length; i++) d += haversineKm(track[i - 1], track[i]);
+  for (let i = 1; i < track.length; i++) if (!track[i].breakBefore) d += haversineKm(track[i - 1], track[i]);
   return d;
 }
 
@@ -21,7 +21,13 @@ export function trackDistanceKm(track: TrackPoint[]): number {
 export function downsample(track: TrackPoint[], max: number): TrackPoint[] {
   if (track.length <= max) return track;
   const out: TrackPoint[] = [];
-  for (let i = 0; i < max; i++) out.push(track[Math.round((i * (track.length - 1)) / (max - 1))]);
+  let prev = -1;
+  for (let i = 0; i < max; i++) {
+    const idx = Math.round((i * (track.length - 1)) / (max - 1));
+    const broken = track.slice(prev + 1, idx + 1).some((p) => p.breakBefore);
+    out.push(broken ? { ...track[idx], breakBefore: true } : track[idx]);
+    prev = idx;
+  }
   return out;
 }
 
@@ -37,7 +43,7 @@ export interface Split {
 
 /** Tempi per chilometro, interpolando linearmente tra i punti. */
 export function splits(track: TrackPoint[]): Split[] {
-  if (track.length < 2 || !isTimed(track)) return []; // senza tempi reali non si calcola nulla
+  if (track.length < 2 || !isTimed(track) || track.some((p) => p.breakBefore)) return []; // nessun passo sui tratti mancanti
   const out: Split[] = [];
   let acc = 0;
   let lastT = track[0].t;
@@ -65,7 +71,7 @@ export function splits(track: TrackPoint[]): Split[] {
  * `radiusKm` dal punto di partenza dopo essersi allontanati di almeno `minLapKm`. Restituisce 1 se non c'è ripetizione.
  */
 export function countLaps(track: TrackPoint[], radiusKm = 0.04, minLapKm = 0.3): number {
-  if (track.length < 3) return 1;
+  if (track.length < 3 || track.some((p) => p.breakBefore)) return 1;
   const start = track[0];
   let laps = 0;
   let far = false;
@@ -128,4 +134,14 @@ export function elevationOf(track: TrackPoint[]): { gainM: number; lossM: number
     if (Number.isFinite(smooth[i])) profile.push({ distKm: d, alt: smooth[i] });
   }
   return { gainM: Math.round(gain), lossM: Math.round(loss), profile };
+}
+
+/** Segmenti indipendenti: mai disegnare una linea attraverso pause o GPS perso. */
+export function trackSegments(track: TrackPoint[]): TrackPoint[][] {
+  const segments: TrackPoint[][] = [];
+  for (const point of track) {
+    if (!segments.length || point.breakBefore) segments.push([]);
+    segments[segments.length - 1].push(point);
+  }
+  return segments.filter((s) => s.length >= 2);
 }

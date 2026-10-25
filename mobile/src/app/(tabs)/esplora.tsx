@@ -8,6 +8,7 @@ import { EventCard } from '@/components/cards';
 import { PlacePicker, shortPlace } from '@/components/PlacePicker';
 import { Async, Banner, Button, Chip, Divider, Empty, IconButton, LinkText, Pills, PressableScale, Row, SearchField, Segmented, Sheet, Skeleton, SwitchRow, TabScreen, t, useLoad } from '@/components/ui';
 import { color, R, S, type } from '@/constants/theme';
+import { contextualLocationPermission } from '@/lib/locationPermissionPolicy';
 import { call, type GeoPlace } from '@/lib/api';
 import { addDaysIso, deviceTimezone, fmtKm, LEVELS, SPORTS_ENABLED, utcToZoned, zonedToUtcIso } from '@/lib/format';
 import { haversineKm } from '@shared/time.ts';
@@ -99,7 +100,7 @@ export default function Esplora() {
     if (pos) return (setPos(null), setCity(null));
     setGeo('busy');
     try {
-      const p = await Location.requestForegroundPermissionsAsync();
+      const p = await contextualLocationPermission('explore', Location);
       if (p.status !== 'granted') return setGeo('denied');
       const last = await Location.getLastKnownPositionAsync({ maxAge: 10 * 60_000 });
       const fix = last ?? (await Promise.race([Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), new Promise<null>((r) => setTimeout(() => r(null), 12_000))]));

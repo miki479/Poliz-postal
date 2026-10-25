@@ -14,8 +14,8 @@ function Complete({ s, onDone }: { s: PlannedSession; onDone: () => void }) {
   const [running, setRunning] = useState(false);
   const [sec, setSec] = useState(0);
   const startedAt = useRef<Date | null>(null);
-  const [km, setKm] = useState(s.distanceKm ? String(s.distanceKm) : '');
-  const [min, setMin] = useState(String(s.durationMin || ''));
+  const [km, setKm] = useState('');
+  const [min, setMin] = useState('');
   const [rpe, setRpe] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [shared, setShared] = useState(false);
@@ -87,6 +87,8 @@ function Complete({ s, onDone }: { s: PlannedSession; onDone: () => void }) {
 
 export default function Sessione() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [showComplete, setShowComplete] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const state = useLoad(() => call<PlannedSession>('getSession', id), [id]);
 
   async function act(fn: () => Promise<unknown>, back = false) {
@@ -148,10 +150,16 @@ export default function Sessione() {
             ) : null}
 
             {s.notes ? <Banner text={s.notes} /> : null}
+            {s.manualDone ? <><Banner text="Segnata come fatta da te. Nessuna attività registrata: il briefing non può verificare come sia andata." /><Button variant="soft" title="Togli la spunta" onPress={() => act(() => call('markSessionDone', s.id, false))} /></> : null}
+            {s.logId ? <Button variant="soft" title="Vedi attività collegata" onPress={() => router.push({ pathname: '/allenamento/log/[id]', params: { id: s.logId! } })} /> : null}
 
             {s.status === 'planned' || s.status === 'rescheduled' ? (
               <>
-                <Complete s={s} onDone={() => router.back()} />
+                <Button title="Inizia e registra" iconName="play" onPress={() => router.push({ pathname: '/registra', params: { session: s.id } })} />
+                <Button variant="soft" title="✓ Segna come fatta" onPress={() => act(() => call('markSessionDone', s.id, true))} />
+                <Text style={t.small}>La spunta è una tua dichiarazione: non aggiunge chilometri, tempi o record.</Text>
+                <Button variant="ghost" title={showComplete ? 'Chiudi inserimento' : 'Inserisci un’attività svolta'} onPress={() => setShowComplete(!showComplete)} />
+                {showComplete ? <Complete s={s} onDone={() => router.back()} /> : null}
                 <Row>
                   <Button style={{ flex: 1 }} variant="soft" title="Modifica" onPress={() => router.push({ pathname: '/allenamento/sessione-form', params: { id: s.id } })} />
                   <Button style={{ flex: 1 }} variant="ghost" title="Salta" onPress={() => act(() => call('skipSession', s.id, true))} />
@@ -160,7 +168,8 @@ export default function Sessione() {
             ) : s.status === 'skipped' ? (
               <Button variant="soft" title="Annulla “saltata”" onPress={() => act(() => call('skipSession', s.id, false))} />
             ) : null}
-            <Button variant="danger" title="Elimina sessione" onPress={() => Alert.alert('Eliminare la sessione?', undefined, [{ text: 'Annulla', style: 'cancel' }, { text: 'Elimina', style: 'destructive', onPress: () => act(() => call('deleteSession', s.id), true) }])} />
+            <Button variant="ghost" title={showOptions ? "Chiudi opzioni" : "Altre opzioni"} onPress={() => setShowOptions(!showOptions)} />
+            {showOptions ? <Button variant="danger" title="Elimina sessione" onPress={() => Alert.alert('Eliminare la sessione?', undefined, [{ text: 'Annulla', style: 'cancel' }, { text: 'Elimina', style: 'destructive', onPress: () => act(() => call('deleteSession', s.id), true) }])} /> : null}
           </>
         )}
       </Async>

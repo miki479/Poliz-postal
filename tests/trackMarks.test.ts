@@ -55,3 +55,15 @@ describe('marker del tracciato', () => {
     expect(n).toBeLessThan(40);
   });
 });
+
+it('i tratti record portano i timestamp esatti e non attraversano interruzioni', () => {
+  const track = line(4, 140);
+  const rec = { id: 'a:seg_1', code: 'seg_1', value: '4:10', previous: null, improvement: null } as unknown as Award;
+  const mark = buildMarks({ id: 'x', track }, [rec]).find((m) => m.kind === 'record')!;
+  expect(mark.toT! - mark.fromT!).toBeCloseTo(bestSegmentEnd(track, 1)!.sec, 0);
+  expect(mark.fromT).toBeGreaterThanOrEqual(track[0].t);
+  expect(mark.toT).toBeLessThanOrEqual(track[track.length - 1].t);
+  const broken = track.map((p, i) => ({ ...p, breakBefore: i === 10 }));
+  expect(bestSegmentEnd(broken, 1)).toBeNull();
+  expect(buildMarks({ id: 'x', track: broken }, [rec]).some((m) => m.kind === 'record')).toBe(false);
+});

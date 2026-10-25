@@ -256,7 +256,7 @@ export function Button({ title, onPress, busy, variant = 'primary', small, disab
     const bg = variant === 'brand' ? color.brandStrong : color.accent;
     const fg = variant === 'brand' ? color.storyInk : color.onAccent;
     return (
-      <PressableScale onPress={onPress} disabled={off} accessibilityRole="button" accessibilityState={{ disabled: !!off, busy: !!busy }} accessibilityHint={accessibilityHint} style={[st.primary, { backgroundColor: bg }, off && { opacity: 0.55 }, style]}>
+      <PressableScale onPress={onPress} disabled={off} accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: !!off, busy: !!busy }} accessibilityHint={accessibilityHint} style={[st.primary, { backgroundColor: bg }, off && { opacity: 0.55 }, style]}>
         {busy ? <ActivityIndicator color={fg} /> : iconName ? <Ionicons name={iconName} size={20} color={fg} /> : null}
         <Text style={[type.headline, { color: fg }]}>{title}</Text>
       </PressableScale>
@@ -264,7 +264,7 @@ export function Button({ title, onPress, busy, variant = 'primary', small, disab
   }
   const fg = variant === 'danger' ? color.danger : color.text;
   return (
-    <Pressable onPress={onPress} disabled={off} accessibilityRole="button" accessibilityState={{ disabled: !!off, busy: !!busy }} style={({ pressed }) => [st.row, variant === 'soft' && { backgroundColor: color.surface, paddingHorizontal: S.lg, borderRadius: R.control }, pressed && { opacity: 0.65 }, off && { opacity: 0.5 }, style]}>
+    <Pressable onPress={onPress} disabled={off} accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: !!off, busy: !!busy }} style={({ pressed }) => [st.row, variant === 'soft' && { backgroundColor: color.surface, paddingHorizontal: S.lg, borderRadius: R.control }, pressed && { opacity: 0.65 }, off && { opacity: 0.5 }, style]}>
       {busy ? <ActivityIndicator color={fg} /> : iconName ? <Ionicons name={iconName} size={20} color={variant === 'danger' ? color.danger : color.textSecondary} /> : null}
       <Text style={[type.callout, { flex: 1, color: fg }]}>{title}</Text>
       {variant !== 'danger' ? <Ionicons name="chevron-forward" size={16} color={color.textTertiary} /> : null}

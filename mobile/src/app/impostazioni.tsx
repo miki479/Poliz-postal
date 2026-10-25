@@ -5,7 +5,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 
 import { Async, Banner, Button, Divider, Field, Row, Screen, Section, Sheet, Skeleton, t, useLoad, type IconName } from '@/components/ui';
 import { color, S } from '@/constants/theme';
-import { auth, ext, type AccountInfo, type StravaStatus } from '@/lib/api';
+import { auth, call, ext, type AccountInfo, type StravaStatus } from '@/lib/api';
 import { fmtDateTimeShort } from '@/lib/format';
 import { useSession } from '@/lib/session';
 
@@ -25,7 +25,7 @@ function NavRow({ icon, title, subtitle, onPress, tone }: { icon: IconName; titl
 
 /** Gestione privata: account, integrazioni, privacy. Niente di tutto questo compare nel profilo pubblico. */
 export default function Impostazioni() {
-  const { logout } = useSession();
+  const { logout, refresh } = useSession();
   const account = useLoad(() => auth.account());
   const strava = useLoad(() => ext.strava.status().catch(() => null as StravaStatus | null));
   const [pwd, setPwd] = useState(false);
@@ -98,6 +98,11 @@ export default function Impostazioni() {
               </View>
             </Section>
 
+            <Section title="Guida iniziale">
+              <NavRow icon="sparkles-outline" title="Rivedi la configurazione" subtitle="Profilo fisico, GPS, amici e mappe" onPress={() => {
+                call('saveSetup', { restart: true }).then(() => refresh()).catch((e) => Alert.alert('Non disponibile', humanError(e, 'Riprova.')));
+              }} />
+            </Section>
             <Section title="Dati e integrazioni">
               <View>
                 <NavRow icon="sync-outline" title="Strava" subtitle={stravaLine} onPress={() => router.push('/integrazioni')} />

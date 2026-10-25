@@ -11,7 +11,7 @@ import { call } from '@/lib/api';
 import { RouteTrace } from '@/components/RouteTrace';
 import { fmtDuration, fmtKm, KIND_LABEL } from '@/lib/format';
 import type { MapInsights } from '@shared/mapInsights.ts';
-import type { PlannedSession, TrackPoint } from '@shared/types.ts';
+import type { LatLng, PlannedSession, TrackPoint } from '@shared/types.ts';
 import type { GearView } from '@shared/gear.ts';
 
 type Base = 'night' | 'standard' | 'satellite' | 'hybrid';
@@ -20,36 +20,37 @@ const BASES: Array<{ value: Base; label: string }> = [{ value: 'night', label: '
 const HEAT: Array<{ value: Heat; label: string }> = [{ value: 'off', label: 'Spenta' }, { value: 'global', label: 'Globale' }, { value: 'week', label: 'Ultimi 7 giorni' }];
 
 /** Mappe native di Expo Go: gli strati di densità usano cerchi, disponibili anche con Apple Maps. */
-export function RecordingMap({ track = [], height = 250, showLocation = false }: { track?: TrackPoint[]; height?: number; showLocation?: boolean }) {
+export function RecordingMap({ track = [], height = 250, showLocation = false, center, suggested = [], onDestination }: { track?: TrackPoint[]; height?: number; showLocation?: boolean; center?: LatLng | null; suggested?: LatLng[]; onDestination?: (point: LatLng) => void }) {
   const [base, setBase] = useState<Base>('night');
   const [heat, setHeat] = useState<Heat>('off');
   const [popular, setPopular] = useState(false);
   const [layers, setLayers] = useState(false);
-  const [result, setResult] = useState<{ key: Heat; data: MapInsights | null; failed: boolean } | null>(null);
-  const data = result?.key === heat ? result.data : null;
-  const failed = result?.key === heat && result.failed;
+  const queryKey = `${heat}:${center?.lat ?? ''}:${center?.lng ?? ''}`;
+  const [result, setResult] = useState<{ key: string; data: MapInsights | null; failed: boolean } | null>(null);
+  const data = result?.key === queryKey ? result.data : null;
+  const failed = result?.key === queryKey && result.failed;
   const map = useRef<MapView>(null);
   const ready = useRef(false);
   const fitted = useRef<string | null>(null);
   useEffect(() => {
     let active = true;
-    void call<MapInsights>('mapInsights', { period: heat === 'week' ? 'week' : 'global' }).then((value) => { if (active) setResult({ key: heat, data: value, failed: false }); }, () => { if (active) setResult({ key: heat, data: null, failed: true }); });
+    void call<MapInsights>('mapInsights', { period: heat === 'week' ? 'week' : 'global', ...(center ? { nearby: { ...center, radiusKm: 5 } } : {}) }).then((value) => { if (active) setResult({ key: queryKey, data: value, failed: false }); }, () => { if (active) setResult({ key: queryKey, data: null, failed: true }); });
     return () => { active = false; };
-  }, [heat]);
-  const first = track[0] ?? data?.routes[0]?.geometry[0] ?? data?.heat[0];
+  }, [heat, center, queryKey]);
+  const first = track[0] ?? center ?? data?.routes[0]?.geometry[0] ?? data?.heat[0];
   const mapType: MapType = base === 'night' ? (Platform.OS === 'ios' ? 'mutedStandard' : 'standard') : base;
   const points = track.map((p) => ({ latitude: p.lat, longitude: p.lng }));
   const fit = useCallback(() => {
-    const key = points.length ? 'recording' : heat !== 'off' ? `heat:${heat}` : 'routes';
+    const key = points.length ? 'recording' : suggested.length ? `suggested:${suggested.map((p) => `${p.lat},${p.lng}`).join(';')}` : center ? `center:${center.lat},${center.lng}` : heat !== 'off' ? `heat:${heat}` : 'routes';
     if (!ready.current || fitted.current === key) return;
-    const coordinates = points.length ? points : heat !== 'off' && data?.heat.length ? data.heat.map((p) => ({ latitude: p.lat, longitude: p.lng })) : data?.routes[0]?.geometry.map((p) => ({ latitude: p.lat, longitude: p.lng })) ?? [];
+    const coordinates = points.length ? points : suggested.length ? suggested.map((p) => ({ latitude: p.lat, longitude: p.lng })) : center ? [{ latitude: center.lat, longitude: center.lng }] : heat !== 'off' && data?.heat.length ? data.heat.map((p) => ({ latitude: p.lat, longitude: p.lng })) : data?.routes[0]?.geometry.map((p) => ({ latitude: p.lat, longitude: p.lng })) ?? [];
     if (coordinates.length > 1) { map.current?.fitToCoordinates(coordinates, { edgePadding: { top: 30, left: 30, right: 30, bottom: 30 }, animated: false }); fitted.current = key; }
     else if (coordinates.length === 1) { map.current?.animateToRegion({ ...coordinates[0], latitudeDelta: 0.025, longitudeDelta: 0.025 }, 0); fitted.current = key; }
-  }, [data, heat, points]);
+  }, [data, heat, points, center, suggested]);
   useEffect(() => { fit(); }, [fit]);
   return <View style={{ gap: S.sm }}>
     <View style={{ height, borderRadius: R.card, overflow: 'hidden', backgroundColor: color.surface }}>
-      <MapView ref={map} onMapReady={() => { ready.current = true; fit(); }} style={{ flex: 1 }} mapType={mapType} userInterfaceStyle="dark" showsUserLocation={showLocation} followsUserLocation={showLocation} pitchEnabled={false} initialRegion={first ? { latitude: first.lat, longitude: first.lng, latitudeDelta: 0.04, longitudeDelta: 0.04 } : undefined}>
+      <MapView ref={map} onLongPress={onDestination ? (e) => onDestination({ lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude }) : undefined} onMapReady={() => { ready.current = true; fit(); }} style={{ flex: 1 }} mapType={mapType} userInterfaceStyle="dark" showsUserLocation={showLocation} followsUserLocation={showLocation} pitchEnabled={false} initialRegion={first ? { latitude: first.lat, longitude: first.lng, latitudeDelta: 0.04, longitudeDelta: 0.04 } : undefined}>
         {heat !== 'off' ? data?.heat.map((cell) => {
           const center = { latitude: cell.lat, longitude: cell.lng };
           return <Fragment key={`${cell.lat}:${cell.lng}`}>
@@ -60,6 +61,7 @@ export function RecordingMap({ track = [], height = 250, showLocation = false }:
         }) : null}
         {popular ? data?.routes.filter((r) => r.favoriteCount > 0).map((r) => <Polyline key={r.id} coordinates={r.geometry.map((p) => ({ latitude: p.lat, longitude: p.lng }))} strokeColor={color.brandText} strokeWidth={4} />) : null}
         {points.length > 1 ? <Polyline coordinates={points} strokeColor={color.accent} strokeWidth={5} /> : null}
+        {suggested.length > 1 ? <Polyline coordinates={suggested.map((p) => ({ latitude: p.lat, longitude: p.lng }))} strokeColor={color.brand} strokeWidth={4} lineDashPattern={[8, 5]} /> : null}
       </MapView>
       <View style={{ position: 'absolute', top: S.sm, right: S.sm }}><IconButton name="layers-outline" label="Stile e livelli della mappa" filled onPress={() => setLayers(true)} /></View>
       <View pointerEvents="none" style={{ position: 'absolute', left: S.sm, bottom: S.sm, borderRadius: R.pill, backgroundColor: color.overlay, paddingHorizontal: S.md, paddingVertical: S.xs }}><Text style={[type.caption, { color: color.text }]}>{BASES.find((s) => s.value === base)?.label}{heat !== 'off' ? ' · Mappa di calore' : ''}</Text></View>

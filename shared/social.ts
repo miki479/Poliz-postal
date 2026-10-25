@@ -194,7 +194,7 @@ export function deleteComment(ctx: Ctx, id: Id): { deleted: true } {
 
 /** Feed con i conteggi social già inclusi (una sola richiesta). */
 export function feedTrack(log: WorkoutLog): TrackPoint[] | undefined {
-  if (!log.shared || !log.traceShared || (log.origin && log.origin !== 'app')) return undefined;
+  if (log.track?.some((p) => p.breakBefore) || !log.shared || !log.traceShared || (log.origin && log.origin !== 'app')) return undefined;
   const track = (log.track ?? []).filter((p) => Number.isFinite(p.lat) && Math.abs(p.lat) <= 90 && Number.isFinite(p.lng) && Math.abs(p.lng) <= 180 && Number.isFinite(p.t));
   const dist = [0];
   for (let i = 1; i < track.length; i++) dist.push(dist[i - 1] + haversineKm(track[i - 1], track[i]));

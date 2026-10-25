@@ -84,7 +84,7 @@ export function trackIssue(l: WorkoutLog): string | null {
   if (l.trail) return 'trail';
   if (l.kind === 'run_walk') return 'corsa e camminata';
   if (l.edited) return 'distanza o durata corrette a mano';
-  if (l.gpsQuality && l.gpsQuality.gaps > 0) return 'traccia con interruzioni';
+  if (l.track.some((p) => p.breakBefore) || (l.gpsQuality && l.gpsQuality.gaps > 0)) return 'traccia con interruzioni';
   for (let i = 1; i < l.track.length; i++) if (l.track[i].t < l.track[i - 1].t) return 'tempi della traccia non coerenti';
   return null;
 }

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { TrackPoint } from '@shared/types.ts';
+import type { TrackPoint } from '../../../shared/types.ts';
 
 /**
  * Bozza della registrazione in corso, salvata sul telefono ogni pochi secondi, in pausa e quando l'app va in
@@ -16,6 +16,7 @@ export interface RecordingDraft {
   shared: boolean;
   /** Scelta esplicita prima dell'avvio; facoltativa per le bozze già presenti. */
   gearId?: string | null;
+  heatmapConsent?: boolean;
   track: TrackPoint[];
   km: number;
   /** Millisecondi totali in pausa (escluse le pause in corso). */
@@ -31,16 +32,20 @@ export interface RecordingDraft {
 
 const KEY = 'runngo.recording.v1';
 
-export async function saveDraft(d: RecordingDraft): Promise<void> {
-  try {
-    await AsyncStorage.setItem(KEY, JSON.stringify({ ...d, savedAt: Date.now() }));
-  } catch {
-    /* memoria piena o non disponibile: la registrazione in corso continua comunque */
-  }
+// Serialize writes: a slow previous save must not overwrite a newer draft or resurrect a discarded one.
+let writes: Promise<void> = Promise.resolve();
+function enqueue(write: () => Promise<void>): Promise<void> {
+  writes = writes.then(write).catch(() => { /* storage unavailable: keep the in-memory activity */ });
+  return writes;
+}
+export function saveDraft(d: RecordingDraft): Promise<void> {
+  const snapshot = JSON.stringify({ ...d, savedAt: Date.now() });
+  return enqueue(() => AsyncStorage.setItem(KEY, snapshot));
 }
 
 export async function loadDraft(): Promise<RecordingDraft | null> {
   try {
+    await writes;
     const raw = await AsyncStorage.getItem(KEY);
     if (!raw) return null;
     const d = JSON.parse(raw) as RecordingDraft;
@@ -50,12 +55,8 @@ export async function loadDraft(): Promise<RecordingDraft | null> {
   }
 }
 
-export async function clearDraft(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(KEY);
-  } catch {
-    /* ignora */
-  }
+export function clearDraft(): Promise<void> {
+  return enqueue(() => AsyncStorage.removeItem(KEY));
 }
 
 /** Secondi di attività effettiva (tempo reale meno le pause). */
@@ -72,7 +73,10 @@ export function currentPace(track: TrackPoint[], dist: (a: TrackPoint, b: TrackP
   let i = track.length - 2;
   while (i > 0 && last.t - track[i].t < 30) i--;
   let km = 0;
-  for (let j = i + 1; j < track.length; j++) km += dist(track[j - 1], track[j]);
+  for (let j = i + 1; j < track.length; j++) {
+    if (track[j].breakBefore) return null;
+    km += dist(track[j - 1], track[j]);
+  }
   const sec = last.t - track[i].t;
   return km >= 0.05 && sec > 0 ? sec / km : null;
 }

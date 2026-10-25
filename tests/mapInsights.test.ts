@@ -9,7 +9,7 @@ const NOW = new Date('2026-10-25T12:00:00Z');
 let db: ReturnType<typeof emptyDb>;
 const as = (id = 'a'): Ctx => ({ db, actorId: id, now: NOW });
 function log(id: string, userId: string, over: Partial<WorkoutLog> = {}): WorkoutLog {
-  return { id, userId, plannedSessionId: null, kind: 'run_free', title: 'Corsa', startedAt: '2026-10-24T10:00:00Z', durationSec: 1800, distanceKm: 5, paceSecPerKm: 360, rpe: null, difficulties: '', notes: '', sets: [], mode: 'manual', activityId: null, shared: true, origin: 'app', track: [{ lat: 45.12345, lng: 9.12345, t: 0 }, { lat: 45.12346, lng: 9.12346, t: 60 }], createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), ...over };
+  return { id, userId, plannedSessionId: null, kind: 'run_free', title: 'Corsa', startedAt: '2026-10-24T10:00:00Z', durationSec: 1800, distanceKm: 5, paceSecPerKm: 360, rpe: null, difficulties: '', notes: '', sets: [], mode: 'manual', activityId: null, shared: true, origin: 'app', track: [{ lat: 45.11, lng: 9.12345, t: 0 }, { lat: 45.12345, lng: 9.12345, t: 300 }, { lat: 45.12346, lng: 9.12346, t: 360 }, { lat: 45.14, lng: 9.12345, t: 900 }], createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), ...over };
 }
 beforeEach(() => {
   db = emptyDb();

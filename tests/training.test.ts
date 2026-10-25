@@ -309,3 +309,24 @@ describe('percorsi e condivisione', () => {
     expect([db.routes, db.sessions, db.workoutLogs, db.routines, db.activities].map((x) => Object.keys(x).length)).toEqual([0, 0, 0, 0, 0]);
   });
 });
+
+describe('spunta senza registrazione', () => {
+  it('non inventa attività, distanze, tempi o record ed è reversibile', () => {
+    const s = run<PlannedSession>('a', 'createSession', [session({ date: '2026-10-22' })]);
+    run('a', 'markSessionDone', [s.id, true]);
+    expect(s.status).toBe('completed');
+    expect(s.manualDone).toBe(true);
+    expect(s.logId).toBeNull();
+    expect(Object.values(db.workoutLogs)).toHaveLength(0);
+    expect(Object.values(db.activities)).toHaveLength(0);
+    expect(code(() => run('b', 'markSessionDone', [s.id]))).toBe('not_found');
+    run('a', 'markSessionDone', [s.id, false]);
+    expect(s.status).toBe('planned');
+    run('a', 'completeSession', [s.id, logIn()]);
+    expect(code(() => run('a', 'markSessionDone', [s.id, false]))).toBe('conflict');
+  });
+  it('rifiuta una spunta futura', () => {
+    const s = run<PlannedSession>('a', 'createSession', [session()]);
+    expect(code(() => run('a', 'markSessionDone', [s.id]))).toBe('validation');
+  });
+});

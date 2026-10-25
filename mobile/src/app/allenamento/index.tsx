@@ -229,7 +229,7 @@ export default function Piano() {
                 <>
                   <Row gap={0}>
                     <Metric value={`${done.length}/${week.filter((s) => s.status !== 'paused').length}`} label="Sedute fatte" />
-                    <Metric value={fmtDuration(done.reduce((a, s) => a + s.durationMin, 0))} label="Tempo previsto svolto" />
+                    <Metric value={fmtDuration(done.reduce((a, s) => a + s.durationMin, 0))} label="Minuti previsti delle sedute spuntate" />
                   </Row>
                   <Row gap={4}>
                     {weekDays.map((day, i) => {

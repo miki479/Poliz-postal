@@ -24,7 +24,7 @@ import { alpha, mix } from '@/components/event/colors';
 import { OptionChip } from '@/components/event/OptionChip';
 import { Reveal } from '@/components/event/Reveal';
 import { SectionTitle } from '@/components/event/SectionTitle';
-import { ActivityGlyph, SportGlyph, type Glyph, type Pose } from '@/components/SportIcon';
+import { ActivityGlyph } from '@/components/SportIcon';
 import { IconButton, useReduceMotion, type IconName } from '@/components/ui';
 import { styleOfSport } from '@/constants/activityColors';
 import { color, HIT, M, R, S, type } from '@/constants/theme';
@@ -576,9 +576,6 @@ export function DistanceDial({ sport, value, onChange }: { sport: EventSport; va
 
 type PacedSport = Exclude<EventSport, 'other'>;
 
-/** Figura del ritmo per tipo: le stesse di SportIcon (tutte con le due pose). */
-const PACE_GLYPH: Record<PacedSport, Glyph> = { running: 'run', walking: 'walk', trail: 'trail', run_walk: 'run_walk' };
-
 /** Durata di una posa: più veloce = falcate più frequenti. La camminata resta rilassata, corsa + camminata sta in mezzo. */
 const STRIDE: Record<PacedSport, [number, number]> = { running: [430, 180], trail: [460, 220], run_walk: [540, 300], walking: [640, 440] };
 /** Molleggio (px a 44 di figura): la corsa rimbalza, la camminata appena. */
@@ -600,35 +597,6 @@ const WIND_MS = [0, 1100, 850, 650] as const;
 
 const FIG = 72;
 
-/** La figura che alterna le pose: ha il suo stato, così il resto dell'illustrazione non si ridisegna a ogni passo. */
-function Strider({ glyph, period, moving, tint, bob }: { glyph: Glyph; period: number | null; moving: boolean; tint: string; bob: Animated.Value }) {
-  const [pose, setPose] = useState<Pose>(0);
-  const periodRef = useLatest(period);
-  useEffect(() => {
-    if (!moving) {
-      setPose(0);
-      bob.setValue(0);
-      return;
-    }
-    let timer: ReturnType<typeof setTimeout>;
-    const beat = () => {
-      const p = periodRef.current ?? 400;
-      setPose((q) => (q === 0 ? 1 : 0));
-      Animated.sequence([
-        Animated.timing(bob, { toValue: 1, duration: p * 0.4, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(bob, { toValue: 0, duration: p * 0.5, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ]).start();
-      timer = setTimeout(beat, p);
-    };
-    timer = setTimeout(beat, periodRef.current ?? 400);
-    return () => {
-      clearTimeout(timer);
-      bob.stopAnimation();
-    };
-  }, [moving, bob, periodRef]);
-  return <SportGlyph glyph={glyph} pose={pose} size={FIG} color={tint} />;
-}
-
 /** Illustrazione del ritmo (solo decorativa): falcata, molleggio e linee di vento legati al passo. */
 function PaceRunner({ sport, pace, tint }: { sport: PacedSport; pace: number | null; tint: string }) {
   const reduce = useReduceMotion();
@@ -639,6 +607,15 @@ function PaceRunner({ sport, pace, tint }: { sport: PacedSport; pace: number | n
   const moving = !reduce && period !== null;
   const windMs = WIND_MS[lines] ?? 0;
   const amp = BOB[sport] * (FIG / 44);
+  useEffect(() => {
+    if (!moving || !period) { bob.setValue(0); return; }
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(bob, { toValue: 1, duration: period / 2, useNativeDriver: true }),
+      Animated.timing(bob, { toValue: 0, duration: period / 2, useNativeDriver: true }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [moving, period, bob]);
   const bobY = useMemo(() => bob.interpolate({ inputRange: [0, 1], outputRange: [0, amp] }), [bob, amp]);
   const phases = useMemo(() => [0, 1, 2].map((i) => Animated.modulo(Animated.add(wind, i / 3), 1)), [wind]);
 
@@ -674,7 +651,10 @@ function PaceRunner({ sport, pace, tint }: { sport: PacedSport; pace: number | n
       {/* Ombra a terra: resta ferma mentre la figura molleggia. */}
       <View style={{ position: 'absolute', left: 34, bottom: 4, width: 52, height: 6, borderRadius: 3, backgroundColor: alpha(tint, 0.2) }} />
       <Animated.View style={{ position: 'absolute', left: 26, top: 4, transform: [{ translateY: bobY }] }}>
-        <Strider glyph={PACE_GLYPH[sport]} period={period} moving={moving} tint={tint} bob={bob} />
+        <Svg width={72} height={72} viewBox="0 0 72 72">
+          <Path d="M12 24 L28 20 L36 36 Q44 42 59 43 Q65 44 65 51 L64 56 L12 56 Q7 56 7 51 L7 36 Z" fill={tint} />
+          <Path d="M10 56 H64 M31 30 L39 28 M35 36 L43 34 M40 41 L48 39" stroke={color.bg} strokeWidth={3} strokeLinecap="round" fill="none" />
+        </Svg>
       </Animated.View>
     </View>
   );

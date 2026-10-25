@@ -191,6 +191,17 @@ export function skipSession(ctx: Ctx, id: Id, skipped = true): PlannedSession {
   return s;
 }
 
+export function markSessionDone(ctx: Ctx, id: Id, done = true): PlannedSession {
+  const s = own(ctx, ctx.db.sessions[id], 'Sessione');
+  if (typeof done !== 'boolean') throw new AppError('validation', 'Stato non valido.');
+  if (s.logId || s.linkedActivityId) throw new AppError('conflict', 'Questa seduta ha un’attività collegata: modifica la registrazione.');
+  if (done && s.date > new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(ctx.now)) throw new AppError('validation', 'Non puoi completare una seduta futura.');
+  s.manualDone = done;
+  s.status = done ? 'completed' : s.rescheduledFrom ? 'rescheduled' : 'planned';
+  s.updatedAt = iso(ctx.now);
+  return s;
+}
+
 export function deleteSession(ctx: Ctx, id: Id): { deleted: true } {
   const s = own(ctx, ctx.db.sessions[id], 'Sessione');
   delete ctx.db.sessions[s.id];
@@ -269,6 +280,7 @@ export function validateLog(raw: Partial<WorkoutLogInput> | null | undefined, no
       sets,
       mode: r.mode as 'manual' | 'timer',
       shared: r.shared === true,
+      heatmapConsent: r.heatmapConsent === true && !!track && environment === 'outdoor',
       timezone: typeof r.timezone === 'string' ? r.timezone : 'Europe/Rome',
       track: track ?? null,
       sport,
@@ -293,6 +305,7 @@ function cleanTrack(raw: unknown): TrackPoint[] | null | undefined {
     const alt = typeof p.alt === 'number' && Number.isFinite(p.alt) && p.alt > -500 && p.alt < 9000 ? Math.round(p.alt * 10) / 10 : undefined;
     out.push(alt === undefined ? { lat: Math.round(p.lat * 1e5) / 1e5, lng: Math.round(p.lng * 1e5) / 1e5, t: Math.round(p.t) } : { lat: Math.round(p.lat * 1e5) / 1e5, lng: Math.round(p.lng * 1e5) / 1e5, t: Math.round(p.t), alt });
   }
+  raw.forEach((p, i) => { if (p?.breakBefore === true) out[i].breakBefore = true; });
   return out.length >= 2 ? out : null;
 }
 
@@ -321,6 +334,7 @@ function record(ctx: Ctx, uid: Id, input: WorkoutLogInput, session: PlannedSessi
     mode: input.mode,
     activityId: null,
     shared: input.shared,
+    heatmapConsent: input.heatmapConsent === true,
     track: input.track ?? null,
     brief: null,
     sport: input.sport ?? 'running',
@@ -408,7 +422,8 @@ export function updateWorkoutLog(ctx: Ctx, id: Id, patch: Partial<WorkoutLogInpu
     if (l.sport === 'walking') delete l.trail;
   }
   if (edited && l.distanceKm !== v.value.distanceKm) l.distanceSource = v.value.distanceKm ? 'manual' : null;
-  Object.assign(l, { edited, title: v.value.title, durationSec: v.value.durationSec, distanceKm: v.value.distanceKm, paceSecPerKm: v.value.distanceKm ? Math.round(v.value.durationSec / v.value.distanceKm) : null, rpe: v.value.rpe, difficulties: v.value.difficulties, notes: v.value.notes, sets: v.value.sets, shared: v.value.shared, updatedAt: iso(ctx.now) });
+  l.brief = null;
+  Object.assign(l, { heatmapConsent: v.value.heatmapConsent === true, edited, title: v.value.title, durationSec: v.value.durationSec, distanceKm: v.value.distanceKm, paceSecPerKm: v.value.distanceKm ? Math.round(v.value.durationSec / v.value.distanceKm) : null, rpe: v.value.rpe, difficulties: v.value.difficulties, notes: v.value.notes, sets: v.value.sets, shared: v.value.shared, updatedAt: iso(ctx.now) });
   // Se il log ha creato un'attività sua (non collegata a una già esistente), tiene allineati i valori.
   const a = l.activityId ? ctx.db.activities[l.activityId] : undefined;
   if (a && a.planSessionId === l.plannedSessionId && a.source === 'manual' && a.userId === l.userId) {
@@ -655,6 +670,7 @@ export const trainingMethods = {
   updateSession,
   moveSession,
   skipSession,
+  markSessionDone,
   deleteSession,
   linkSessionEvent,
   completeSession,

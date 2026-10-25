@@ -21,6 +21,9 @@ export interface TrackMark {
   detail: string;
   /** Per i record: id dell'award associato. */
   awardId?: string;
+  /** Exact recorded-time interval for a segment record. */
+  fromT?: number;
+  toT?: number;
 }
 
 const fmtSec = (s: number) => {
@@ -46,11 +49,11 @@ function cumulative(track: TrackPoint[]): number[] {
 }
 
 /** Fine (posizione) della porzione continua più veloce di `km`: coerente con bestSegmentSec. */
-export function bestSegmentEnd(track: TrackPoint[], km: number): { lat: number; lng: number; sec: number } | null {
-  if (track.length < 2) return null;
+export function bestSegmentEnd(track: TrackPoint[], km: number): { lat: number; lng: number; sec: number; fromT: number; toT: number } | null {
+  if (track.length < 2 || track.some((p) => p.breakBefore)) return null;
   const cum = cumulative(track);
   if (cum[cum.length - 1] < km) return null;
-  let best: { j: number; sec: number } | null = null;
+  let best: { j: number; sec: number; fromT: number } | null = null;
   let i = 0;
   for (let j = 1; j < track.length; j++) {
     const target = cum[j] - km;
@@ -59,9 +62,9 @@ export function bestSegmentEnd(track: TrackPoint[], km: number): { lat: number; 
     const seg = cum[i + 1] - cum[i];
     const tAt = seg > 0 ? track[i].t + ((target - cum[i]) / seg) * (track[i + 1].t - track[i].t) : track[i].t;
     const sec = track[j].t - tAt;
-    if (sec > 0 && (!best || sec < best.sec)) best = { j, sec };
+    if (sec > 0 && (!best || sec < best.sec)) best = { j, sec, fromT: tAt };
   }
-  return best ? { lat: track[best.j].lat, lng: track[best.j].lng, sec: Math.round(best.sec) } : null;
+  return best ? { lat: track[best.j].lat, lng: track[best.j].lng, sec: Math.round(best.sec), fromT: best.fromT, toT: track[best.j].t } : null;
 }
 
 export function buildMarks(log: Pick<WorkoutLog, 'track' | 'id'>, awards: Award[]): TrackMark[] {
@@ -72,7 +75,7 @@ export function buildMarks(log: Pick<WorkoutLog, 'track' | 'id'>, awards: Award[
   const out: TrackMark[] = [
     { id: 'start', kind: 'start', lat: first.lat, lng: first.lng, label: '', title: 'Partenza', detail: 'Punto di partenza registrato.' },
   ];
-  if (isTimed(track)) {
+  if (isTimed(track) && !track.some((p) => p.breakBefore)) {
     const cum = cumulative(track);
     const sp = splits(track).filter((s) => s.distKm >= 1 - 1e-9);
     const every = sp.length > 15 ? 5 : sp.length > 8 ? 2 : 1;
@@ -86,7 +89,7 @@ export function buildMarks(log: Pick<WorkoutLog, 'track' | 'id'>, awards: Award[
       if (!m) continue;
       const end = bestSegmentEnd(track, Number(m[1]));
       if (!end) continue;
-      out.push({ id: `rec_${a.code}`, kind: 'record', lat: end.lat, lng: end.lng, label: m[1], title: `Record sui ${m[1]} km`, detail: `${a.value}${a.previous ? ` · prima ${a.previous}` : ''}${a.improvement ? ` · ${a.improvement}` : ''}. Raggiunto qui.`, awardId: a.id });
+      out.push({ id: `rec_${a.code}`, kind: 'record', lat: end.lat, lng: end.lng, label: m[1], title: `Record sui ${m[1]} km`, detail: `${a.value}${a.previous ? ` · prima ${a.previous}` : ''}${a.improvement ? ` · ${a.improvement}` : ''}. Raggiunto qui.`, awardId: a.id, fromT: end.fromT, toT: end.toT });
     }
   }
   out.push({ id: 'finish', kind: 'finish', lat: last.lat, lng: last.lng, label: '', title: 'Arrivo', detail: 'Punto di arrivo registrato.' });

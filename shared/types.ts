@@ -34,6 +34,17 @@ export interface ProfileStyle {
   featuredBadges: string[];
 }
 
+/** Solo il proprietario riceve questi dati, mai il profilo pubblico. */
+export interface SetupPreferences {
+  version: 1;
+  step: number;
+  completedAt: string | null;
+  weightKg: number | null;
+  heightCm: number | null;
+  groupMatching: boolean;
+  heatmapConsent: boolean;
+}
+
 /** Utente memorizzato. Non contiene email né segreti. */
 export interface User {
   id: Id;
@@ -53,6 +64,7 @@ export interface User {
   privacy: PrivacySettings;
   /** Assente per gli utenti creati prima della personalizzazione: si usa lo stile base. */
   style?: ProfileStyle;
+  setup?: SetupPreferences;
   createdAt: string;
 }
 
@@ -678,6 +690,8 @@ export interface PlannedSession {
   logId: Id | null;
   /** Attività reale (Strava, file, uscita) associata dall'utente a questa seduta. */
   linkedActivityId?: Id | null;
+  /** Spunta manuale: non costituisce una registrazione o una misura. */
+  manualDone?: boolean;
   /** Ultima modifica adattiva confermata dall'utente (sostituita, ridotta, spostata). */
   adjustment?: { action: AdjustAction; at: string; from: { kind: SessionKind; title: string; durationMin: number; date: string } } | null;
   createdAt: string;
@@ -750,6 +764,8 @@ export interface LoggedSet {
 
 /** Punto del tracciato GPS: coordinate e secondi trascorsi dall'inizio dell'allenamento. */
 export interface TrackPoint {
+  /** Segnale interrotto o pausa: non collegare al punto precedente. */
+  breakBefore?: boolean;
   lat: number;
   lng: number;
   t: number;
@@ -776,6 +792,7 @@ export interface ActivityMetrics {
 
 /** Riepilogo scritto dal Coach AI (o generato dalle regole se l'AI non è disponibile) per un allenamento concluso. */
 export interface WorkoutBrief {
+  evidenceVersion?: number;
   text: string;
   at: string;
   /** true se prodotto dal Coach AI; false se è il riepilogo automatico basato sulle regole. */
@@ -822,6 +839,8 @@ export interface WorkoutLog {
   edited?: boolean;
   /** 'strava' = nato da un'attività importata: tracciato senza tempi, sempre privato. */
   origin?: 'app' | 'strava';
+  /** Consenso per aggregare questa traccia nella mappa di calore. */
+  heatmapConsent?: boolean;
   /** Briefing dopo l'allenamento. */
   brief?: WorkoutBrief | null;
   /** Misure fornite dalla fonte (Strava): vedi ActivityMetrics. */
@@ -831,6 +850,7 @@ export interface WorkoutLog {
 }
 
 export interface WorkoutLogInput {
+  heatmapConsent?: boolean;
   plannedSessionId?: Id | null;
   kind: SessionKind;
   title: string;

@@ -316,6 +316,7 @@ export function createUser(db: DbState, now: Date, p: { displayName: string; use
     displayName: p.displayName,
     avatar: p.avatar ?? null,
     profileCompleted: p.profileCompleted,
+    setup: { version: 1, step: 0, completedAt: null, weightKg: null, heightCm: null, groupMatching: false, heatmapConsent: false },
     bio: '',
     hue: p.hue,
     sports: p.sports ?? ['running'],

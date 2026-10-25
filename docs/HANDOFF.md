@@ -2,7 +2,9 @@
 
 Documento per chi riprende il lavoro (persona o altra AI). Descrive cosa esiste, cosa è stato fatto, cosa manca e come verificare, rilasciare e pubblicare.
 
-> ⚠️ **Niente è ancora salvato in git.** L'ultimo commit è `12f69af` sul branch `claude/podismo-social`. Tutta l'app nativa (`mobile/`) e gran parte di `shared/` e `tests/` sono file **non tracciati**. Prima di qualsiasi altra cosa: `git add` e commit, per non rischiare di perdere il lavoro.
+> **Aggiornamento del 25 ottobre 2026:** le modifiche a mappa, registrazione, piano, Google e introduzione animata sono incluse nel commit che aggiorna questo documento, sul branch `claude/podismo-social`. Il dettaglio delle funzionalità, dei controlli e dei limiti è in [FIX-MAPPA-PIANO.md](FIX-MAPPA-PIANO.md); la configurazione Google nativa è in [GOOGLE-MOBILE.md](GOOGLE-MOBILE.md). Le sezioni storiche sotto descrivono le fasi precedenti e non sostituiscono questo aggiornamento.
+
+Il nuovo rilascio non è stato pubblicato: Expo è autenticato come `mikifikone`, mentre manca l'autenticazione Google Cloud per aggiornare prima il server. Restano online la revisione server e il gruppo Expo indicati nel §2. Non riutilizzare il vecchio QR come se contenesse queste modifiche. L'accesso Google richiede una build nativa con i client OAuth configurati; non funziona dentro Expo Go. La registrazione GPS continua in background non è implementata.
 
 ---
 

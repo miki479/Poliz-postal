@@ -55,6 +55,7 @@ export interface AccountInfo {
 
 export const auth = {
   login: async (email: string, password: string) => (await post<{ user: Me }>('/api/auth/login', { email, password })).user,
+  google: async (idToken: string) => (await post<{ user: Me }>('/api/auth/google', { idToken })).user,
   register: async (email: string, password: string) => (await post<{ user: Me }>('/api/auth/register', { email, password })).user,
   logout: async () => void (await post('/api/auth/logout', {})),
   forgot: async (email: string) => void (await post('/api/auth/forgot', { email })),
@@ -66,6 +67,7 @@ export const auth = {
 };
 
 export interface Health {
+  googleClientId: string | null;
   ok: boolean;
   features: { strava: boolean; geocoding: boolean; routing: boolean; weather: boolean; ai: boolean };
   registrationCodeRequired: boolean;

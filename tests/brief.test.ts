@@ -89,3 +89,24 @@ describe('generatore: varietà e moduli', () => {
     expect(sessions.filter((s) => s.date >= '2026-12-14').every((s) => /rifinitura/.test(s.notes))).toBe(true);
   });
 });
+
+it('un inserimento manuale è dichiarato e non prova lo svolgimento', () => {
+  const f = analyzeWorkout(emptyDb(), log({ mode: 'manual' }));
+  expect(f.evidence).toBe('declared');
+  expect(factsToText(f)).toContain('non posso verificare lo svolgimento');
+  expect(factsToContext(f)).toContain('non affermare');
+  const gps = analyzeWorkout(emptyDb(), log({ distanceSource: 'gps', track: circuit(1) }));
+  expect(gps.evidence).toBe('gps');
+  expect(analyzeWorkout(emptyDb(), log({ distanceSource: 'gps', track: circuit(1), edited: true })).evidence).toBe('declared');
+});
+
+it('non ricuce il tragitto attraverso pause o interruzioni anche dopo il campionamento', async () => {
+  const { trackSegments } = await import('../shared/track.ts');
+  const track = circuit(1);
+  track[20].breakBefore = true;
+  const segments = trackSegments(track);
+  expect(segments).toHaveLength(2);
+  expect(segments[0][segments[0].length - 1]).toEqual(track[19]);
+  expect(segments[1][0]).toEqual(track[20]);
+  expect(downsample(track, 10).some((p) => p.breakBefore)).toBe(true);
+});

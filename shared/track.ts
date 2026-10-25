@@ -21,7 +21,13 @@ export function trackDistanceKm(track: TrackPoint[]): number {
 export function downsample(track: TrackPoint[], max: number): TrackPoint[] {
   if (track.length <= max) return track;
   const out: TrackPoint[] = [];
-  for (let i = 0; i < max; i++) out.push(track[Math.round((i * (track.length - 1)) / (max - 1))]);
+  let prev = -1;
+  for (let i = 0; i < max; i++) {
+    const idx = Math.round((i * (track.length - 1)) / (max - 1));
+    const broken = track.slice(prev + 1, idx + 1).some((p) => p.breakBefore);
+    out.push(broken ? { ...track[idx], breakBefore: true } : track[idx]);
+    prev = idx;
+  }
   return out;
 }
 
@@ -128,4 +134,14 @@ export function elevationOf(track: TrackPoint[]): { gainM: number; lossM: number
     if (Number.isFinite(smooth[i])) profile.push({ distKm: d, alt: smooth[i] });
   }
   return { gainM: Math.round(gain), lossM: Math.round(loss), profile };
+}
+
+/** Segmenti indipendenti: mai disegnare una linea attraverso pause o GPS perso. */
+export function trackSegments(track: TrackPoint[]): TrackPoint[][] {
+  const segments: TrackPoint[][] = [];
+  for (const point of track) {
+    if (!segments.length || point.breakBefore) segments.push([]);
+    segments[segments.length - 1].push(point);
+  }
+  return segments.filter((s) => s.length >= 2);
 }

@@ -30,6 +30,7 @@ type Slide = 'cover' | 'numbers' | 'route' | 'results' | 'group' | 'brief';
 
 interface StoryData {
   log: WorkoutLog;
+  group: boolean;
   logs: WorkoutLog[];
   event: EventView | null;
   /** Dal meno al più importante. */
@@ -44,7 +45,8 @@ async function load(id: string): Promise<StoryData> {
   if (!eventId && log.plannedSessionId) eventId = (await call<PlannedSession>('getSession', log.plannedSessionId).catch(() => null))?.eventId ?? null;
   const event = eventId ? await call<EventView>('getEvent', eventId, null).catch(() => null) : null;
   const awards = ascending(activityAwards(log.id, logs.some((l) => l.id === log.id) ? logs : [...logs, log]));
-  return { log, logs, event, awards, fresh: awards.filter((a) => !seen.has(awardFxKey(a.id))).map((a) => a.id) };
+  const companions = await call<unknown[]>('runCompanions', log.id).catch(() => []);
+  return { log, logs, event, group: !!log.eventId || companions.length > 0, awards, fresh: awards.filter((a) => !seen.has(awardFxKey(a.id))).map((a) => a.id) };
 }
 
 /* ---------- dati reali per le schede ---------- */
@@ -847,7 +849,7 @@ export default function Storie() {
     <Animated.View style={[{ flex: 1, backgroundColor: DEEP }, enterStyle]} {...pan.panHandlers}>
       <Stack.Screen options={{ headerShown: false }} />
       <Backdrop kind={kind} pal={pal} still={still} active={focused} />
-      {kind === 'route' && track ? <RouteReplay track={track} marks={marks} paused={paused} tint={color.storyInk} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '30%' }} /> : null}
+      {kind === 'route' && track ? <RouteReplay track={track} marks={marks} awards={data.awards} group={data.group} paused={paused} tint={pal.line} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '30%' }} /> : null}
       {/* veli per la leggibilità: controlli in alto, testo in basso */}
       <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top + 130 }} />
       <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)']} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '42%' }} />

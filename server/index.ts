@@ -567,17 +567,17 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       // Briefing dopo un allenamento: se il Coach AI non c'è o la quota è finita, resta il riepilogo calcolato con regole fisse.
       const log = store.db.workoutLogs[String(body.logId ?? '')];
       if (!log || log.userId !== userId) throw new AppError('not_found', 'Allenamento non trovato.');
-      if (log.brief && body.refresh !== true) return send(res, 200, { brief: log.brief, facts: analyzeWorkout(store.db, log), remaining: aiStatus(ai, store.ai, userId!).remaining });
+      if (log.brief && log.brief.evidenceVersion === 1 && body.refresh !== true) return send(res, 200, { brief: log.brief, facts: analyzeWorkout(store.db, log), remaining: aiStatus(ai, store.ai, userId!).remaining });
       if (limited(`aibrief:${userId}`, 6, 60_000)) throw new AppError('rate_limited', 'Attendi un momento prima di rigenerare il briefing.');
       const facts = analyzeWorkout(store.db, log);
-      let brief = { text: factsToText(facts), at: new Date().toISOString(), ai: false };
-      if (ai.enabled && !aiBusy.has(userId!) && aiStatus(ai, store.ai, userId!).remaining > 0 && aiStatus(ai, store.ai, userId!).serviceAvailable) {
+      let brief = { evidenceVersion: 1, text: factsToText(facts), at: new Date().toISOString(), ai: false };
+      if (facts.evidence !== 'declared' && ai.enabled && !aiBusy.has(userId!) && aiStatus(ai, store.ai, userId!).remaining > 0 && aiStatus(ai, store.ai, userId!).serviceAvailable) {
         aiBusy.add(userId!);
         try {
           reserve(ai, store.ai, userId!);
           try {
             const out = await callWorker(ai, buildMessages('workout_brief', '', factsToContext(facts)));
-            brief = { text: out.text, at: brief.at, ai: !out.simulated };
+            brief = { evidenceVersion: 1, text: out.text, at: brief.at, ai: !out.simulated };
           } catch {
             refund(store.ai, userId!); // se l'AI non risponde, la quota non si consuma e si usa il riepilogo automatico
           }

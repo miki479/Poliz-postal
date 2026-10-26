@@ -1,16 +1,15 @@
+import { useStravaImportNotice } from '@/lib/stravaSync';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { EventCard, GroupRunCard, paceNum } from '@/components/cards';
-import { AwardMark } from '@/components/Results';
-import { LatestCard } from '@/components/LatestCard';
-import { activityAwards, descending } from '@shared/records.ts';
-import { Banner, Button, IconButton, Metric, PressableScale, Row, Section, Sheet, Skeleton, TabScreen, t, useLoad, Panel } from '@/components/ui';
+import { EventCard, GroupRunCard } from '@/components/cards';
+import { CommunityStream } from '@/components/CommunityStream';
+import { Banner, Button, IconButton, Metric, Row, Section, Sheet, Skeleton, TabScreen, t, useLoad, Panel } from '@/components/ui';
 import { color, HIT, R, S, type } from '@/constants/theme';
 import { call } from '@/lib/api';
-import { dayAgo, deviceTimezone, fmtClock, fmtDuration, fmtKm, hoursUntil, kmParts, KIND_LABEL, startOfWeekIso, toISODate } from '@/lib/format';
+import { deviceTimezone, fmtClock, fmtDuration, fmtKm, hoursUntil, kmParts, KIND_LABEL, startOfWeekIso, toISODate } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import { useJoin } from '@/lib/useJoin';
 import type { ClubView, EventView, HomeView, PersonalStats, PlannedSession, PlanState, WorkoutLog } from '@shared/types.ts';
@@ -58,7 +57,6 @@ async function loadHome(): Promise<HomeData> {
 type Hero =
   | { kind: 'event'; e: EventView; label: string }
   | { kind: 'discover'; e: EventView }
-  | { kind: 'recap'; log: WorkoutLog }
   | { kind: 'session'; s: PlannedSession }
   | { kind: 'paused'; state: PlanState }
   | { kind: 'findGroup' }
@@ -69,9 +67,8 @@ function pickHero(d: HomeData): Hero {
   const mine = d.home.nextEvents.filter((e) => e.status === 'active' && !e.isPast);
   const soon = mine[0];
   // Recap già visto: niente più protagonista, resta tra i racconti.
-  const recent = d.logs[0] && Date.now() - Date.parse(d.logs[0].startedAt) < 36 * 3_600_000 && !d.seen.has(`story:${d.logs[0].id}`) ? d.logs[0] : null;
   if (soon && hoursUntil(soon.startsAt) <= 12) return { kind: 'event', e: soon, label: hoursUntil(soon.startsAt) <= 2 ? 'Si parte tra poco' : 'La tua prossima corsa' };
-  if (recent) return { kind: 'recap', log: recent };
+
   // Piano in pausa o in vacanza: stato chiaro, nessun sollecito di allenamento.
   if (d.plan && d.plan.mode !== 'active' && !soon) return { kind: 'paused', state: d.plan };
   if (d.today[0]) return { kind: 'session', s: d.today[0] };
@@ -104,35 +101,6 @@ function HeroEvent({ e, label, clubImage, onChange }: { e: EventView; label: str
         <Banner tone="success" text="Ci sei! Trovi l’uscita tra le tue prossime corse." />
       ) : null}
     </View>
-  );
-}
-
-function HeroRecap({ log, logs }: { log: WorkoutLog; logs: WorkoutLog[] }) {
-  const awards = descending(activityAwards(log.id, logs));
-  const top = awards[0] ?? null;
-  return (
-    <Panel tone="brand" style={{ padding: S.lg, gap: S.md }}>
-      <PressableScale onPress={() => router.push({ pathname: '/allenamento/log/[id]', params: { id: log.id } })} accessibilityRole="button" accessibilityLabel={`Recap disponibile: ${log.title}. Apri il riepilogo`}>
-        <Row>
-          <View style={{ flex: 1, gap: S.xs }}>
-            <Eyebrow text={`RECAP · ${dayAgo(log.startedAt).toUpperCase()}`} tint={color.brandText} />
-            <Text style={t.title1} numberOfLines={2}>
-              {log.title}
-            </Text>
-            <Text style={t.muted}>{[log.distanceKm ? fmtKm(log.distanceKm) : null, fmtClock(log.durationSec), log.paceSecPerKm ? `${paceNum(log.paceSecPerKm)}/km` : null].filter(Boolean).join(' · ')}</Text>
-          </View>
-        </Row>
-      </PressableScale>
-      {top ? (
-        <Row gap={S.md}>
-          <AwardMark a={top} size={44} />
-          <View style={{ flex: 1 }}>
-            <Text style={[type.subhead, { color: color.text, fontWeight: '700' }]} numberOfLines={2}>{top.headline}</Text>
-            <Text style={t.small}>{awards.length === 1 ? '1 riconoscimento' : `${awards.length} riconoscimenti`}</Text>
-          </View>
-        </Row>
-      ) : null}
-    </Panel>
   );
 }
 
@@ -187,7 +155,7 @@ function Suggestion({ d, onChanged }: { d: HomeData; onChanged: () => void }) {
   const q = d.fame?.qualities[0];
   if (q && !d.seen.has(`fame:${q.category}`))
     return (
-      <Banner tone="success" text={`Le persone con cui corri ti riconoscono come “${q.label}”. Lo trovi nel tuo profilo.`} action="Vedi la tua Fama" onAction={async () => { await markSeen(`fame:${q.category}`); router.push('/fama'); }} />
+      <Banner tone="success" text={`Le persone con cui corri ti riconoscono come “${q.label}”. Lo trovi nel tuo profilo.`} action="Vedi la tua reputazione" onAction={async () => { await markSeen(`fame:${q.category}`); router.push('/fama'); }} />
     );
   return null;
 }
@@ -210,34 +178,12 @@ type RunFilter = 'all' | 'mine' | 'clubs' | 'public';
 const FILTERS: Array<{ value: RunFilter; label: string }> = [
   { value: 'all', label: 'Tutte' },
   { value: 'mine', label: 'Le mie' },
-  { value: 'clubs', label: 'Dei miei club' },
+  { value: 'clubs', label: 'Dei miei gruppi' },
   { value: 'public', label: 'Pubbliche' },
 ];
 /** Due card grandi come nel mockup: le altre uscite scendono nelle righe compatte "I miei club" / "Uscite pubbliche". */
-const BIG_CARDS = 2;
+const BIG_CARDS = 8;
 const ROWS = 3;
-
-/** "+" dell'intestazione: le due cose che si creano dalla Home. Mai più di tre voci (limite degli avvisi Android). */
-function createMenu() {
-  const options = ['Organizza un’uscita', 'Registra un allenamento', 'Annulla'];
-  const pick = (i: number) => {
-    if (i === 0) router.push('/evento/form');
-    if (i === 1) router.push('/registra');
-  };
-  if (Platform.OS === 'ios') ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: 2 }, pick);
-  else Alert.alert('Cosa vuoi fare?', undefined, [{ text: options[0], onPress: () => pick(0) }, { text: options[1], onPress: () => pick(1) }, { text: 'Annulla', style: 'cancel' }]);
-}
-
-/** Pulsante tondo pieno "+" (come nel mockup). */
-function CreateButton() {
-  return (
-    <Pressable onPress={createMenu} accessibilityRole="button" accessibilityLabel="Crea: organizza un’uscita o registra un allenamento" hitSlop={4} style={({ pressed }) => ({ width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
-      <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: color.accent, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name="add" size={24} color={color.onAccent} />
-      </View>
-    </Pressable>
-  );
-}
 
 /** Intestazione "Uscite di gruppo" con il filtro a tendina ("Tutte" ▾). */
 function GroupHeader({ filter, onOpen }: { filter: RunFilter; onOpen: () => void }) {
@@ -257,12 +203,14 @@ function GroupHeader({ filter, onOpen }: { filter: RunFilter; onOpen: () => void
 
 export default function Home() {
   const { me } = useSession();
+  const imports = useStravaImportNotice();
   const state = useLoad(loadHome);
   const [, force] = useState(0);
   const [req, setReq] = useState<ChangeRequest | null>(null);
   const [applied, setApplied] = useState<PlanChange | null>(null);
   const [filter, setFilter] = useState<RunFilter>('all');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [listView, setListView] = useState(false);
   const d = state.data;
   const hero = d ? pickHero(d) : null;
   const unread = d?.home.unreadNotifications ?? 0;
@@ -297,9 +245,9 @@ export default function Home() {
       onRefresh={state.reload}
       right={
         <>
-          <IconButton name="search" label="Cerca uscite" onPress={() => router.navigate('/esplora')} />
+          <IconButton name="person-circle-outline" label="Il tuo profilo" onPress={() => router.navigate('/profilo')} />
           <IconButton name="notifications-outline" label="Notifiche" badge={unread} onPress={() => router.push('/notifiche')} />
-          <CreateButton />
+
         </>
       }>
       {!d ? (
@@ -317,20 +265,21 @@ export default function Home() {
 
           {hero?.kind === 'event' ? <HeroEvent e={hero.e} label={hero.label} clubImage={imageOf(hero.e, images)} onChange={() => void state.reload().then(() => force((x) => x + 1))} /> : null}
           {hero?.kind === 'discover' ? <HeroEvent e={hero.e} label="Potrebbe fare per te" clubImage={imageOf(hero.e, images)} onChange={() => void state.reload()} /> : null}
-          {hero?.kind === 'recap' ? <LatestCard logs={d.logs} onOpenAll={() => router.push('/profilo')} /> : null}
           {hero?.kind === 'session' ? <HeroSession s={hero.s} /> : null}
           {hero?.kind === 'paused' ? <HeroPaused state={hero.state} onResume={() => setReq({ action: 'resume', params: { date: todayIso() } })} /> : null}
           {applied ? <UndoBanner change={applied} onUndone={() => { setApplied(null); void state.reload(); }} onDismiss={() => setApplied(null)} /> : null}
           {hero?.kind === 'findGroup' ? <HeroInvite first={false} /> : null}
           {hero?.kind === 'firstStep' ? <HeroInvite first /> : null}
 
+          {imports.count > 0 ? <Panel style={{ padding: S.lg, gap: S.sm }}><Row><Text style={[t.title, { flex: 1 }]}>{imports.count} {imports.count === 1 ? 'allenamento sincronizzato e salvato' : 'allenamenti sincronizzati e salvati'}</Text><IconButton name="close" label="Chiudi avviso Strava" onPress={imports.dismiss} /></Row><Text style={t.small}>Importati da Strava nel tuo archivio privato.</Text><Button variant="soft" title="Controlla gli allenamenti" onPress={() => { imports.dismiss(); router.push('/integrazioni'); }} /></Panel> : null}
           <Suggestion d={d} onChanged={() => void state.reload()} />
 
           {pool.length ? (
             <View style={{ gap: S.md }}>
               <GroupHeader filter={filter} onOpen={() => setFilterOpen(true)} />
+              <Row><Button small title={listView ? 'Vista orizzontale' : 'Vista elenco'} onPress={() => setListView(!listView)} /><Button small title="Organizza un’uscita" onPress={() => router.push('/evento/form')} /></Row>
               {big.length ? (
-                big.map((e, i) => <GroupRunCard key={e.id} e={e} index={i} clubImage={imageOf(e, images)} />)
+                listView ? big.map((e, i) => <EventCard key={e.id} e={e} index={i} clubImage={imageOf(e, images)} />) : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: S.md }}>{big.map((e, i) => <View key={e.id} style={{ width: 300 }}><GroupRunCard e={e} index={i} clubImage={imageOf(e, images)} /></View>)}</ScrollView>
               ) : (
                 <Text style={t.muted}>Nessuna uscita in programma per questo filtro.</Text>
               )}
@@ -353,7 +302,8 @@ export default function Home() {
             </Section>
           ) : null}
 
-          {hero?.kind !== 'recap' ? <LatestCard logs={d.logs} onOpenAll={() => router.push('/profilo')} /> : null}
+
+          <CommunityStream />
 
           {week ? (
             <Section title="Questa settimana" action="Statistiche" onAction={() => router.push('/statistiche')}>

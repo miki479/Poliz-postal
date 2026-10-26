@@ -336,7 +336,7 @@ export function GlassChip({ text, icon, tint = color.storyInk }: { text: string;
  * quindi qui l'unità si toglie sempre e si rimette una volta sola.
  */
 export const paceNum = (sec: number) => formatPace(sec).replace(/\s*\/\s*km$/i, '');
-const paceMin = (sec: number) => `${paceNum(sec)} min/km`;
+const paceMin = (sec: number) => `Passo ${paceNum(sec)}/km`;
 const placeOf = (e: EventView) => (e.restricted ? '' : e.meetingPlace || e.area);
 
 /** Menu "…" della card: azioni brevi, mai più di tre voci (limite degli avvisi Android). */

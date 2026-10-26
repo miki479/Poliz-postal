@@ -34,6 +34,6 @@ it('la barra Expo 58 usa emitter/navigateToTab e il comando Registra apre la rou
   const record = entries[2].props.children[0];
   const button = record.type(record.props); button.props.onPress();
   expect(push).toHaveBeenCalledWith('/registra');
-  expect(entries.filter(Boolean)).toHaveLength(5);
+  expect(entries.filter(Boolean)).toHaveLength(3);
   expect(emit).toHaveBeenCalledWith({ type: 'tabPress', target: 'esplora-key', canPreventDefault: true });
 });

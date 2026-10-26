@@ -1,39 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs, router } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import { Fragment, useEffect, useState } from 'react';
-import { Animated, Easing, Pressable, Text, View } from 'react-native';
+import { Fragment } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { color, R, S, type } from '@/constants/theme';
-import { useReduceMotion } from '@/lib/useReduceMotion';
 
 const ITEMS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; selected: keyof typeof Ionicons.glyphMap }> = {
   index: { label: 'Home', icon: 'home-outline', selected: 'home' },
   esplora: { label: 'Esplora', icon: 'map-outline', selected: 'map' },
-  club: { label: 'Club', icon: 'people-outline', selected: 'people' },
-  social: { label: 'Social', icon: 'chatbubbles-outline', selected: 'chatbubbles' },
-  profilo: { label: 'Profilo', icon: 'person-circle-outline', selected: 'person-circle' },
+  club: { label: 'Community', icon: 'people-outline', selected: 'people' },
 };
 
 function RecordButton() {
-  const reduce = useReduceMotion();
-  const [glow] = useState(() => new Animated.Value(0));
-  useEffect(() => {
-    if (reduce) { glow.stopAnimation(); glow.setValue(0); return; }
-    const animation = Animated.loop(Animated.sequence([
-      Animated.timing(glow, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(glow, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-    ]), { iterations: 2 });
-    animation.start(); return () => animation.stop();
-  }, [reduce, glow]);
-  return <Pressable onPress={() => router.push('/registra')} accessibilityRole="button" accessibilityLabel="Registra una corsa o camminata" style={({ pressed }) => [{ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'flex-end', gap: S.xs, opacity: pressed ? 0.8 : 1 }]}>
-    <View style={{ width: 56, height: 56, marginTop: -22, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', width: 64, height: 64, borderRadius: 32, backgroundColor: color.accentTint, opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] }), transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) }] }} />
-      <LinearGradient colors={[color.accent, color.brand]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: color.surface }}><Ionicons name="radio-button-on" size={32} color={color.onAccent} /></LinearGradient>
-    </View>
-    <Text style={[type.caption, { color: color.accent, fontWeight: '800', fontSize: 10, textAlign: 'center' }]}>REGISTRA</Text>
+  return <Pressable onPress={() => router.push('/registra')} accessibilityRole="button" accessibilityLabel="Registra una corsa o camminata" style={({ pressed }) => ({ flex: 1, minHeight: 64, paddingBottom: S.xs, alignItems: 'center', justifyContent: 'flex-end', gap: S.xs, opacity: pressed ? 0.65 : 1 })}>
+    <Ionicons name="radio-button-on-outline" size={25} color={color.textSecondary} />
+    <Text style={[type.caption, { color: color.textSecondary, fontSize: 11, textAlign: 'center' }]}>Registra</Text>
   </Pressable>;
 }
 
@@ -51,7 +34,7 @@ function NavigationBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
             if (!selected && !event.defaultPrevented) navigateToTab(route.key);
           }} onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}>
             <Ionicons name={selected ? item.selected : item.icon} size={25} color={selected ? color.accent : color.textSecondary} />
-            <Text style={[type.caption, { fontSize: 10, color: selected ? color.accent : color.textSecondary, fontWeight: selected ? '700' : '500', textAlign: 'center' }]}>{item.label}</Text>
+            <Text style={[type.caption, { fontSize: 11, color: selected ? color.accent : color.textSecondary, fontWeight: selected ? '700' : '500', textAlign: 'center' }]}>{item.label}</Text>
           </Pressable>
         </Fragment>;
       })}
@@ -64,7 +47,7 @@ export default function TabsLayout() {
   return <Tabs screenOptions={{ headerShown: false, tabBarHideOnKeyboard: true }} tabBar={(props) => <NavigationBar {...props} />}>
     <Tabs.Screen name="index" options={{ title: 'Home' }} />
     <Tabs.Screen name="esplora" options={{ title: 'Esplora' }} />
-    <Tabs.Screen name="club" options={{ title: 'Club' }} />
+    <Tabs.Screen name="club" options={{ title: 'Community' }} />
     <Tabs.Screen name="social" options={{ title: 'Social' }} />
     <Tabs.Screen name="profilo" options={{ title: 'Profilo' }} />
   </Tabs>;

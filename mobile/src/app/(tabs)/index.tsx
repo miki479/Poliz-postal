@@ -9,7 +9,7 @@ import { CommunityStream } from '@/components/CommunityStream';
 import { Banner, Button, IconButton, Metric, Row, Section, Sheet, Skeleton, TabScreen, t, useLoad, Panel } from '@/components/ui';
 import { color, HIT, R, S, type } from '@/constants/theme';
 import { call } from '@/lib/api';
-import { deviceTimezone, fmtClock, fmtDuration, fmtKm, hoursUntil, kmParts, KIND_LABEL, startOfWeekIso, toISODate } from '@/lib/format';
+import { deviceTimezone, fmtDuration, fmtKm, hoursUntil, kmParts, KIND_LABEL, startOfWeekIso, toISODate } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import { useJoin } from '@/lib/useJoin';
 import type { ClubView, EventView, HomeView, PersonalStats, PlannedSession, PlanState, WorkoutLog } from '@shared/types.ts';

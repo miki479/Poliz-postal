@@ -110,3 +110,10 @@ it('non ricuce il tragitto attraverso pause o interruzioni anche dopo il campion
   expect(segments[1][0]).toEqual(track[20]);
   expect(downsample(track, 10).some((p) => p.breakBefore)).toBe(true);
 });
+
+it('il confronto con passo più tranquillo usa un tono neutro', () => {
+ const f = analyzeWorkout(emptyDb(), log({}));
+ f.vsHistory = { count: 3, avgPaceSecPerKm: 360, paceDeltaSec: 58, avgKm: null, kmDeltaPct: null };
+ expect(factsToText(f)).toContain('Passo più tranquillo');
+ expect(factsToText(f)).not.toMatch(/giornata no|Più lento/);
+});

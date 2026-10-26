@@ -17,7 +17,7 @@ export const monthShort = (iso: string, tz: string) => new Intl.DateTimeFormat(L
 export { relativeFromNow } from '@shared/relativeTime.ts';
 
 export const fmtKm = (km: number) => `${new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 }).format(km)} km`;
-export const fmtPace = (sec: number | null) => (sec ? `${formatPace(sec)}/km` : '');
+export const fmtPace = (sec: number | null) => (sec ? `${formatPace(sec).replace(/\s*\/\s*km$/i, '')}/km` : '');
 
 export function fmtDuration(min: number): string {
   const h = Math.floor(min / 60);

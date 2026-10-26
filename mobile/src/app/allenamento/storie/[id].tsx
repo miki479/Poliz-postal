@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, PanResponder, Pressable, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
+import { AccessibilityInfo, PanResponder, Pressable, Share, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { cancelAnimation, Easing, FadeIn, FadeOut, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, ClipPath, Defs, G, Path, RadialGradient, Rect, Stop, LinearGradient as SvgGradient } from 'react-native-svg';
@@ -761,7 +761,7 @@ export default function Storie() {
     if (!data) return [];
     const l = data.log;
     const track = l.track && l.track.length > 1;
-    return ['cover', ...(l.distanceKm || l.durationSec ? (['numbers'] as Slide[]) : []), ...(track ? (['route'] as Slide[]) : []), ...(data.awards.length ? (['results'] as Slide[]) : []), ...(data.event && data.event.participantCount > 1 ? (['group'] as Slide[]) : []), 'brief'];
+    return ['cover', ...(l.distanceKm || l.durationSec ? (['numbers'] as Slide[]) : []), ...(track ? (['route'] as Slide[]) : []), ...(data.awards.length ? (['results'] as Slide[]) : []), ...(['group'] as Slide[]), 'brief'];
   }, [data]);
   const pal = useMemo(() => (data ? storyPalette(data.log, data.logs) : null), [data]);
   const kind: Slide = slides[i] ?? 'cover';
@@ -848,7 +848,7 @@ export default function Storie() {
     <Animated.View style={[{ flex: 1, backgroundColor: DEEP }, enterStyle]} {...pan.panHandlers}>
       <Stack.Screen options={{ headerShown: false }} />
       <Backdrop kind={kind} pal={pal} still={still} active={focused} />
-      {kind === 'route' && track ? <RouteReplay track={track} marks={marks} paused={paused} tint={data.group ? color.brand : pal.line} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '30%' }} /> : null}
+      {kind === 'route' && track ? <RouteReplay track={track} marks={marks} paused={paused} tint={color.accent} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '30%' }} /> : null}
       {/* veli per la leggibilità: controlli in alto, testo in basso */}
       <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top + 130 }} />
       <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)']} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '42%' }} />
@@ -872,17 +872,17 @@ export default function Storie() {
             </>
           ) : null}
           {kind === 'results' ? <ResultsSlide awards={data.awards} fresh={data.fresh} still={still} onOpen={setDetail} dir={dir} /> : null}
-          {kind === 'group' && event ? (
+          {kind === 'group' ? (
             <>
               <Rise dx={24 * dir} dy={0}>
                 <Ionicons name="people" size={36} color={color.storyInk} />
               </Rise>
               <Rise dy={16} delay={120} spring>
-                <Text style={H1}>{pal.focus === 'walk' ? 'Camminata insieme' : pal.focus === 'trail' ? 'Trail insieme' : pal.focus === 'other' ? 'Insieme' : 'Corsa insieme'}</Text>
+                <Text style={H1}>{!event ? 'Con chi hai corso' : pal.focus === 'walk' ? 'Camminata insieme' : pal.focus === 'trail' ? 'Trail insieme' : pal.focus === 'other' ? 'Insieme' : 'Corsa insieme'}</Text>
               </Rise>
               <Rise dy={10} delay={260}>
                 <Text style={P}>
-                  {event.participantCount} persone iscritte a “{event.title}”, organizzata da {event.organizer.displayName}.
+                  {event ? `${event.participantCount} persone iscritte a “${event.title}”, organizzata da ${event.organizer.displayName}${event.club ? ` · ${event.club.name}` : ''}.` : log.origin === 'strava' ? 'Attività importata da Strava, senza compagni collegati.' : 'Corsa in solitaria. Non hai collegato compagni o un’uscita di gruppo.'}
                 </Text>
               </Rise>
             </>
@@ -943,6 +943,7 @@ export default function Storie() {
             <Text style={[type.body, { color: color.text }]}>{paused ? 'Riprendi' : 'Metti in pausa'}</Text>
           </Pressable>
         ) : null}
+        <Pressable accessibilityRole="button" onPress={() => { setPaused(true); void Share.share({ message: `${log.title}: ${log.distanceKm ? fmtKm(log.distanceKm) + ' · ' : ''}${fmtClock(log.durationSec)} · ${pal.label} con Runngo` }); }} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={{ color: color.accent }}>Condividi riepilogo</Text></Pressable>
         <Text style={[type.footnote, { color: color.textTertiary }]}>Tieni premuto sullo schermo per fermare il racconto finché non sollevi il dito. Scorri verso il basso per chiuderlo.</Text>
       </Sheet>
       <AwardDetailSheet award={detail} onClose={() => setDetail(null)} activity={`${pal.label} · ${fmtDate(log.startedAt)}`} />

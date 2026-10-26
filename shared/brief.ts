@@ -32,7 +32,7 @@ const median = (a: number[]) => {
   return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0;
 };
 const pct = (a: number, b: number) => (b > 0 ? Math.round(((a - b) / b) * 100) : 0);
-const fmtPace = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}/km`;
+const fmtPace = (s: number) => { const rounded = Math.round(s); return `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, '0')}/km`; };
 
 function paceOf(l: WorkoutLog): number | null {
   return l.distanceKm && l.distanceKm >= 0.5 ? l.durationSec / l.distanceKm : null;
@@ -115,7 +115,7 @@ export function factsToText(f: BriefFacts): string {
   }
   if (f.vsHistory?.paceDeltaSec != null && f.vsHistory.avgPaceSecPerKm) {
     const d = f.vsHistory.paceDeltaSec;
-    out.push(Math.abs(d) < 5 ? `Passo stabile rispetto alle ultime ${f.vsHistory.count} uscite (media ${fmtPace(f.vsHistory.avgPaceSecPerKm)}).` : d < 0 ? `Più veloce di ${Math.abs(d)} s/km rispetto alla tua media recente (${fmtPace(f.vsHistory.avgPaceSecPerKm)}).` : `Più lento di ${d} s/km rispetto alla tua media recente (${fmtPace(f.vsHistory.avgPaceSecPerKm)}): se non è una giornata no, controlla il recupero.`);
+    out.push(Math.abs(d) < 5 ? `Passo stabile rispetto alle ultime ${f.vsHistory.count} uscite (media ${fmtPace(f.vsHistory.avgPaceSecPerKm)}).` : d < 0 ? `Più veloce di ${Math.abs(d)} s/km rispetto alla tua media recente (${fmtPace(f.vsHistory.avgPaceSecPerKm)}).` : `Passo più tranquillo rispetto alle ultime attività (media ${fmtPace(f.vsHistory.avgPaceSecPerKm)}).`);
   } else if (!f.vsHistory) out.push('È la prima uscita di questo tipo che registro: dalla prossima potrò confrontarla con le precedenti.');
   if (f.vsOthers) out.push(`Su uscite di distanza simile condivise da altri ${f.vsOthers.runners} runner (passo mediano ${fmtPace(f.vsOthers.medianPaceSecPerKm)}), il tuo passo è più rapido del ${f.vsOthers.fasterThanPct}%. Il passo non misura l’impegno: è solo un riferimento.`);
 

@@ -1,5 +1,5 @@
-import { ACTIVITY_STYLES, gradientFor, styleOfKind, styleOfSport, type ActivityStyle } from '@/constants/activityColors';
-import type { WorkoutLog } from '@shared/types.ts';
+import { ACTIVITY_STYLES, gradientFor, styleOfKind, styleOfSport, type ActivityStyle } from '../constants/activityColors';
+import type { WorkoutLog } from '../../../shared/types.ts';
 
 /**
  * Colori e personalità di un racconto, derivati dalle attività REALI (mai a caso):
@@ -22,6 +22,7 @@ export type StoryFocus = 'run' | 'walk' | 'trail' | 'mixed' | 'other';
  * "TrailRun", sempre con sport corsa), il resto dal tipo di sessione.
  */
 export function styleOfLog(l: WorkoutLog): ActivityStyle {
+  if (l.kind === 'run_walk' || /camminata\s*(?:[+\/&-]|e)\s*corsa|corsa\s*(?:[+\/&-]|e)\s*camminata|run[ _-]?walk/i.test(l.title)) return ACTIVITY_STYLES.run_walk;
   if (l.sport === 'walking') return ACTIVITY_STYLES.walk;
   if (l.trail) return ACTIVITY_STYLES.trail;
   const s = styleOfKind(l.kind, l.title);

@@ -104,6 +104,7 @@ function Brief({ log }: { log: WorkoutLog }) {
 
 /** Cosa era previsto, cosa è stato svolto, cosa dicono i dati (intento e risultato osservato restano distinti). */
 function Trained({ log, session }: { log: WorkoutLog; session: PlannedSession | null }) {
+  const [methodOpen, setMethodOpen] = useState(false);
   const kind = log.environment === 'treadmill' ? 'Tapis roulant' : styleOfLog(log).label;
   return (
     <Section title="Cosa hai allenato">
@@ -119,13 +120,14 @@ function Trained({ log, session }: { log: WorkoutLog; session: PlannedSession | 
             {log.distanceKm ? ` · ${fmtKm(log.distanceKm)}${log.distanceSource === 'manual' ? ' (dichiarati)' : log.distanceSource === 'gps' ? ' (GPS)' : ''}` : ''}
           </Text>
         </Row>
-        <Row gap={S.sm} style={{ alignItems: 'flex-start' }}>
+        <LinkText title={methodOpen ? 'Nascondi il metodo' : 'Come viene calcolato'} onPress={() => setMethodOpen(!methodOpen)} />
+        {methodOpen ? <Row gap={S.sm} style={{ alignItems: 'flex-start' }}>
           <Text style={[t.small, { width: 76 }]}>Dai dati</Text>
           <Text style={[t.body, { flex: 1 }]}>
             {log.rpe ? `Hai indicato una fatica di ${log.rpe}/10. ` : ''}
             {log.metrics?.hrAvg ? 'La valutazione si basa su durata, distanza e sensazioni: indica lo stimolo probabile, non un adattamento certo.' : 'Senza frequenza cardiaca la valutazione si basa solo su durata, distanza e sensazioni: indica lo stimolo probabile, non un adattamento certo.'}
           </Text>
-        </Row>
+        </Row> : null}
       </View>
     </Section>
   );
@@ -252,6 +254,7 @@ function Identity({ log, s }: { log: WorkoutLog; s: ActivityStyle }) {
         <Text style={[type.subhead, { color: color.textSecondary }]} numberOfLines={1}>
           {sameAsType ? when : `${s.label} · ${when}`}
         </Text>
+        {log.origin === 'strava' || log.origin === 'file' ? <Text style={t.small}>{log.origin === 'strava' ? 'Importata da Strava · titolo originale' : 'Importata da file · titolo originale'}</Text> : null}
       </View>
     </View>
   );
@@ -484,7 +487,7 @@ export default function LogDettaglio() {
     <View style={{ flex: 1, backgroundColor: color.bg }}>
       <Stack.Screen
         options={{
-          title: 'Dettagli attività',
+          title: 'Allenamento',
           headerTransparent: true,
           headerTintColor: color.storyInk,
           headerTitleStyle: { color: color.storyInk, fontSize: type.headline.fontSize, fontWeight: '600' },

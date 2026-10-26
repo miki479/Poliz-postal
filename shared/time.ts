@@ -78,8 +78,9 @@ export function startOfWeekIso(now: Date, tz: string): string {
 }
 
 export function formatPace(secPerKm: number): string {
-  const m = Math.floor(secPerKm / 60);
-  const s = Math.round(secPerKm % 60);
+  const rounded = Math.round(secPerKm);
+  const m = Math.floor(rounded / 60);
+  const s = rounded % 60;
   return `${m}:${String(s).padStart(2, '0')}/km`;
 }
 

@@ -107,7 +107,7 @@ function HeroEvent({ e, label, clubImage, onChange }: { e: EventView; label: str
 function HeroSession({ s }: { s: PlannedSession }) {
   return (
     <Panel style={{ padding: S.lg, gap: S.sm }}>
-      <Eyebrow text={s.date===todayIso()?'OGGI NEL TUO PIANO':`PROSSIMA SEDUTA · ${s.date.slice(8)}/${s.date.slice(5,7)}`} />
+      <Eyebrow text={s.date===todayIso()?'OGGI NEL TUO PIANO':`PROSSIMO ALLENAMENTO · ${s.date.slice(8)}/${s.date.slice(5,7)}`} />
       <Text style={t.title1}>{s.title || KIND_LABEL[s.kind]}</Text>
       <Text style={t.muted}>{[KIND_LABEL[s.kind], fmtDuration(s.durationMin), s.distanceKm ? fmtKm(s.distanceKm) : null].filter(Boolean).join(' · ')}</Text>
       {s.description ? (

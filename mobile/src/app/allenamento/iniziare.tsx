@@ -38,7 +38,7 @@ export default function Iniziare() {
       <Stack.Screen options={{ title: 'Inizia a correre' }} />
       <Text style={t.h1}>Dalla camminata alla corsa</Text>
       <Text style={t.muted}>
-        27 allenamenti in 9 settimane dal programma pubblico NHS Couch to 5K. Tre uscite a settimana con almeno un giorno di riposo fra le
+        27 allenamenti in 9 settimane dal programma pubblico NHS Couch to 5K. Tre uscite a settimana con almeno un giorno di riposo fra gli
         allenamenti. Puoi ripetere una settimana: nessuna progressione obbligatoria.
       </Text>
       <Button small title="Leggi il programma NHS originale" onPress={() => void Linking.openURL(BEGINNER_SOURCE.url)} />

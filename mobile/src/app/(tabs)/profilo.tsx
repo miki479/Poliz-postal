@@ -184,6 +184,7 @@ function ProgressTab({ d }: { d: ProfileData }) {
   return <View style={{ gap: S.lg }}>
     {sport ? <Text style={t.muted}>{sport.activities} attività · {fmtKm(sport.km)}{sport.bestStreakWeeks ? ` · ${sport.bestStreakWeeks} settimane consecutive` : ''}</Text> : null}
     {recs.length ? <View><SectionHead title="Record personali" action="Tutti" onAction={() => router.push('/record')} />{recs.map((r) => <RecordRow key={r.code} r={r} awards={d.awards} />)}</View> : <Text style={t.muted}>I record e i miglioramenti compariranno con le tue attività.</Text>}
+    <NavRow icon="calendar-outline" title="Il tuo piano" onPress={() => router.push('/allenamento')} />
     <NavRow icon="stats-chart-outline" title="Volume e costanza" onPress={() => router.push('/statistiche')} />
     <NavRow icon="flag-outline" title="Obiettivi" onPress={() => router.push('/obiettivi')} />
   </View>;

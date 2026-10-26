@@ -1,5 +1,7 @@
 # Runngo — punto di passaggio (25 ottobre 2026)
 
+> **Ultimo rilascio, 26 ottobre 2026:** piano con testata fissa e struttura dei riferimenti, guida NHS, compagni confermati, follower gestibili, riepilogo per campo, miniature e MP4. Codice `28867b9`; server `00024-5v5` pubblicato prima di Expo iOS gruppo `1e5134dd-985a-4dd6-bbb2-082b551a2e53`. **449 test/56 file**, typecheck, build, lint mirato, export iOS e prova browser del piano a 375 px passati. [Resoconto e limiti](PLAN-2026-10-26.md), [QR attuale](runngo-expo-plan-2026-10-26.png). Le pubblicazioni sotto sono storiche.
+
 > **Aggiornamento del 26 ottobre 2026:** quattro comandi Home/Esplora/Registra/Community, riorganizzazione Profilo e Allenamento, replay GPS nativo, creazione per proposte, ritrovo abituale esplicito e correzione del passo. Codice `e236e79`, server `00023-pg2` pubblicato prima dell’app, Expo iOS gruppo `453b6fc8-2f9a-4bfb-abb2-ab6a406fd4ac`. **425 test/52 file**, typecheck, build, export e prove browser passati. Non tutte le nuove funzioni del testo sono completate: leggere limiti e verifiche nel [resoconto](COMMUNITY-2026-10-26.md). [QR attuale](runngo-expo-community-2026-10-26.png).
 
 Documento per chi riprende il lavoro (persona o altra AI). Descrive cosa esiste, cosa è stato fatto, cosa manca e come verificare, rilasciare e pubblicare.

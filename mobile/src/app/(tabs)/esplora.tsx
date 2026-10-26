@@ -1,3 +1,4 @@
+import { ExploreMap } from '@/components/ExploreMap';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -43,6 +44,7 @@ type Pos = { lat: number; lng: number } | null;
 
 export default function Esplora() {
   const [mode, setMode] = useState<'runs' | 'routes'>('runs');
+  const [mapView, setMapView] = useState(false);
   const [text, setText] = useState('');
   const [runF, setRunF] = useState<RunFilters>(NO_RUN_FILTERS);
   const [draft, setDraft] = useState<RunFilters>(NO_RUN_FILTERS);
@@ -55,7 +57,8 @@ export default function Esplora() {
   const [cityOpen, setCityOpen] = useState(false);
 
   // "Vedi tutte" dalla Home: le uscite dei miei club (scope=clubs) o tutte (scope=all). `at` rende ogni tocco un nuovo invito.
-  const { scope, at } = useLocalSearchParams<{ scope?: string; at?: string }>();
+  const { scope, at, tab } = useLocalSearchParams<{ scope?: string; at?: string; tab?: string }>();
+  useEffect(() => { if (tab === 'routes') setMode('routes'); }, [tab]);
   useEffect(() => {
     if (scope !== 'clubs' && scope !== 'all') return;
     const clubsOnly = scope === 'clubs';
@@ -125,6 +128,7 @@ export default function Esplora() {
     <TabScreen title="Esplora" onRefresh={mode === 'runs' ? runs.reload : routes.reload} right={<IconButton name="add" label={mode === 'runs' ? 'Organizza un’uscita' : 'Salva un percorso'} onPress={() => router.push(mode === 'runs' ? '/evento/form' : '/percorsi/form')} />}>
       <View style={{ gap: S.md }}>
         <Segmented value={mode} onChange={setMode} options={[{ value: 'runs', label: 'Uscite' }, { value: 'routes', label: 'Percorsi' }]} />
+        <Row><Button small title={mapView ? 'Mostra elenco' : 'Mostra mappa'} onPress={() => setMapView(!mapView)} />{mode === 'runs' ? <Button small title={runF.clubsOnly ? 'Tutte le uscite' : 'I miei gruppi'} onPress={() => setRunF((f) => ({ ...f, clubsOnly: !f.clubsOnly }))} /> : null}</Row>
         <SearchField value={text} onChangeText={(v) => { setText(v); if (v) setPos(null); }} placeholder={mode === 'runs' ? 'Città, zona o luogo di ritrovo' : 'Zona o nome del percorso'} />
         <Row gap={S.sm} style={{ flexWrap: 'wrap' }}>
           {mode === 'runs' ? (
@@ -159,7 +163,7 @@ export default function Esplora() {
                   {items.length === 1 ? '1 uscita' : `${items.length} uscite`}
                 </Text>
                 {items.length ? (
-                  items.map((e, i) => <EventCard key={e.id} e={e} index={i} clubImage={e.club ? clubImages[e.club.id] ?? null : null} note={nearby ? `a ${fmtKm(nearby.list[i].km)}` : null} />)
+                  mapView ? <ExploreMap events={items} /> : items.map((e, i) => <EventCard key={e.id} e={e} index={i} clubImage={e.club ? clubImages[e.club.id] ?? null : null} note={nearby ? `a ${fmtKm(nearby.list[i].km)}` : null} />)
                 ) : (
                   <Empty iconName="search-outline" title="Nessuna uscita trovata" text={active || text || pos ? 'Prova a cambiare zona o filtri.' : 'Ancora nessuna uscita pubblica in programma.'} action={<Button title="Organizza tu la prossima" iconName="add" onPress={() => router.push('/evento/form')} />} />
                 )}
@@ -172,7 +176,8 @@ export default function Esplora() {
           {(list) =>
             list.length ? (
               <View>
-                {list.map((r, i) => (
+                <Text style={t.small}>{list.length} {list.length === 1 ? 'percorso' : 'percorsi'}</Text>
+                {mapView ? <ExploreMap routes={list} /> : list.map((r, i) => (
                   <View key={r.id}>
                     {i ? <Divider /> : null}
                     <PressableScale onPress={() => router.push({ pathname: '/percorsi/[id]', params: { id: r.id, ...(r.visibility === 'link' && r.shareToken ? { token: r.shareToken } : {}) } })} accessibilityRole="button" accessibilityLabel={`${r.name}, ${r.distanceKm != null ? fmtKm(r.distanceKm) : 'distanza non indicata'}`} style={{ paddingVertical: S.md, gap: 3 }}>

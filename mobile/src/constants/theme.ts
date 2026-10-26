@@ -25,6 +25,8 @@ export const color = {
   brandStrong: '#6B4FE0',
   brandText: '#9F8BFF',
   brandTint: 'rgba(130,104,245,0.16)',
+  route: '#7CB6FF',
+  achievement: '#FFAF68',
   success: '#38D39F',
   successTint: 'rgba(56,211,159,0.14)',
   warning: '#FFC857',

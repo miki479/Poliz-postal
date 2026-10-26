@@ -1,5 +1,7 @@
 # Runngo — punto di passaggio (25 ottobre 2026)
 
+> **Aggiornamento del 26 ottobre 2026:** quattro comandi Home/Esplora/Registra/Community, riorganizzazione Profilo e Allenamento, replay GPS nativo, creazione per proposte, ritrovo abituale esplicito e correzione del passo. Codice `e236e79`, server `00023-pg2` pubblicato prima dell’app, Expo iOS gruppo `453b6fc8-2f9a-4bfb-abb2-ab6a406fd4ac`. **425 test/52 file**, typecheck, build, export e prove browser passati. Non tutte le nuove funzioni del testo sono completate: leggere limiti e verifiche nel [resoconto](COMMUNITY-2026-10-26.md). [QR attuale](runngo-expo-community-2026-10-26.png).
+
 Documento per chi riprende il lavoro (persona o altra AI). Descrive cosa esiste, cosa è stato fatto, cosa manca e come verificare, rilasciare e pubblicare.
 
 > **Ultima modifica del 25 ottobre 2026:** Registra ora è fissa: heatmap in alto, card delle opzioni apribile e Avvia in basso. Codice `54f859f`, Expo iOS gruppo `fc920778-3af1-4973-9135-7613abeb3d0d`, server compatibile invariato `00022-njl`. 410 test/49 file, typecheck, lint mirato, build ed export iOS passati. [Resoconto](RECORDING-LAYOUT-2026-10-25.md), [QR aggiornato](runngo-expo-recording-fixed-2026-10-25.png).

@@ -4,7 +4,7 @@ import { paceFromFields } from '../mobile/src/lib/paceInput.ts';
 
 const coordinates = (run: number, phase: number, intensity = 1) => {
   const g = figureGeometry(run, phase, intensity);
-  return [g.head.x, g.head.y, ...[g.torso, g.frontArm, g.backArm, g.frontLeg, g.backLeg].flatMap((d) => (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number))];
+  return [g.head.x, g.head.y, ...[g.torso, g.shorts, g.frontArm, g.backArm, g.frontLeg, g.backLeg].flatMap((d) => (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number))];
 };
 describe('figure vettoriali continue', () => {
   it('conserva proporzioni e coordinate finite dentro il reticolo per tutto il ciclo e la transizione', () => {

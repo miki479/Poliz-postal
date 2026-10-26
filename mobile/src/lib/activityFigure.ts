@@ -1,7 +1,7 @@
 /** Geometria comune: proporzioni umane costanti, articolazioni continue e reticolo 24×24. */
 export type FigureGlyph = 'run' | 'walk' | 'trail' | 'run_walk';
 export interface FigurePoint { x: number; y: number }
-export interface FigureGeometry { head: FigurePoint; torso: string; backArm: string; frontArm: string; backLeg: string; frontLeg: string }
+export interface FigureGeometry { head: FigurePoint; torso: string; shorts: string; backArm: string; frontArm: string; backLeg: string; frontLeg: string }
 export const FIGURE_REST_PHASE = 1.1;
 const TAU = Math.PI * 2;
 function clamp(n: number, min: number, max: number) { 'worklet'; return Math.max(min, Math.min(max, n)); }
@@ -36,7 +36,8 @@ export function figureGeometry(run: number, phase = FIGURE_REST_PHASE, intensity
   const head = point(lerp(12.1, 14.1, gait), 3.6 + rise);
   const neck = point(lerp(11.9, 13.4, gait), 5.8 + rise);
   const torso = `M${neck.x - 0.65} ${neck.y} Q${shoulder.x - 1.2} ${shoulder.y - 0.45} ${hip.x - 0.7} ${hip.y} Q${hip.x} ${hip.y + 0.65} ${hip.x + 0.9} ${hip.y + 0.1} L${shoulder.x + 1.25} ${shoulder.y + 0.2} Q${shoulder.x + 1.15} ${shoulder.y - 0.9} ${neck.x + 0.65} ${neck.y} Z`;
-  return { head, torso, backArm: arm(shoulder, theta, gait, effort), frontArm: arm(shoulder, theta + Math.PI, gait, effort), backLeg: leg(hip, theta + Math.PI, gait, effort), frontLeg: leg(hip, theta, gait, effort) };
+  const shorts = `M${hip.x - 1.05} ${hip.y - 1.2} Q${hip.x} ${hip.y - 0.8} ${hip.x + 1.1} ${hip.y - 1.1} L${hip.x + 1.35} ${hip.y + 1.2} L${hip.x - 1.2} ${hip.y + 1.1} Z`;
+  return { head, torso, shorts, backArm: arm(shoulder, theta, gait, effort), frontArm: arm(shoulder, theta + Math.PI, gait, effort), backLeg: leg(hip, theta + Math.PI, gait, effort), frontLeg: leg(hip, theta, gait, effort) };
 }
 /** Frequenza illustrativa derivata dalla scelta, mai una misura di cadenza dell'atleta. */
 export function figureMotion(glyph: FigureGlyph, pace?: number | null, level = 2) {

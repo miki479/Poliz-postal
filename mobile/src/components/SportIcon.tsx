@@ -20,6 +20,7 @@ function StaticFigure({ run, phase, color }: { run: number; phase: number; color
     <Path d={g.backArm} stroke={color} strokeOpacity={0.62} strokeWidth={1.65} />
     <Path d={g.backLeg} stroke={color} strokeOpacity={0.68} strokeWidth={2} />
     <Path d={g.torso} fill={color} stroke="none" />
+    <Path d={g.shorts} fill={color} fillOpacity={0.75} stroke="none" />
     <Circle cx={g.head.x} cy={g.head.y} r={1.72} fill={color} stroke="none" />
     <Path d={g.frontLeg} stroke={color} strokeWidth={2.15} />
     <Path d={g.frontArm} stroke={color} strokeWidth={1.8} />
@@ -27,7 +28,7 @@ function StaticFigure({ run, phase, color }: { run: number; phase: number; color
 }
 function AnimatedPart({ geometry, part, color, width, opacity = 1, fill = false }: { geometry: SharedValue<FigureGeometry>; part: Part; color: string; width: number; opacity?: number; fill?: boolean }) {
   const props = useAnimatedProps(() => ({ d: geometry.get()[part] }));
-  return <APath animatedProps={props} fill={fill ? color : 'none'} stroke={fill ? 'none' : color} strokeWidth={width} strokeOpacity={opacity} />;
+  return <APath animatedProps={props} fill={fill ? color : 'none'} stroke={fill ? 'none' : color} strokeWidth={width} strokeOpacity={opacity} fillOpacity={opacity} />;
 }
 function MovingFigure({ run, phase, intensity, color }: { run: SharedValue<number>; phase: SharedValue<number>; intensity: SharedValue<number>; color: string }) {
   const geometry = useDerivedValue(() => figureGeometry(run.get(), phase.get(), intensity.get()));
@@ -36,6 +37,7 @@ function MovingFigure({ run, phase, intensity, color }: { run: SharedValue<numbe
     <AnimatedPart geometry={geometry} part="backArm" color={color} width={1.65} opacity={0.62} />
     <AnimatedPart geometry={geometry} part="backLeg" color={color} width={2} opacity={0.68} />
     <AnimatedPart geometry={geometry} part="torso" color={color} width={0} fill />
+    <AnimatedPart geometry={geometry} part="shorts" color={color} width={0} fill opacity={0.75} />
     <ACircle animatedProps={head} r={1.72} fill={color} stroke="none" />
     <AnimatedPart geometry={geometry} part="frontLeg" color={color} width={2.15} />
     <AnimatedPart geometry={geometry} part="frontArm" color={color} width={1.8} />

@@ -1,21 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AwardsSummary, LatestAwards, RecordRow, SectionHead } from '@/components/BadgeParts';
+import { RecordRow, SectionHead } from '@/components/BadgeParts';
 import { ProfileHeader } from '@/components/ProfileHeader';
 import { Rise } from '@/components/Results';
 import { ActivityGlyph } from '@/components/SportIcon';
 import { StoryCard } from '@/components/StoryCard';
-import { Async, Divider, IconButton, PressableScale, Screen, Skeleton, t, useLoad, type IconName } from '@/components/ui';
-import { styleOfKind, styleOfSport } from '@/constants/activityColors';
+import { Async, Button, Divider, IconButton, Screen, Sheet, Skeleton, t, useLoad, type IconName } from '@/components/ui';
+import { styleOfSport } from '@/constants/activityColors';
 import { awardsOf, BADGE_KINDS, kindOf, mainRecords } from '@/constants/achievements';
 import { color, GUTTER, HIT, R, S, type } from '@/constants/theme';
 import { call, ext, type StravaStatus } from '@/lib/api';
-import { addDaysIso, fmtDate, fmtDuration, fmtKm, toISODate } from '@/lib/format';
+import { fmtDate, fmtDuration, fmtKm, toISODate } from '@/lib/format';
 import { seenSet } from '@/lib/seen';
 import { styleOfLog } from '@/lib/storyPalette';
 import type { FameView } from '@shared/fame.ts';
@@ -57,49 +56,6 @@ function fameHint(f: FameView | null): string {
 }
 
 /** "Oggi", "Domani" o "gio 14 nov" per un giorno di calendario locale "YYYY-MM-DD". */
-function dayLabel(date: string): string {
-  const today = toISODate(new Date());
-  if (date === today) return 'Oggi';
-  if (date === addDaysIso(today, 1)) return 'Domani';
-  return new Intl.DateTimeFormat('it-IT', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(`${date}T12:00:00`));
-}
-
-function stravaLine(s: StravaStatus | null): string {
-  if (!s) return 'Stato non disponibile';
-  if (!s.configured) return 'Non disponibile';
-  if (s.connected) return s.revoked ? 'Accesso revocato' : s.lastSyncAt ? 'Sincronizzato' : 'Collegato';
-  return 'Non collegato';
-}
-
-/* ---------- prossimo allenamento ---------- */
-
-const NEXT_FROM = BADGE_KINDS.beyond_limit.tone.solid;
-
-function NextWorkout({ next }: { next: PlannedSession | null }) {
-  const st = next ? styleOfKind(next.kind, next.title) : null;
-  const line = next && st ? [st.label, next.durationMin ? fmtDuration(next.durationMin) : null, dayLabel(next.date)].filter(Boolean).join(' · ') : 'Nessuna sessione in programma';
-  return (
-    <PressableScale onPress={() => router.push(next ? { pathname: '/allenamento/sessione/[id]', params: { id: next.id } } : '/allenamento')} accessibilityRole="button" accessibilityLabel={`Il tuo prossimo allenamento: ${line}. Apri`}>
-      <LinearGradient colors={[NEXT_FROM, color.brand]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={{ borderRadius: R.card, padding: S.md, flexDirection: 'row', alignItems: 'center', gap: S.md }}>
-        <View style={{ width: HIT, height: HIT, borderRadius: HIT / 2, backgroundColor: color.storyGlass, alignItems: 'center', justifyContent: 'center' }}>
-          {st ? <ActivityGlyph style={st} size={22} color={color.storyInk} /> : <Ionicons name="calendar-outline" size={20} color={color.storyInk} />}
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[type.footnote, { color: color.storyInkSecondary }]}>{next ? 'Il tuo prossimo allenamento' : 'Il tuo piano'}</Text>
-          <Text style={[type.headline, { color: color.storyInk, fontWeight: '700' }]} numberOfLines={1}>
-            {line}
-          </Text>
-        </View>
-        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: color.storyGlass, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="chevron-forward" size={18} color={color.storyInk} />
-        </View>
-      </LinearGradient>
-    </PressableScale>
-  );
-}
-
-/* ---------- collegamenti e voci ---------- */
-
 function NavRow({ icon, title, hint, onPress }: { icon: IconName; title: string; hint?: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={hint ? `${title}. ${hint}` : title} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 54 }, pressed && { opacity: 0.6 }]}>
@@ -117,36 +73,13 @@ function NavRow({ icon, title, hint, onPress }: { icon: IconName; title: string;
   );
 }
 
-function Links({ strava }: { strava: StravaStatus | null }) {
-  const status = stravaLine(strava);
-  const ok = !!strava?.connected && !strava.revoked;
-  return (
-    <View style={{ gap: S.sm }}>
-      <SectionHead title="Collegamenti" />
-      <Pressable onPress={() => router.push('/integrazioni')} accessibilityRole="button" accessibilityLabel={`Strava: ${status}. Apri`} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 56 }, pressed && { opacity: 0.6 }]}>
-        <View style={{ width: 44, height: 44, borderRadius: R.control, backgroundColor: BADGE_KINDS.precision.tone.solid, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="sync" size={22} color={color.storyInk} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={t.title}>Strava</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            {ok ? <Ionicons name="checkmark-circle" size={13} color={color.success} /> : null}
-            <Text style={[type.footnote, { color: ok ? color.success : color.textSecondary }]}>{status}</Text>
-          </View>
-        </View>
-        <Ionicons name="chevron-forward" size={16} color={color.textTertiary} />
-      </Pressable>
-    </View>
-  );
-}
-
 /* ---------- schede ---------- */
 
-type Tab = 'attivita' | 'racconti' | 'medaglie';
+type Tab = 'attivita' | 'progressi' | 'reputazione';
 const TABS: Array<{ value: Tab; label: string }> = [
   { value: 'attivita', label: 'Attività' },
-  { value: 'racconti', label: 'Racconti' },
-  { value: 'medaglie', label: 'Medaglie' },
+  { value: 'progressi', label: 'Progressi' },
+  { value: 'reputazione', label: 'Reputazione' },
 ];
 
 function Tabs({ value, onChange }: { value: Tab; onChange: (v: Tab) => void }) {
@@ -197,7 +130,7 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
           const st = log ? styleOfLog(log) : styleOfSport(a.sport);
           const got = log ? perLog.get(log.id) ?? [] : [];
           const tone = got[0] ? BADGE_KINDS[kindOf(got[0])].tone : null;
-          const measure = a.distanceKm ? fmtKm(a.distanceKm) : a.durationMin ? fmtDuration(a.durationMin) : null;
+          const measure = [a.distanceKm ? fmtKm(a.distanceKm) : null, a.durationMin ? fmtDuration(a.durationMin) : null].filter(Boolean).join(' · ');
           return (
             <View key={a.id}>
               {i ? <Divider inset={56} /> : null}
@@ -211,6 +144,8 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
                   </Text>
                   <Text style={t.small} numberOfLines={1}>
                     {[fmtDate(a.date), measure].filter(Boolean).join(' · ')}
+                  </Text>
+                  <Text style={t.small}>{log?.eventId ? 'Uscita di gruppo' : 'Attività individuale'}{log ? ' · Racconto disponibile' : ''}
                   </Text>
                 </View>
                 {got.length && tone ? (
@@ -241,37 +176,24 @@ function StoriesTab({ logs, seen }: { logs: WorkoutLog[]; seen: Set<string> }) {
   );
 }
 
-function MedalsTab({ d }: { d: ProfileData }) {
+function ProgressTab({ d }: { d: ProfileData }) {
   const recs = mainRecords(d.records).slice(0, 3);
-  return (
-    <View style={{ gap: S.xl }}>
-      <AwardsSummary awards={d.awards} records={d.records} onPress={() => router.push('/riconoscimenti')} />
-      {recs.length ? (
-        <View>
-          <SectionHead title="Record principali" action="Vedi tutti" onAction={() => router.push('/record')} />
-          {recs.map((r, i) => (
-            <View key={r.code}>
-              {i ? <Divider inset={50} /> : null}
-              <RecordRow r={r} awards={d.awards} />
-            </View>
-          ))}
-        </View>
-      ) : null}
-      {d.awards.length ? (
-        <View style={{ gap: S.sm }}>
-          <SectionHead title="Ultimi traguardi" action="Vedi tutti" onAction={() => router.push('/riconoscimenti')} />
-          <LatestAwards awards={d.awards} />
-        </View>
-      ) : (
-        <Text style={t.muted}>Registra o importa le tue attività: record e traguardi arrivano dal confronto con il tuo storico.</Text>
-      )}
-      <View>
-        {d.p.badges ? <NavRow icon="shield-half-outline" title="Distintivi" hint={`${d.p.badges.earned} di ${d.p.badges.total} · uscite di gruppo, costanza e club`} onPress={() => router.push('/traguardi')} /> : null}
-        {d.p.badges ? <Divider inset={34} /> : null}
-        <NavRow icon="sparkles-outline" title="La tua Fama" hint={fameHint(d.fame)} onPress={() => router.push('/fama')} />
-      </View>
-    </View>
-  );
+  const sport = d.fame?.tracks?.sport;
+  return <View style={{ gap: S.lg }}>
+    {sport ? <Text style={t.muted}>{sport.activities} attività · {fmtKm(sport.km)}{sport.bestStreakWeeks ? ` · ${sport.bestStreakWeeks} settimane consecutive` : ''}</Text> : null}
+    {recs.length ? <View><SectionHead title="Record personali" action="Tutti" onAction={() => router.push('/record')} />{recs.map((r) => <RecordRow key={r.code} r={r} awards={d.awards} />)}</View> : <Text style={t.muted}>I record e i miglioramenti compariranno con le tue attività.</Text>}
+    <NavRow icon="stats-chart-outline" title="Volume e costanza" onPress={() => router.push('/statistiche')} />
+    <NavRow icon="flag-outline" title="Obiettivi" onPress={() => router.push('/obiettivi')} />
+  </View>;
+}
+function ReputationTab({ d }: { d: ProfileData }) {
+  const contribution = d.fame?.tracks?.contribution;
+  return <View style={{ gap: S.md }}>
+    <Text style={t.muted}>{fameHint(d.fame)}</Text>
+    {contribution ? <Text style={t.body}>{contribution.groupRuns} uscite di gruppo · {contribution.organizedHeld} organizzate e svolte</Text> : null}
+    {d.fame?.qualities.map((q) => <View key={q.category}><Text style={t.title}>{q.label}</Text><Text style={t.small}>{q.description}</Text></View>)}
+    <NavRow icon="people-outline" title="Presenza nella community" hint="Partecipazioni e riconoscimenti ricevuti dopo le uscite" onPress={() => router.push('/fama')} />
+  </View>;
 }
 
 /**
@@ -282,9 +204,10 @@ function MedalsTab({ d }: { d: ProfileData }) {
  *  4) schede Attività / Racconti / Medaglie (in fondo, così cambiare scheda non sposta il resto).
  */
 export default function Profilo() {
+  const [archive, setArchive] = useState(false);
   const insets = useSafeAreaInsets();
   const state = useLoad(load);
-  const [tab, setTab] = useState<Tab>('racconti');
+  const [tab, setTab] = useState<Tab>('attivita');
 
   return (
     <Screen onRefresh={state.reload} bottomPad={96} glow="brand" style={{ paddingTop: insets.top + S.sm, gap: S.xl }}>
@@ -297,24 +220,17 @@ export default function Profilo() {
       <Async state={state} skeleton={<><Skeleton height={150} /><Skeleton height={64} /><Skeleton height={200} /></>}>
         {(d) => (
           <>
-            <ProfileHeader p={d.p} stories={d.logs.length} onIdentity={() => router.push('/profilo-modifica')} />
-            <NextWorkout next={d.next} />
-            <Links strava={d.strava} />
-            <View style={{ marginTop: -S.md }}>
-              <NavRow icon="shield-checkmark-outline" title="Obiettivi" onPress={() => router.push('/obiettivi')} />
-              <Divider inset={34} />
-              <NavRow icon="stats-chart-outline" title="Statistiche" onPress={() => router.push('/statistiche')} />
-              <Divider inset={34} />
-              <NavRow icon="footsteps-outline" title="Attrezzatura" onPress={() => router.push('/attrezzatura')} />
-              <Divider inset={34} />
-              <NavRow icon="settings-outline" title="Impostazioni" onPress={() => router.push('/impostazioni')} />
-            </View>
+            <ProfileHeader p={d.p} onIdentity={() => router.push('/profilo-modifica')} />
+            <Button variant="soft" title="Modifica profilo" onPress={() => router.push('/profilo-modifica')} />
             <View style={{ gap: S.lg }}>
               <Tabs value={tab} onChange={setTab} />
               <Rise key={tab} dy={6} duration={280}>
-                {tab === 'attivita' ? <ActivitiesTab activities={d.p.activities ?? []} logs={d.logs} awards={d.awards} /> : tab === 'racconti' ? <StoriesTab logs={d.logs} seen={d.seen} /> : <MedalsTab d={d} />}
+                {tab === 'attivita' ? <ActivitiesTab activities={d.p.activities ?? []} logs={d.logs} awards={d.awards} /> : tab === 'progressi' ? <ProgressTab d={d} /> : <ReputationTab d={d} />}
               </Rise>
             </View>
+            <NavRow icon="albums-outline" title="Racconti salvati" onPress={() => setArchive(true)} />
+            <NavRow icon="ribbon-outline" title="Collezione di traguardi" onPress={() => router.push('/traguardi')} />
+            <Sheet visible={archive} onClose={() => setArchive(false)} title="Racconti salvati"><StoriesTab logs={d.logs} seen={d.seen} /></Sheet>
           </>
         )}
       </Async>

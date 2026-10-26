@@ -41,7 +41,7 @@ async function loadHome(): Promise<HomeData> {
     call<HomeView>('getHome', startOfWeekIso(new Date(), tz)),
     call<PersonalStats>('getStats', tz).catch(() => null),
     call<WorkoutLog[]>('listWorkoutLogs', null).catch(() => [] as WorkoutLog[]),
-    call<PlannedSession[]>('listSessions', { from: day, to: day }).catch(() => [] as PlannedSession[]),
+    call<PlannedSession[]>('listSessions', { from: day }).catch(() => [] as PlannedSession[]),
     call<PlanState>('getPlanState').catch(() => null),
     call<HomeData['links']>('pendingActivityLinks').catch(() => []),
     call<HomeData['toRecognize']>('pendingRecognitionPrompts').catch(() => []),
@@ -107,7 +107,7 @@ function HeroEvent({ e, label, clubImage, onChange }: { e: EventView; label: str
 function HeroSession({ s }: { s: PlannedSession }) {
   return (
     <Panel style={{ padding: S.lg, gap: S.sm }}>
-      <Eyebrow text="OGGI NEL TUO PIANO" />
+      <Eyebrow text={s.date===todayIso()?'OGGI NEL TUO PIANO':`PROSSIMA SEDUTA · ${s.date.slice(8)}/${s.date.slice(5,7)}`} />
       <Text style={t.title1}>{s.title || KIND_LABEL[s.kind]}</Text>
       <Text style={t.muted}>{[KIND_LABEL[s.kind], fmtDuration(s.durationMin), s.distanceKm ? fmtKm(s.distanceKm) : null].filter(Boolean).join(' · ')}</Text>
       {s.description ? (
@@ -305,6 +305,7 @@ export default function Home() {
 
 
           <CommunityStream />
+          <Button variant="soft" title="Inizia a correre: allenamenti guidati" onPress={()=>router.push('/allenamento/iniziare')} />
 
           {week ? (
             <Section title="Questa settimana" action="Statistiche" onAction={() => router.push('/statistiche')}>

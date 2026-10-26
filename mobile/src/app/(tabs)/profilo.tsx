@@ -1,5 +1,5 @@
 import { Connections } from '@/components/Connections';
-import { RouteTrace, isDrawableTrack } from '@/components/RouteTrace';
+import { RouteThumbnail } from '@/components/RouteThumbnail';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -9,7 +9,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecordRow, SectionHead } from '@/components/BadgeParts';
 import { ProfileHeader } from '@/components/ProfileHeader';
 import { Rise } from '@/components/Results';
-import { ActivityGlyph } from '@/components/SportIcon';
 import { StoryCard } from '@/components/StoryCard';
 import { Async, Button, Divider, IconButton, Screen, Sheet, Skeleton, t, useLoad, type IconName } from '@/components/ui';
 import { styleOfSport } from '@/constants/activityColors';
@@ -105,6 +104,7 @@ function Tabs({ value, onChange }: { value: Tab; onChange: (v: Tab) => void }) {
 /** Attività recenti con il numero dei riconoscimenti conquistati e un filtro per tipo. */
 function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; logs: WorkoutLog[]; awards: Award[] }) {
   const [filter, setFilter] = useState<string | null>(null);
+  const [limit,setLimit]=useState(20);
   const byActivity = useMemo(() => new Map(logs.filter((l) => l.activityId).map((l) => [l.activityId!, l])), [logs]);
   const perLog = useMemo(() => {
     const m = new Map<string, Award[]>();
@@ -112,7 +112,7 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
     return m;
   }, [awards]);
   const types = [...new Set(activities.map((a) => styleOfSport(a.sport).label))];
-  const shown = activities.filter((a) => !filter || styleOfSport(a.sport).label === filter).slice(0, 10);
+  const shown = activities.filter((a) => !filter || styleOfSport(a.sport).label === filter).slice(0, limit);
   if (!activities.length) return <Text style={t.muted}>Ancora nessuna attività: registra una corsa o collega Strava.</Text>;
   return (
     <View style={{ gap: S.md }}>
@@ -138,9 +138,9 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
           return (
             <View key={a.id}>
               {i ? <Divider inset={56} /> : null}
-              <Pressable disabled={!log && a.source !== 'file'} onPress={() => log ? router.push({ pathname: '/allenamento/log/[id]', params: { id: log.id } }) : a.source === 'file' && router.push({ pathname: '/allenamento/file/[id]', params: { id: a.id } })} accessibilityRole={log || a.source === 'file' ? 'button' : undefined} accessibilityLabel={`${a.title || st.label}, ${fmtDate(a.date)}${measure ? `, ${measure}` : ''}${got.length ? `, ${got.length} ${got.length === 1 ? 'riconoscimento' : 'riconoscimenti'}` : ''}`} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 60, paddingVertical: S.sm }, pressed && { opacity: 0.6 }]}>
+              <Pressable disabled={!log && a.source !== 'file' && !a.eventId} onPress={() => log ? router.push({ pathname: '/allenamento/log/[id]', params: { id: log.id } }) : a.source === 'file' ? router.push({ pathname: '/allenamento/file/[id]', params: { id: a.id } }) : a.eventId && router.push({pathname:'/evento/[id]',params:{id:a.eventId}})} accessibilityRole={log || a.source === 'file' || a.eventId ? 'button' : undefined} accessibilityLabel={`${a.title || st.label}, ${fmtDate(a.date)}${measure ? `, ${measure}` : ''}${got.length ? `, ${got.length} ${got.length === 1 ? 'riconoscimento' : 'riconoscimenti'}` : ''}`} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 60, paddingVertical: S.sm }, pressed && { opacity: 0.6 }]}>
                 <View style={{ width: 64, height: 56, overflow:'hidden', borderRadius: R.control, backgroundColor: st.tint, alignItems: 'center', justifyContent: 'center' }}>
-                  {log?.track && !log.track.some((p)=>p.breakBefore) && isDrawableTrack(log.track,64,56,7) ? <RouteTrace track={log.track} width={64} height={56} tint={st.solid} pad={7} duration={0} dotEvery={null} glow={false} /> : <ActivityGlyph style={st} size={28} color={st.solid} />}
+                  <RouteThumbnail track={log?.track} style={st}/>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={t.title} numberOfLines={1}>
@@ -149,7 +149,7 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
                   <Text style={t.small} numberOfLines={1}>
                     {[fmtDate(a.date), measure].filter(Boolean).join(' · ')}
                   </Text>
-                  <Text style={t.small}>{log?.eventId ? 'Uscita di gruppo' : 'Attività individuale'}{log ? ' · Racconto disponibile' : ''}
+                  <Text style={t.small}>{log?.eventId || a.eventId ? 'Uscita di gruppo' : 'Attività individuale'}{log ? ' · Racconto disponibile' : ''}
                   </Text>
                 </View>
                 {got.length && tone ? (
@@ -157,12 +157,13 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
                     <Text style={[type.caption, { color: tone.light, fontWeight: '800' }]}>{got.length}</Text>
                   </View>
                 ) : null}
-                {log || a.source === 'file' ? <Ionicons name="chevron-forward" size={16} color={color.textTertiary} /> : null}
+                {log || a.source === 'file' || a.eventId ? <Ionicons name="chevron-forward" size={16} color={color.textTertiary} /> : null}
               </Pressable>
             </View>
           );
         })}
       </View>
+      {activities.filter((a)=>!filter||styleOfSport(a.sport).label===filter).length>limit?<Button variant="soft" title="Mostra altre attività" onPress={()=>setLimit((n)=>n+20)}/>:null}
     </View>
   );
 }
@@ -186,6 +187,7 @@ function ProgressTab({ d }: { d: ProfileData }) {
   return <View style={{ gap: S.lg }}>
     {sport ? <Text style={t.muted}>{sport.activities} attività · {fmtKm(sport.km)}{sport.bestStreakWeeks ? ` · ${sport.bestStreakWeeks} settimane consecutive` : ''}</Text> : null}
     {recs.length ? <View><SectionHead title="Record personali" action="Tutti" onAction={() => router.push('/record')} />{recs.map((r) => <RecordRow key={r.code} r={r} awards={d.awards} />)}</View> : <Text style={t.muted}>I record e i miglioramenti compariranno con le tue attività.</Text>}
+    <NavRow icon="walk-outline" title="Inizia a correre: sedute guidate" hint="Programma pubblico NHS, 9 settimane" onPress={()=>router.push('/allenamento/iniziare')} />
     <NavRow icon="calendar-outline" title="Il tuo piano" onPress={() => router.push('/allenamento')} />
     <NavRow icon="stats-chart-outline" title="Volume e costanza" onPress={() => router.push('/statistiche')} />
     <NavRow icon="flag-outline" title="Obiettivi" onPress={() => router.push('/obiettivi')} />
@@ -226,7 +228,7 @@ export default function Profilo() {
         {(d) => (
           <>
             <ProfileHeader p={d.p} onIdentity={() => router.push('/profilo-modifica')} />
-            {d.follows ? <Connections followers={d.follows.followers} following={d.follows.following} /> : null}
+            {d.follows ? <Connections followers={d.follows.followers} following={d.follows.following} onChanged={()=>void state.reload()} /> : null}
             <Button variant="soft" title="Modifica profilo" onPress={() => router.push('/profilo-modifica')} />
             <View style={{ gap: S.lg }}>
               <Tabs value={tab} onChange={setTab} />

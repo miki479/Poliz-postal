@@ -5,7 +5,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams, type ErrorBoundaryProps } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, AppState, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { AccessibilityInfo, Alert, AppState, Linking, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -38,6 +38,8 @@ const GPS_LABEL: Record<Gps, string> = { off: 'GPS spento', searching: 'Cerco il
 
 export default function Registra() {
   const insets = useSafeAreaInsets();
+  const viewport = useWindowDimensions();
+  const compactGps = viewport.height < 740 || viewport.fontScale > 1.25;
   const { me } = useSession();
   const { session: sessionParam } = useLocalSearchParams<{ session?: string }>();
   const [phase, setPhase] = useState<Phase>('setup');
@@ -389,7 +391,7 @@ export default function Registra() {
       <RecordingSetupFrame insets={insets} summary={recovered ? 'Attività da recuperare' : activityLabel} subtitle={recovered ? 'Apri la card per vedere la bozza' : `${contextLabel} · ${shared ? 'Ai compagni' : 'Privata'} · ${chosen ? 'Piano' : 'Obiettivo libero'}`} onOptions={() => setOptionsOpen(true)} onClose={() => router.back()}
         starting={starting} disabled={starting || (!recovered && ctxKind === 'event' && !eventId)} resume={!!recovered} onStart={() => { if (recovered) void resumeDraft(recovered); else if (kind !== 'treadmill' && (!position || (positionAccuracy !== null && positionAccuracy > 40))) Alert.alert('GPS non ancora preciso', 'Puoi attendere una posizione migliore oppure iniziare: il tempo viene conservato, distanza e traccia dipendono dai punti GPS disponibili.', [{ text: 'Attendi GPS', onPress: () => void locate() }, { text: 'Avvia comunque', onPress: () => void start() }, { text: 'Annulla', style: 'cancel' }]); else void start(); }}
         map={<View style={{ flex: 1, minHeight: 0, gap: S.xs }}>
-          {position ? <RecordingMap fill initialHeat="global" center={position} suggested={suggested} showLocation={perm === 'granted' && kind !== 'treadmill'} onDestination={(point) => void personalize(point)} /> : <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: S.xl, gap: S.md, borderRadius: R.card, backgroundColor: color.surface }}><Ionicons name="locate-outline" size={36} color={color.textSecondary} /><Text style={t.title}>{locating ? 'Attendo GPS…' : 'Trova il punto di partenza'}</Text><Text style={[t.muted, { textAlign: 'center' }]}>La mappa si apre sulla tua zona quando la posizione è disponibile.</Text><Button variant="soft" title="Usa la mia posizione" busy={locating} onPress={() => void locate()} /></View>}
+          {position ? <RecordingMap fill initialHeat="global" center={position} suggested={suggested} showLocation={perm === 'granted' && kind !== 'treadmill'} onDestination={(point) => void personalize(point)} /> : <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: S.md, gap: S.sm, borderRadius: R.card, backgroundColor: color.surface }}><Ionicons name="locate-outline" size={compactGps ? 24 : 36} color={color.textSecondary} /><Text style={t.title}>{locating ? 'Attendo GPS…' : 'Trova il punto di partenza'}</Text>{!compactGps ? <Text style={[t.muted, { textAlign: 'center' }]}>La mappa si apre sulla tua zona quando la posizione è disponibile.</Text> : null}<Button variant="soft" title="Usa la mia posizione" busy={locating} onPress={() => void locate()} /></View>}
           {!chosen ? <Pills value={kind} onChange={setKind} options={[{ value: 'running', label: 'Corsa' }, { value: 'walking', label: 'Camminata' }, { value: 'treadmill', label: 'Al chiuso' }]} /> : null}
           <Row><Text style={[t.small, { flex: 1 }]} numberOfLines={2}>{locating ? 'Attendo GPS…' : routeBusy ? 'Calcolo il percorso a piedi…' : position ? positionAccuracy !== null && positionAccuracy > 40 ? 'Precisione bassa: meglio attendere all’aperto' : `Pronto${positionAccuracy !== null ? ` · precisione circa ${Math.round(positionAccuracy)} m` : ''}` : mapMessage}</Text><IconButton name="locate-outline" label="Centra sulla mia posizione" onPress={() => { if (!locating) void locate(); }} /></Row>
           {routeError ? <Text style={[t.small, { color: color.warning }]} numberOfLines={2}>{routeError}</Text> : null}

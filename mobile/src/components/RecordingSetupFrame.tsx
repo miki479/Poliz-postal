@@ -22,7 +22,7 @@ export function RecordingSetupFrame({ map, summary, subtitle, onOptions, onClose
           <View style={{ alignSelf: 'center', width: 32, height: 3, borderRadius: 2, backgroundColor: color.controlBorder }} />
           <Row>
             <Ionicons name="options-outline" size={24} color={color.accent} />
-            <View style={{ flex: 1, gap: S.xs }}><Text style={t.title} numberOfLines={1}>{summary}</Text><Text style={t.small} numberOfLines={1}>{subtitle}</Text></View>
+            <View style={{ flex: 1, gap: S.xs }}><Text style={t.title} numberOfLines={1}>{summary}</Text><Text style={t.small}>{subtitle}</Text></View>
             <Ionicons name="chevron-up" size={21} color={color.textSecondary} />
           </Row>
         </Pressable>

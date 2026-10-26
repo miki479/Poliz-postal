@@ -30,21 +30,23 @@ interface ProfileData {
   fame: FameView | null;
   strava: StravaStatus | null;
   seen: Set<string>;
+  follows: { followers: number; following: number } | null;
 }
 
 async function load(): Promise<ProfileData> {
   const today = toISODate(new Date());
-  const [p, logs, sessions, fame, strava, seen] = await Promise.all([
+  const [p, logs, sessions, fame, strava, seen, follows] = await Promise.all([
     call<ProfileView>('getProfile', null),
     call<WorkoutLog[]>('listWorkoutLogs', null).catch(() => [] as WorkoutLog[]),
     call<PlannedSession[]>('listSessions', { from: today }).catch(() => [] as PlannedSession[]),
     call<FameView>('getFame', null).catch(() => null),
     ext.strava.status().catch(() => null),
     seenSet(),
+    call<ProfileData['follows']>('followInfo', null).catch(() => null),
   ]);
   const { awards, records } = awardsOf(logs);
   const next = sessions.filter((s) => s.status === 'planned' || s.status === 'rescheduled').sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '').localeCompare(b.time ?? ''))[0] ?? null;
-  return { p, logs: [...logs].sort((a, b) => b.startedAt.localeCompare(a.startedAt)), awards, records, next, fame, strava, seen };
+  return { p, logs: [...logs].sort((a, b) => b.startedAt.localeCompare(a.startedAt)), awards, records, next, fame, strava, seen, follows };
 }
 
 /** Cosa interessa della Fama, in una riga (i numeri sono privati: li vede solo la persona stessa). */
@@ -221,6 +223,7 @@ export default function Profilo() {
         {(d) => (
           <>
             <ProfileHeader p={d.p} onIdentity={() => router.push('/profilo-modifica')} />
+            {d.follows ? <Text style={t.muted}>{d.follows.followers} follower · {d.follows.following} persone seguite</Text> : null}
             <Button variant="soft" title="Modifica profilo" onPress={() => router.push('/profilo-modifica')} />
             <View style={{ gap: S.lg }}>
               <Tabs value={tab} onChange={setTab} />

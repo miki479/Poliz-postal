@@ -2,14 +2,14 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { FeedRow } from '@/components/cards';
+import { EventCard, FeedRow } from '@/components/cards';
 import { FollowButton } from '@/components/FollowButton';
 import { Async, Avatar, Button, Divider, Section, Skeleton, t, useLoad } from '@/components/ui';
 import { color, R, S } from '@/constants/theme';
 import { call } from '@/lib/api';
 import { fmtPace } from '@/lib/format';
 import type { SocialCounts } from '@shared/social.ts';
-import type { FeedItem, UserPublic } from '@shared/types.ts';
+import type { EventView, FeedItem, UserPublic } from '@shared/types.ts';
 
 type Suggestion = { user: UserPublic; paceSecPerKm: number | null; reason: string };
 
@@ -49,4 +49,11 @@ export function CommunityStream() {
   return <Section title="Dalla community"><Async state={feed} skeleton={<Skeleton height={80} />}>
     {(items) => items.length ? <View>{items.map((f, i) => <View key={f.id}>{i ? <Divider /> : null}<FeedRow item={f} /></View>)}</View> : <View style={{ gap: S.sm }}><Text style={t.muted}>Le attività condivise dai compagni e dai tuoi gruppi compariranno qui.</Text><Button small title="Trova compagni" onPress={() => router.navigate('/club')} /></View>}
   </Async></Section>;
+}
+
+export function CommunityUpcoming() {
+  const state = useLoad(() => call<EventView[]>('listEvents', { scope: 'clubs' }));
+  const next = (state.data ?? []).filter((e) => !e.isPast && e.status === 'active').slice(0, 3);
+  if (!next.length) return null;
+  return <Section title="Prossime uscite dei gruppi">{next.map((e) => <EventCard key={e.id} e={e} />)}</Section>;
 }

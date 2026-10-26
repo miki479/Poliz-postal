@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
-import { RunnerSuggestions } from '@/components/CommunityStream';
+import { CommunityUpcoming, RunnerSuggestions } from '@/components/CommunityStream';
 import { ClubCard } from '@/components/cards';
 import { Async, Button, Divider, Empty, IconButton, Section, Skeleton, TabScreen, useLoad } from '@/components/ui';
 import { call } from '@/lib/api';
@@ -19,6 +19,7 @@ export default function Club() {
           <IconButton name="add" label="Crea un club" onPress={() => router.push('/club/form')} />
         </>
       }>
+      <CommunityUpcoming />
       <RunnerSuggestions />
       <Section title="I tuoi gruppi">
       <Async state={state} skeleton={<><Skeleton height={64} /><Skeleton height={64} /></>}>
@@ -39,9 +40,9 @@ export default function Club() {
       </Async>
       </Section>
       <Section title="Corriamo insieme">
-        <Button title="Organizza un’uscita" onPress={() => router.push('/evento/form')} />
+        <Button variant={state.data?.length ? 'primary' : 'soft'} title="Organizza un’uscita" onPress={() => router.push('/evento/form')} />
         <Button variant="soft" title="Percorsi da condividere" onPress={() => router.navigate({ pathname: '/esplora', params: { tab: 'routes' } })} />
-        <Button small title="Sfide del gruppo" onPress={() => router.navigate('/social')} />
+        <Button small title="Sfide del gruppo" onPress={() => router.push('/sfide')} />
       </Section>
     </TabScreen>
   );

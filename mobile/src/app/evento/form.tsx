@@ -389,7 +389,7 @@ export default function EventoForm() {
           <>
             {err.general ? <Banner tone="error" text={err.general} /> : null}
             <GradientButton
-              title={i < LAST ? 'Avanti' : busy ? (id ? 'Salvo…' : 'Pubblico…') : id ? 'Salva le modifiche' : 'Pubblica l’uscita'}
+              title={i === LAST && !placeV && !placeText.trim() ? 'Conferma quando e dove' : i < LAST ? 'Avanti' : busy ? (id ? 'Salvo…' : 'Pubblico…') : id ? 'Salva le modifiche' : 'Pubblica l’uscita'}
               busy={busy}
               onPress={next}
               accessibilityHint={i < LAST ? `Passo successivo: ${STEPS[i + 1]}` : undefined}

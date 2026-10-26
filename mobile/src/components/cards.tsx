@@ -506,7 +506,7 @@ export function EventCard({ e, index = 0, clubImage, note }: { e: EventView; ind
                 {e.paceSecPerKm ? (
                   <Row gap={4}>
                     <Ionicons name="timer-outline" size={14} color={color.textSecondary} />
-                    <Text style={[type.footnote, { color: color.text, fontWeight: '600' }]}>{paceNum(e.paceSecPerKm)}/km</Text>
+                    <Text style={[type.footnote, { color: color.text, fontWeight: '600' }]}>Passo {paceNum(e.paceSecPerKm)}/km</Text>
                   </Row>
                 ) : null}
               </Row>

@@ -143,7 +143,7 @@ export function TabScreen({ title, subtitle, left, right, children, onRefresh, g
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: HIT }}>
         {left}
         <View style={{ flex: 1 }}>
-          <Text style={t.h1} accessibilityRole="header" numberOfLines={2}>
+          <Text style={t.title1} accessibilityRole="header" numberOfLines={2}>
             {title}
           </Text>
           {subtitle ? <Text style={t.muted}>{subtitle}</Text> : null}

@@ -272,6 +272,7 @@ export default function Home() {
           {hero?.kind === 'firstStep' ? <HeroInvite first /> : null}
 
           {imports.count > 0 ? <Panel style={{ padding: S.lg, gap: S.sm }}><Row><Text style={[t.title, { flex: 1 }]}>{imports.count} {imports.count === 1 ? 'allenamento sincronizzato e salvato' : 'allenamenti sincronizzati e salvati'}</Text><IconButton name="close" label="Chiudi avviso Strava" onPress={imports.dismiss} /></Row><Text style={t.small}>Importati da Strava nel tuo archivio privato.</Text><Button variant="soft" title="Controlla gli allenamenti" onPress={() => { imports.dismiss(); router.push('/integrazioni'); }} /></Panel> : null}
+          {unread > 0 ? <Banner text={`${unread} aggiornamenti da leggere: inviti, richieste e attività dei gruppi.`} action="Apri notifiche" onAction={() => router.push('/notifiche')} /> : null}
           <Suggestion d={d} onChanged={() => void state.reload()} />
 
           {pool.length ? (

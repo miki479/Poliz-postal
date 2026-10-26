@@ -88,7 +88,7 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 
 /* ---------- struttura ---------- */
 
-export function Screen({ children, onRefresh, scroll = true, pad = true, bottomPad, style, footer, glow }: { children: ReactNode; onRefresh?: () => Promise<void> | void; scroll?: boolean; pad?: boolean; bottomPad?: number; style?: StyleProp<ViewStyle>; footer?: ReactNode; glow?: 'default' | 'brand' | 'accent' }) {
+export function Screen({ children, onRefresh, scroll = true, pad = true, bottomPad, style, footer, glow, header }: { children: ReactNode; onRefresh?: () => Promise<void> | void; scroll?: boolean; pad?: boolean; bottomPad?: number; style?: StyleProp<ViewStyle>; footer?: ReactNode; glow?: 'default' | 'brand' | 'accent'; header?: ReactNode }) {
   const insets = useSafeAreaInsets();
   const em = useScrollEmitter();
   const [refreshing, setRefreshing] = useState(false);
@@ -123,6 +123,7 @@ export function Screen({ children, onRefresh, scroll = true, pad = true, bottomP
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
       {glow ? <AmbientGlow variant={glow} /> : null}
+      {header}
       <ScrollProvider value={em.value}>{body}</ScrollProvider>
       {footer ? <FooterBar>{footer}</FooterBar> : null}
     </View>

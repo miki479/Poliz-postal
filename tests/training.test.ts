@@ -358,3 +358,19 @@ describe('collegamento di un allenamento a un’uscita', () => {
   expect(code(() => run('a', 'linkWorkoutEvent', [l.id, 'e']))).toBe('validation');
  });
 });
+
+describe('programma NHS nel piano reale',()=>{
+ it('crea 27 sedute in 9 settimane con recupero e non duplica la richiesta',()=>{
+  const result=run<{plan:{id:string;programId:string};sessions:PlannedSession[]}>('a','createBeginnerPlan',['2026-10-26']);
+  expect(result.sessions).toHaveLength(27);expect(result.plan.programId).toBe('nhs-c25k');expect(result.sessions[0]).toMatchObject({date:'2026-10-26',durationMin:28.5,guidedWorkoutId:'nhs-c25k-1-1'});
+  expect(result.sessions[1].date).toBe('2026-10-28');expect(result.sessions.at(-1)?.date).toBe('2026-12-25');
+  expect(run<{plan:{id:string}}>('a','createBeginnerPlan',['2026-10-26']).plan.id).toBe(result.plan.id);expect(Object.values(db.sessions)).toHaveLength(27);
+  expect(code(()=>run('a','createBeginnerPlan',['2026-10-27']))).toBe('validation');
+  expect((run<PlannedSession[]>('b','listSessions',[]))).toEqual([]);
+ });
+ it('salva la guida scelta solo su una registrazione timer valida',()=>{
+  const {log}=run<{log:WorkoutLog}>('a','logWorkout',[logIn({mode:'timer',guidedWorkoutId:'nhs-c25k-1-1'})]);expect(log.guidedWorkoutId).toBe('nhs-c25k-1-1');
+  expect(code(()=>run('a','logWorkout',[logIn({guidedWorkoutId:'nhs-c25k-1-1'})]))).toBe('validation');
+  expect(code(()=>run('a','logWorkout',[logIn({mode:'timer',guidedWorkoutId:'seduta-inventata'})]))).toBe('validation');
+ });
+});

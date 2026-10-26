@@ -1,3 +1,4 @@
+import { beginnerRun, guidedRunById } from './beginnerRunning.ts';
 import { findDuplicate, newActivity } from './activities.ts';
 import { AppError, registerPurger, type Ctx } from './engine.ts';
 import { isRunKind, kindGroup } from './exercises.ts';
@@ -160,6 +161,8 @@ export function updateSession(ctx: Ctx, id: Id, input: SessionInput): PlannedSes
   const v = validateSessionInput(input);
   if (!v.ok) throw new AppError('validation', 'Controlla i campi evidenziati.', v.errors);
   const oldDate = s.date;
+  const protocol = guidedRunById(s.guidedWorkoutId);
+  if(protocol && (input.kind!==s.kind || input.durationMin!==s.durationMin || JSON.stringify(v.value.segments)!==JSON.stringify(protocol.segments))) s.guidedWorkoutId = null;
   Object.assign(s, v.value, { planId: s.planId, updatedAt: iso(ctx.now) });
   if (s.date !== oldDate) {
     s.rescheduledFrom = s.rescheduledFrom ?? oldDate;
@@ -263,6 +266,8 @@ export function validateLog(raw: Partial<WorkoutLogInput> | null | undefined, no
   if (distanceSource === 'gps' && (environment === 'treadmill' || !track)) errors.distanceKm = 'Distanza GPS senza traccia.';
   const gq = r.gpsQuality;
   const gpsQuality = gq && Number.isInteger(gq.gaps) && gq.gaps >= 0 && gq.gaps < 1000 && typeof gq.lostSec === 'number' && gq.lostSec >= 0 && gq.lostSec <= 24 * 3600 ? { gaps: gq.gaps, lostSec: Math.round(gq.lostSec) } : null;
+  const guided = r.guidedWorkoutId == null ? null : guidedRunById(r.guidedWorkoutId);
+  if (r.guidedWorkoutId != null && (!guided || r.mode !== 'timer')) errors.guidedWorkoutId = 'Seduta guidata non valida.';
   const eventId = typeof r.eventId === 'string' && r.eventId ? r.eventId : null;
   if (Object.keys(errors).length) return { ok: false, errors };
   return {
@@ -288,6 +293,7 @@ export function validateLog(raw: Partial<WorkoutLogInput> | null | undefined, no
       distanceSource: dist ? distanceSource ?? 'manual' : null,
       gpsQuality,
       eventId,
+      guidedWorkoutId: guided?.id ?? null,
     },
   };
 }
@@ -337,6 +343,7 @@ function record(ctx: Ctx, uid: Id, input: WorkoutLogInput, session: PlannedSessi
     heatmapConsent: input.heatmapConsent === true,
     mapShared: input.heatmapConsent === true,
     track: input.track ?? null,
+    guidedWorkoutId: input.guidedWorkoutId ?? null,
     brief: null,
     sport: input.sport ?? 'running',
     environment: input.environment ?? 'outdoor',
@@ -505,6 +512,24 @@ export function createPlanFromWizard(ctx: Ctx, input: PlanWizardInput): { plan: 
   const plan = insertPlan(ctx, uid, v.value, 'wizard');
   const created = gen.sessions.map((s) => insertSession(ctx, uid, s, plan.id));
   return { plan, sessions: created };
+}
+
+/** Protocollo NHS pubblico: 27 sedute con giorni di riposo, senza sostituire altri piani. */
+export function createBeginnerPlan(ctx: Ctx, startDate: string): {plan: TrainingPlan; sessions: PlannedSession[]} {
+ const uid=actor(ctx);
+ if(!validDay(startDate)||new Date(startDate+'T12:00:00Z').getUTCDay()!==1)throw new AppError('validation','Scegli un lunedì per iniziare le nove settimane.');
+ const days=(Date.parse(startDate+'T12:00:00Z')-ctx.now.getTime())/86400000;
+ if(days < -7 || days > 180)throw new AppError('validation','Scegli una data nelle prossime settimane.');
+ const existing=Object.values(ctx.db.plans).find((p)=>p.userId===uid&&!p.archived&&p.programId==='nhs-c25k'&&p.startDate===startDate);
+ if(existing)return {plan:existing,sessions:Object.values(ctx.db.sessions).filter((s)=>s.planId===existing.id)};
+ if(Object.values(ctx.db.sessions).filter((s)=>s.userId===uid).length+27>3000)throw new AppError('conflict','Hai raggiunto il limite delle sedute salvate.');
+ const plan=insertPlan(ctx,uid,{name:'Inizia a correre · NHS 9 settimane',goal:'start_running',level:'beginner',weekdays:[1,3,5],maxMinutes:40,equipment:[],preference:'mixed',includeStrength:false,startDate,weeks:9},'wizard');plan.programId='nhs-c25k';
+ const sessions:PlannedSession[]=[];
+ for(let w=1;w<=9;w++)for(let r=1;r<=3;r++){
+  const g=beginnerRun(w,r);const date=new Date(Date.parse(startDate+'T12:00:00Z')+((w-1)*7+(r-1)*2)*86400000).toISOString().slice(0,10);
+  sessions.push(insertSession(ctx,uid,{date,time:null,kind:'run_walk',title:g.title,description:'Protocollo pubblico NHS Couch to 5K. Passo comodo, senza distanza imposta. Lascia un giorno di recupero fra le sedute e ripeti la settimana se serve.',durationMin:g.durationSec/60,distanceKm:null,intensity:'low',paceSecPerKm:null,warmupMin:5,cooldownMin:5,segments:g.segments,exercises:[],notes:'Fonte: NHS Couch to 5K, programma consultato il 26 ottobre 2026.',guidedWorkoutId:g.id},plan.id));
+ }
+ return {plan,sessions};
 }
 
 export function createPlan(ctx: Ctx, input: { name: string; startDate: string; weeks: number }): TrainingPlan {
@@ -706,6 +731,7 @@ export const trainingMethods = {
   previewPlan,
   createPlanFromWizard,
   createPlan,
+  createBeginnerPlan,
   listPlans,
   archivePlan,
   deletePlan,

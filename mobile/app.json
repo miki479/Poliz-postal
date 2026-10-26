@@ -46,7 +46,8 @@
           "locationWhenInUsePermission": "Runngo usa la posizione per registrare il percorso dei tuoi allenamenti e mostrarlo sulla mappa."
         }
       ],
-      "expo-image"
+      "expo-image",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": false,

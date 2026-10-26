@@ -8,6 +8,7 @@ import type { TrackPoint } from '../../../shared/types.ts';
  */
 export interface RecordingDraft {
   v: 1;
+  guidedWorkoutId?: string | null;
   startedAt: string;
   sport: 'running' | 'walking';
   environment: 'outdoor' | 'treadmill';

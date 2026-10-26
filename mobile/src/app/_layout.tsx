@@ -40,6 +40,7 @@ function Routes() {
         <Stack.Screen name="allenamento/file/[id]" />
         {/* Keep every app route inside this guard: implicit routes otherwise bypass setup. */}
         <Stack.Screen name="allenamento/index" />
+        <Stack.Screen name="allenamento/iniziare" />
         <Stack.Screen name="allenamento/log/[id]" />
         <Stack.Screen name="allenamento/piano" />
         <Stack.Screen name="allenamento/sessione/[id]" />

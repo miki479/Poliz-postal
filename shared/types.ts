@@ -674,6 +674,7 @@ export interface PlannedExercise {
 }
 
 export interface PlannedSession {
+  guidedWorkoutId?: string | null;
   id: Id;
   userId: Id;
   planId: Id | null;
@@ -708,6 +709,7 @@ export interface PlannedSession {
 }
 
 export interface SessionInput {
+  guidedWorkoutId?: string | null;
   planId?: Id | null;
   date: string;
   time: string | null;
@@ -729,6 +731,7 @@ export type PlanGoal = 'start_running' | 'endurance' | 'distance' | 'pace' | 'st
 export type PlanLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export interface TrainingPlan {
+  programId?: 'nhs-c25k';
   id: Id;
   userId: Id;
   name: string;
@@ -809,6 +812,8 @@ export interface WorkoutBrief {
 }
 
 export interface WorkoutLog {
+  /** Protocollo scelto, non una certificazione dello svolgimento. */
+  guidedWorkoutId?: string | null;
   id: Id;
   userId: Id;
   plannedSessionId: Id | null;
@@ -867,6 +872,7 @@ export interface WorkoutLog {
 }
 
 export interface WorkoutLogInput {
+  guidedWorkoutId?: string | null;
   heatmapConsent?: boolean;
   plannedSessionId?: Id | null;
   kind: SessionKind;

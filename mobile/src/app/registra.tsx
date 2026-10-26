@@ -1,3 +1,5 @@
+import { GuidedRunCue } from '@/components/GuidedRunCue';
+import { guidedRunById } from '@shared/beginnerRunning.ts';
 import { Ionicons } from '@expo/vector-icons';
 import * as Battery from 'expo-battery';
 import * as Haptics from 'expo-haptics';
@@ -41,13 +43,15 @@ export default function Registra() {
   const viewport = useWindowDimensions();
   const compactGps = viewport.height < 740 || viewport.fontScale > 1.25;
   const { me } = useSession();
-  const { session: sessionParam } = useLocalSearchParams<{ session?: string }>();
+  const { session: sessionParam, guided: guidedParam } = useLocalSearchParams<{ session?: string; guided?: string }>();
+  const explicitGuide = guidedRunById(guidedParam);
   const [phase, setPhase] = useState<Phase>('setup');
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [kind, setKind] = useState<'running' | 'walking' | 'treadmill'>('running');
   const [ctxKind, setCtxKind] = useState<'solo' | 'event' | 'session'>(sessionParam ? 'session' : 'solo');
   const [sessions, setSessions] = useState<PlannedSession[]>([]);
   const [events, setEvents] = useState<EventView[]>([]);
+  const guided = explicitGuide ?? guidedRunById(sessions.find((s)=>s.id===sessionParam)?.guidedWorkoutId);
   const [sessionId, setSessionId] = useState<string | null>(sessionParam ?? null);
   const [eventId, setEventId] = useState<string | null>(null);
   const liveMap = useRef<MapView>(null);
@@ -103,9 +107,11 @@ export default function Registra() {
     }).catch(() => setMapMessage('Posizione non disponibile. Puoi usare la mappa manualmente.'));
     void Battery.getBatteryLevelAsync().then((b) => setBattery(b >= 0 ? b : null), () => setBattery(null));
     const today = todayIso();
-    call<PlannedSession[]>('listSessions', { from: today, to: today }).then((l) => setSessions(l.filter((s) => s.status === 'planned' || s.status === 'rescheduled')), () => {});
+    call<PlannedSession[]>('listSessions', { from: today, to: today }).then((l) => setSessions((current)=>[...new Map([...l.filter((s)=>s.status==='planned'||s.status==='rescheduled'),...current].map((s)=>[s.id,s])).values()]), () => {});
     call<EventView[]>('listEvents', { scope: 'mine', includePast: true }).then((l) => setEvents(l.filter((e) => e.status === 'active' && e.viewer.isParticipant && Math.abs(Date.parse(e.startsAt) - Date.now()) < 3 * 3_600_000)), () => {});
   }, []);
+
+  useEffect(()=>{if(!sessionParam)return;let active=true;call<PlannedSession>('getSession',sessionParam).then((s)=>{if(active)setSessions((xs)=>xs.some((x)=>x.id===s.id)?xs:[s,...xs]);},()=>{});return()=>{active=false;};},[sessionParam]);
 
   async function locate(request = true) {
     setLocating(true);
@@ -264,9 +270,10 @@ export default function Registra() {
     // Ask while setup is still visible: time spent deciding is not counted as a workout.
     if (environment === 'outdoor') await contextualLocationPermission('record', Location);
     if (!mounted.current) return;
-    draft.current = { v: 1, startedAt: new Date().toISOString(), sport: kind === 'walking' ? 'walking' : 'running', environment, sessionId: ctxKind === 'session' ? sessionId : null, eventId: ctxKind === 'event' ? eventId : null, shared, heatmapConsent, gearId, track: [], km: 0, pausedMs: 0, pausedAt: null, gaps: 0, lostSec: 0, savedAt: Date.now(), status: 'recording', endedAt: null };
+    draft.current = { v: 1, startedAt: new Date().toISOString(), sport: kind === 'walking' ? 'walking' : 'running', environment, sessionId: ctxKind === 'session' ? sessionId : null, eventId: ctxKind === 'event' ? eventId : null, guidedWorkoutId: guided?.id ?? null, shared, heatmapConsent, gearId, track: [], km: 0, pausedMs: 0, pausedAt: null, gaps: 0, lostSec: 0, savedAt: Date.now(), status: 'recording', endedAt: null };
     splits.current = [];
     setNotice('');
+    setShowMap(!guided);
     setPhase('live');
     persist();
     void activateKeepAwakeAsync('workout').catch(() => {});
@@ -281,6 +288,7 @@ export default function Registra() {
     // Il tempo trascorso mentre l'app era chiusa viene trattato come pausa: nessun tratto inventato.
     setRecovered(null);
     if (d.status === 'finished') return openFinish();
+    setShowMap(!d.guidedWorkoutId);
     setPhase('live');
     setNotice('Attività recuperata. Il tempo in cui l’app era chiusa è conteggiato come pausa.');
   }
@@ -318,7 +326,7 @@ export default function Registra() {
     persist();
     const s = sessions.find((x) => x.id === d.sessionId);
     const e = events.find((x) => x.id === d.eventId);
-    setTitle(e?.title || s?.title || `${d.environment === 'treadmill' ? 'Tapis roulant' : d.sport === 'walking' ? 'Camminata' : 'Corsa'} del ${new Date(d.startedAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}`);
+    setTitle(e?.title || s?.title || guidedRunById(d.guidedWorkoutId)?.title || `${d.environment === 'treadmill' ? 'Tapis roulant' : d.sport === 'walking' ? 'Camminata' : 'Corsa'} del ${new Date(d.startedAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}`);
     setPhase('finish');
   }
 
@@ -333,9 +341,10 @@ export default function Registra() {
       const typed = manualKm.trim() ? Number(manualKm.replace(',', '.')) : null;
       const distanceKm = gpsKm ?? typed;
       const s = sessions.find((x) => x.id === d.sessionId);
-      const k: SessionKind = s?.kind ?? (d.sport === 'walking' ? 'aerobic' : 'run_free');
+      const k: SessionKind = d.guidedWorkoutId ? 'run_walk' : s?.kind ?? (d.sport === 'walking' ? 'aerobic' : 'run_free');
       const input = {
         kind: k,
+        guidedWorkoutId: d.guidedWorkoutId ?? null,
         title: title.trim() || KIND_LABEL[k],
         startedAt: d.startedAt,
         durationSec: secs,
@@ -385,7 +394,7 @@ export default function Registra() {
   /* ---------- PREPARAZIONE ---------- */
   const chosen = ctxKind === 'session' ? sessions.find((x) => x.id === sessionId) ?? null : null;
   if (phase === 'setup') {
-    const activityLabel = kind === 'treadmill' ? 'Tapis roulant' : kind === 'walking' ? 'Camminata' : 'Corsa';
+    const activityLabel = guided?.title ?? (kind === 'treadmill' ? 'Tapis roulant' : kind === 'walking' ? 'Camminata' : 'Corsa');
     const contextLabel = chosen?.title || (ctxKind === 'event' ? events.find((e) => e.id === eventId)?.title || 'Uscita di gruppo' : 'Da solo');
     return <>
       <RecordingSetupFrame insets={insets} summary={recovered ? 'Attività da recuperare' : activityLabel} subtitle={recovered ? 'Apri la card per vedere la bozza' : `${contextLabel} · ${shared ? 'Ai compagni' : 'Privata'} · ${chosen ? 'Piano' : 'Obiettivo libero'}`} onOptions={() => setOptionsOpen(true)} onClose={() => router.back()}
@@ -513,6 +522,7 @@ export default function Registra() {
   const pace = d.km > 0.05 ? secs / d.km : null;
   const cur = currentPace(d.track, haversineKm);
   const paused = d.status === 'paused';
+  const activeGuide = guidedRunById(d.guidedWorkoutId);
   const liveNotice = notice || (battery !== null && battery <= 0.1 ? 'Batteria quasi scarica: salva l’attività appena puoi. La bozza viene conservata sul telefono.' : '');
   const sec2 = secondary === 'clock' ? { label: 'Ora', value: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) } : secondary === 'paused' ? { label: 'In pausa', value: fmtClock(Math.floor((d.pausedMs + (d.pausedAt ? Date.now() - d.pausedAt : 0)) / 1000)) } : { label: 'Ultimo km', value: splits.current.length ? fmtPace(splits.current[splits.current.length - 1]).replace('/km', '') : '—' };
 
@@ -524,12 +534,12 @@ export default function Registra() {
           <Text style={t.small}>{d.environment === 'treadmill' ? 'Al chiuso · senza GPS' : GPS_LABEL[gps]}</Text>
           {battery !== null ? <Text style={t.small}> · {Math.round(battery * 100)}%</Text> : null}
         </View>
-        {d.environment === 'outdoor' ? <IconButton name={showMap ? 'map' : 'map-outline'} label={showMap ? 'Nascondi mappa' : 'Mostra mappa'} onPress={() => setShowMap(!showMap)} /> : null}
+        {d.environment === 'outdoor' ? <IconButton name={showMap ? 'map' : 'map-outline'} label={showMap ? activeGuide ? 'Mostra guida' : 'Nascondi mappa' : 'Mostra mappa'} onPress={() => setShowMap(!showMap)} /> : null}
         <IconButton name="lock-closed-outline" label="Blocca i comandi" onPress={() => setLocked(true)} />
       </Row>
 
       {showMap && foreground && d.environment === 'outdoor' ? (
-        <MapView key={mapEpoch} ref={liveMap} style={{ height: 180, marginHorizontal: GUTTER, borderRadius: R.card }} userInterfaceStyle="dark" mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'} showsUserLocation={perm === 'granted'} followsUserLocation={perm === 'granted'} pitchEnabled={false} onUserLocationChange={(e) => {
+        <MapView key={mapEpoch} ref={liveMap} style={{ height: activeGuide ? 130 : 180, marginHorizontal: GUTTER, borderRadius: R.card }} userInterfaceStyle="dark" mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'} showsUserLocation={perm === 'granted'} followsUserLocation={perm === 'granted'} pitchEnabled={false} onUserLocationChange={(e) => {
           const c = e.nativeEvent.coordinate;
           if (c) liveMap.current?.animateToRegion({ latitude: c.latitude, longitude: c.longitude, latitudeDelta: 0.008, longitudeDelta: 0.008 }, 400);
         }}>
@@ -537,9 +547,10 @@ export default function Registra() {
         </MapView>
       ) : null}
 
-      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: GUTTER, gap: S.xxl }}>
+      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: GUTTER, gap: activeGuide ? S.md : S.xxl }}>
+        {activeGuide && !showMap ? <GuidedRunCue segments={activeGuide.segments} elapsedSec={secs} paused={paused || !foreground} compact={compactGps} /> : null}
         <View style={{ alignItems: 'center' }} accessible accessibilityLabel={`Tempo ${fmtClock(secs)}${paused ? ', in pausa' : ''}`}>
-          <Text style={{ color: paused ? color.warning : color.text, fontSize: 72, fontWeight: '800', fontVariant: ['tabular-nums'], letterSpacing: -2 }} adjustsFontSizeToFit numberOfLines={1}>
+          <Text style={{ color: paused ? color.warning : color.text, fontSize: activeGuide ? 44 : 72, fontWeight: '800', fontVariant: ['tabular-nums'], letterSpacing: -2 }} adjustsFontSizeToFit numberOfLines={1}>
             {fmtClock(secs)}
           </Text>
           <Text style={[t.muted, { fontWeight: '600' }]}>{paused ? 'IN PAUSA' : 'Tempo'}</Text>
@@ -548,12 +559,12 @@ export default function Registra() {
           <Big label={d.environment === 'treadmill' ? 'Distanza' : 'Distanza GPS'} value={d.environment === 'treadmill' ? '—' : d.km.toFixed(2).replace('.', ',')} unit={d.environment === 'treadmill' ? undefined : 'km'} />
           <Big label="Passo attuale" value={cur && !paused ? fmtPace(cur).replace('/km', '') : '—'} unit={cur && !paused ? '/km' : undefined} />
         </Row>
-        <Row gap={0}>
+        {!activeGuide || (!compactGps && !showMap) ? <Row gap={0}>
           <Big label="Passo medio" value={pace ? fmtPace(pace).replace('/km', '') : '—'} unit={pace ? '/km' : undefined} small />
           <Pressable style={{ flex: 1 }} onPress={() => setSecondary(SECONDARY[(SECONDARY.indexOf(secondary) + 1) % SECONDARY.length])} accessibilityRole="button" accessibilityLabel={`${sec2.label}: ${sec2.value}. Tocca per cambiare il dato`}>
             <Big label={`${sec2.label} ⇄`} value={sec2.value} small />
           </Pressable>
-        </Row>
+        </Row> : null}
         {liveNotice ? <Banner tone="warn" text={liveNotice} /> : null}
         {gps === 'denied' ? <LinkText title="Gestisci la posizione nelle impostazioni" onPress={() => void Linking.openSettings()} /> : null}
       </View>

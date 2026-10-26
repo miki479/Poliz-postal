@@ -19,16 +19,38 @@ import { SectionTitle } from '@/components/event/SectionTitle';
 import { TypeCards } from '@/components/event/TypePicker';
 import { DistanceDial, LevelBar, PaceDial } from '@/components/EventDials';
 import { PlacePicker, shortPlace } from '@/components/PlacePicker';
-import { Banner, Button, DateField, Empty, Field, Loading, Row, Sheet, useReduceMotion } from '@/components/ui';
+import { Banner, Button, DateField, Empty, Field, Loading, Row, Sheet, useLoad, useReduceMotion } from '@/components/ui';
 import { loadEventForEdit } from '@/lib/eventEdit';
 import { ChoiceRow } from '@/components/Wizard';
-import { clubTint, eventSportStyle, FEATURE_ICONS, PACT_ICON, PACT_ICONS, PACT_MODES, PACT_TINT, pactBlocker, pactModes, VISIBILITY_ICONS, type PactMode } from '@/constants/eventStyle';
+import {
+  clubTint,
+  eventSportStyle,
+  FEATURE_ICONS,
+  PACT_ICON,
+  PACT_ICONS,
+  PACT_MODES,
+  PACT_TINT,
+  pactBlocker,
+  pactModes,
+  VISIBILITY_ICONS,
+  type PactMode,
+} from '@/constants/eventStyle';
 import { color, S, type } from '@/constants/theme';
 import { ApiError, call, type GeoPlace } from '@/lib/api';
 import { checkDate, humanError } from '@/lib/errors';
 import { deviceTimezone, formatPace, SPORT_LABEL, whenLabel } from '@/lib/format';
-import { estimateLevel, eventSportOf, fromServerLevel, hasPaceScale, levelLabel, paceInScale, toServerLevel, type EventSport, type UiLevel } from '@shared/eventLevel.ts';
-import type { ClubView, EventInput, EventView, RunPact, SportId, Visibility } from '@shared/types.ts';
+import {
+  estimateLevel,
+  eventSportOf,
+  fromServerLevel,
+  hasPaceScale,
+  levelLabel,
+  paceInScale,
+  toServerLevel,
+  type EventSport,
+  type UiLevel,
+} from '@shared/eventLevel.ts';
+import type { ClubView, EventInput, EventView, RouteView, RunPact, SportId, Visibility } from '@shared/types.ts';
 
 /** I quattro passi del mockup: cosa e quando, i dettagli dell'uscita, il patto con il gruppo, il riepilogo. */
 const STEPS = ['Attività', 'Dettagli', 'Patto', 'Riepilogo'] as const;
@@ -43,7 +65,14 @@ const TYPE_NOTE: Partial<Record<SportId, string>> = {
   other: 'Un’attività diversa: descrivila nelle note. Il ritmo non si indica.',
 };
 
-const NO_PACT: Record<PactMode, boolean> = { noDrop: false, inclusivePace: false, regroupPoints: false, takeTurns: false, pairs: false, selfPace: false };
+const NO_PACT: Record<PactMode, boolean> = {
+  noDrop: false,
+  inclusivePace: false,
+  regroupPoints: false,
+  takeTurns: false,
+  pairs: false,
+  selfPace: false,
+};
 
 type PacedSport = Exclude<EventSport, 'other'>;
 type Errors = { title?: string; when?: string; place?: string; who?: string; max?: string; general?: string };
@@ -67,7 +96,10 @@ const kmLabel = (km: number) => `${String(Math.round(km * 100) / 100).replace('.
  * Avanzamento a passi in alto, un solo pulsante principale largo in basso. Niente campo obbligatorio superfluo.
  */
 export default function EventoForm() {
-  const { id, clubId: clubParam } = useLocalSearchParams<{ id?: string; clubId?: string }>();
+  const {id,clubId}=useLocalSearchParams<{id?:string;clubId?:string}>();
+  return <EventEditor key={id??`new-${clubId??''}`} id={id} clubParam={clubId}/>;
+}
+function EventEditor({id,clubParam}:{id?:string;clubParam?:string}) {
   const reduce = useReduceMotion();
   const [proposalsOpen, setProposalsOpen] = useState(!id);
   const [gpsBusy, setGpsBusy] = useState(false);
@@ -82,7 +114,7 @@ export default function EventoForm() {
   const whenY = useRef(0);
   const whoY = useRef(0);
   const [version, setVersion] = useState(0);
-  const [title, setTitle] = useState('');
+  const [titleInput, setTitle] = useState('');
   const [titleEdited, setTitleEdited] = useState(false);
   const [sport, setSport] = useState<SportId>('running');
   // Ultimo tipo con una nota e ultimo con un ritmo: nota e card del ritmo restano disegnate mentre i loro pannelli si chiudono.
@@ -98,6 +130,7 @@ export default function EventoForm() {
     d.setHours(19, 0, 0, 0);
     return d;
   });
+  const title=titleEdited||!!id?titleInput:suggestTitle(sport,when);
   const [placeV, setPlaceV] = useState<GeoPlace | null>(null);
   const [placeText, setPlaceText] = useState(''); // solo se il servizio geografico non è attivo (o uscita già esistente senza coordinate)
   const [geoOff, setGeoOff] = useState(false);
@@ -119,13 +152,108 @@ export default function EventoForm() {
   const [clubs, setClubs] = useState<ClubView[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<Errors>({});
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const [editError, setEditError] = useState('');
+  const meetingGeneration = useRef(0);
+  function snapshot() {
+    return {
+      title,
+      titleEdited,
+      sport,
+      manualLevel,
+      when,
+      placeV,
+      placeText,
+      meet,
+      visibility,
+      clubId,
+      km,
+      paceSec,
+      max,
+      maxCustom,
+      maxText,
+      notes,
+      pactOn,
+      regroup,
+      routeId,
+    };
+  }
+  const beforeEdit = useRef<ReturnType<typeof snapshot> | null>(null);
+  const availableRoutes = useLoad(async () => {
+    if (editKey !== 'route') return [] as RouteView[];
+    const groups = await Promise.all([
+      call<RouteView[]>('listRoutes', { scope: 'mine' }),
+      call<RouteView[]>('listRoutes', { scope: 'saved' }),
+    ]);
+    return [...new Map(groups.flat().map((r) => [r.id, r])).values()];
+  }, [editKey]);
+  function openEditor(key: string) {
+    beforeEdit.current = snapshot();
+    setEditError('');
+    setEditKey(key);
+  }
+  function closeEditor(cancel = false) {
+    meetingGeneration.current++;
+    const b = beforeEdit.current;
+    if (cancel && b) {
+      setTitle(b.title);
+      setTitleEdited(b.titleEdited);
+      applySport(b.sport);
+      setManualLevel(b.manualLevel);
+      setWhen(b.when);
+      setPlaceV(b.placeV);
+      setPlaceText(b.placeText);
+      setMeet(b.meet);
+      setVisibility(b.visibility);
+      setClubId(b.clubId);
+      setKm(b.km);
+      setPaceSec(b.paceSec);
+      setMax(b.max);
+      setMaxCustom(b.maxCustom);
+      setMaxText(b.maxText);
+      setNotes(b.notes);
+      setPactOn(b.pactOn);
+      setRegroup(b.regroup);
+      setRouteId(b.routeId);
+    }
+    setEditKey(null);
+    setEditError('');
+  }
+  function confirmEditor() {
+    if (editKey === 'name' && title.trim().length < 3) return setEditError('Scrivi almeno tre lettere.');
+    if (editKey === 'when') {
+      const message = checkDate(when, { future: !id });
+      if (message) return setEditError(message);
+    }
+    if (editKey === 'place' && !placeV && !placeText.trim()) return setEditError('Scegli il punto di ritrovo.');
+    if (editKey === 'vis' && visibility === 'club' && !clubId) return setEditError('Scegli un tuo gruppo.');
+    if (
+      editKey === 'spots' &&
+      maxCustom &&
+      maxText.trim() &&
+      (!Number.isInteger(Number(maxText)) || Number(maxText) < 2 || Number(maxText) > 500)
+    )
+      return setEditError('Scegli da 2 a 500 posti, oppure nessun limite.');
+    if (editKey === 'pact' && pactOn.regroupPoints && !regroup.trim()) return setEditError('Indica il punto in cui ricompattarsi.');
+    closeEditor();
+  }
 
   useEffect(() => {
     call<ClubView[]>('listMyClubs').then(setClubs, () => {});
-    if (!id) { void AsyncStorage.getItem('runngo:usual-meeting-place').then((value) => { if (!value) return; try { const p = JSON.parse(value); if (typeof p.name === 'string' && Number.isFinite(p.lat) && Number.isFinite(p.lng)) setUsual(p); } catch { /* ignora preferenza danneggiata */ } }); return; }
-    setLoadErr('');
-    setReady(false);
-    return loadEventForEdit(() => call<EventView>('getEvent', id, null),
+    if (!id) {
+      void AsyncStorage.getItem('runngo:usual-meeting-place').then((value) => {
+        if (!value) return;
+        try {
+          const p = JSON.parse(value);
+          if (typeof p.name === 'string' && Number.isFinite(p.lat) && Number.isFinite(p.lng)) setUsual(p);
+        } catch {
+          /* ignora preferenza danneggiata */
+        }
+      });
+      return;
+    }
+    return loadEventForEdit(
+      () => call<EventView>('getEvent', id, null),
       (e) => {
         setVersion(e.version);
         setTitle(e.title);
@@ -139,7 +267,9 @@ export default function EventoForm() {
         setKm(e.distanceKm);
         setPaceSec(e.paceSecPerKm);
         // Il livello salvato vale come scelta manuale; la stima serve solo a recuperarne la sfumatura (stessa fascia del server).
-        setManualLevel(fromServerLevel(e.level, estimateLevel({ sport: eventSportOf(e.sport), km: e.distanceKm, paceSec: e.paceSecPerKm }).level));
+        setManualLevel(
+          fromServerLevel(e.level, estimateLevel({ sport: eventSportOf(e.sport), km: e.distanceKm, paceSec: e.paceSecPerKm }).level),
+        );
         setNotes(e.notes);
         setMax(e.maxParticipants);
         setVisibility(e.visibility);
@@ -155,11 +285,6 @@ export default function EventoForm() {
       setLoadErr,
     );
   }, [id, loadAttempt]);
-
-  // Titolo suggerito finché l'utente non lo scrive da sé.
-  useEffect(() => {
-    if (!titleEdited && !id) setTitle(suggestTitle(sport, when));
-  }, [sport, when, titleEdited, id]);
 
   // Transizione tra i passi: il nuovo passo entra scorrendo dal lato giusto (avanti da destra, indietro da sinistra).
   const go = useCallback(
@@ -251,30 +376,49 @@ export default function EventoForm() {
     }
     // Passo "Dettagli": i selettori producono solo valori validi (agganciati e nei limiti del server), nulla da controllare.
     // Numero intero (un testo incollato può contenere virgole o lettere: Number li rende decimali o NaN).
-    if (i === 2 && maxCustom && maxText.trim() && !(maxVal && Number.isInteger(maxVal) && maxVal >= 2 && maxVal <= 500)) return setErr({ max: 'I posti devono essere un numero intero tra 2 e 500.' });
+    if (i === 2 && maxCustom && maxText.trim() && !(maxVal && Number.isInteger(maxVal) && maxVal >= 2 && maxVal <= 500))
+      return setErr({ max: 'I posti devono essere un numero intero tra 2 e 500.' });
     setErr({});
     if (i === LAST) return void save();
     go(i + 1);
   }
 
   async function locateMeetingPlace() {
+    const ticket = ++meetingGeneration.current;
     setGpsBusy(true);
     try {
       const permission = await contextualLocationPermission('map', Location);
-      if (permission.status !== 'granted') { setErr({ place: 'La posizione non è consentita. Puoi scegliere il ritrovo manualmente.' }); return; }
+      if (permission.status !== 'granted') {
+        setErr({ place: 'La posizione non è consentita. Puoi scegliere il ritrovo manualmente.' });
+        return;
+      }
       const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      const addresses = await Location.reverseGeocodeAsync({ latitude: fix.coords.latitude, longitude: fix.coords.longitude }).catch(() => []);
+      const addresses = await Location.reverseGeocodeAsync({ latitude: fix.coords.latitude, longitude: fix.coords.longitude }).catch(
+        () => [],
+      );
+      if (ticket !== meetingGeneration.current) return;
       const a = addresses[0];
       const name = a ? [a.street, a.streetNumber, a.city].filter(Boolean).join(' ') : 'Punto scelto con GPS';
       setPlaceV({ name, lat: fix.coords.latitude, lng: fix.coords.longitude });
-      setGpsAccuracy(fix.coords.accuracy); setErr({});
-    } catch { setErr({ place: 'Non riesco a rilevare la posizione. Riprova all’aperto o scegli il ritrovo manualmente.' }); }
-    finally { setGpsBusy(false); }
+      setGpsAccuracy(fix.coords.accuracy);
+      setErr({});
+    } catch {
+      setErr({ place: 'Non riesco a rilevare la posizione. Riprova all’aperto o scegli il ritrovo manualmente.' });
+    } finally {
+      setGpsBusy(false);
+    }
   }
 
   async function save() {
-    if (!placeV && !placeText.trim()) { go(0); return setErr({ place: 'Conferma il punto di ritrovo prima di pubblicare.' }); }
-    if (visibility === 'club' && !clubId) { go(0); setWhoOpen(true); return; }
+    if (!placeV && !placeText.trim()) {
+      go(0);
+      return setErr({ place: 'Conferma il punto di ritrovo prima di pubblicare.' });
+    }
+    if (visibility === 'club' && !clubId) {
+      go(0);
+      setWhoOpen(true);
+      return;
+    }
     if (title.trim().length < 3) return setErr({ title: 'Dai un nome all’uscita: almeno 3 lettere.' });
     const dErr = checkDate(when, { future: !id });
     if (dErr) {
@@ -282,7 +426,14 @@ export default function EventoForm() {
       return setErr({ when: dErr });
     }
     const pact: RunPact | null = declaredPact.length
-      ? { noDrop: pactOn.noDrop, inclusivePace: pactOn.inclusivePace, regroupPoints: regroupText, takeTurns: pactOn.takeTurns, pairs: pactOn.pairs, selfPace: pactOn.selfPace }
+      ? {
+          noDrop: pactOn.noDrop,
+          inclusivePace: pactOn.inclusivePace,
+          regroupPoints: regroupText,
+          takeTurns: pactOn.takeTurns,
+          pairs: pactOn.pairs,
+          selfPace: pactOn.selfPace,
+        }
       : null;
     const input: EventInput = {
       title: title.trim(),
@@ -323,7 +474,7 @@ export default function EventoForm() {
         <Stack.Screen options={{ headerShown: true, title: 'Modifica l’uscita' }} />
         <View style={{ flex: 1, backgroundColor: color.bg, padding: S.xl }}>
           <Empty title="Uscita non disponibile" text={loadErr} iconName="cloud-offline-outline" />
-          <Button title="Riprova" onPress={() => setLoadAttempt((n) => n + 1)} />
+          <Button title="Riprova" onPress={() => {setLoadErr('');setReady(false);setLoadAttempt((n)=>n+1);}} />
           <Button title="Torna indietro" variant="soft" onPress={close} />
         </View>
       </>
@@ -334,23 +485,54 @@ export default function EventoForm() {
   const placeLine = [meet.trim(), placeName].filter(Boolean).join(' · ') + (needsText ? ' (non verificato)' : '');
 
   /** Caratteristiche del riepilogo, come la legenda dei mockup: solo ciò che è stato scelto davvero. */
-  const features: Feature[] = [];
+  const features: Feature[] = [{ key: 'name', icon: 'create-outline', tint: color.textSecondary, title: 'Nome dell’uscita', value: title }];
   if (visibility === 'club') {
     const v = VISIBILITY_ICONS.club;
-    features.push({ key: 'vis', icon: v.icon, tint: club ? clubTint(club.name) : v.tint, title: 'Club', detail: v.hint, value: club?.name });
+    features.push({
+      key: 'vis',
+      icon: v.icon,
+      tint: club ? clubTint(club.name) : v.tint,
+      title: 'Club',
+      detail: v.hint,
+      value: club?.name,
+    });
   } else {
     const v = VISIBILITY_ICONS[visibility];
-    features.push({ key: 'vis', icon: v.icon, tint: v.tint, title: visibility === 'public' ? 'Uscita pubblica' : 'Su invito', detail: v.hint, value: v.label });
+    features.push({
+      key: 'vis',
+      icon: v.icon,
+      tint: v.tint,
+      title: visibility === 'public' ? 'Uscita pubblica' : 'Su invito',
+      detail: v.hint,
+      value: v.label,
+    });
   }
   features.push({
     key: 'sport',
     glyph: sportStyle,
     tint: sportStyle.solid,
     title: 'Tipo di attività',
-    detail: [km ? kmLabel(km) : null, withPace && paceSec ? `Passo ${formatPace(paceSec)}` : null, `Livello ${levelLabel(uiLevel).toLowerCase()}`].filter(Boolean).join(' · '),
+
     value: SPORT_LABEL[sport],
   });
-  features.push({ key: 'when', icon: 'calendar-outline', tint: color.accent, title: whenText, detail: placeLine || undefined });
+  features.push({
+    key: 'distance',
+    icon: 'footsteps-outline',
+    tint: color.route,
+    title: 'Distanza',
+    value: km ? kmLabel(km) : 'Da concordare',
+  });
+  if (withPace)
+    features.push({
+      key: 'pace',
+      icon: 'timer-outline',
+      tint: color.brandText,
+      title: 'Passo',
+      value: paceSec ? formatPace(paceSec) : 'Da concordare',
+    });
+  features.push({ key: 'level', icon: 'speedometer-outline', tint: color.brandText, title: 'Livello', value: levelLabel(uiLevel) });
+  features.push({ key: 'when', icon: 'calendar-outline', tint: color.route, title: 'Data e ora', value: whenText });
+  features.push({ key: 'place', icon: 'location-outline', tint: color.route, title: 'Ritrovo', detail: placeLine || 'Da confermare' });
   features.push(
     declaredPact.length
       ? {
@@ -358,24 +540,69 @@ export default function EventoForm() {
           icon: PACT_ICON,
           tint: PACT_TINT,
           title: 'Patto di corsa',
-          detail: declaredPact.length === 1 ? (declaredPact[0] === 'regroupPoints' ? regroupText : PACT_ICONS[declaredPact[0]].hint) : declaredPact.map((m) => PACT_ICONS[m].label).join(', '),
+          detail:
+            declaredPact.length === 1
+              ? declaredPact[0] === 'regroupPoints'
+                ? regroupText
+                : PACT_ICONS[declaredPact[0]].hint
+              : declaredPact.map((m) => PACT_ICONS[m].label).join(', '),
           value: declaredPact.length === 1 ? PACT_ICONS[declaredPact[0]].label : `${declaredPact.length} impegni`,
         }
       : { key: 'pact', icon: PACT_ICON, tint: color.textTertiary, title: 'Patto di corsa', detail: 'Nessun impegno indicato' },
   );
   features.push(
     maxVal && maxVal >= 2
-      ? { key: 'spots', icon: FEATURE_ICONS.limitedSpots.icon, tint: color.brandText, title: 'Posti', detail: FEATURE_ICONS.limitedSpots.hint, value: `${maxVal} posti` }
-      : { key: 'spots', icon: FEATURE_ICONS.limitedSpots.icon, tint: color.brandText, title: 'Posti', detail: 'Senza limite di partecipanti', value: 'Illimitati' },
+      ? {
+          key: 'spots',
+          icon: FEATURE_ICONS.limitedSpots.icon,
+          tint: color.brandText,
+          title: 'Posti',
+          detail: FEATURE_ICONS.limitedSpots.hint,
+          value: `${maxVal} posti`,
+        }
+      : {
+          key: 'spots',
+          icon: FEATURE_ICONS.limitedSpots.icon,
+          tint: color.brandText,
+          title: 'Posti',
+          detail: 'Senza limite di partecipanti',
+          value: 'Illimitati',
+        },
   );
-  if (routeId) features.push({ key: 'route', icon: FEATURE_ICONS.route.icon, tint: color.accent, title: FEATURE_ICONS.route.label, detail: FEATURE_ICONS.route.hint });
-  if (notes.trim()) features.push({ key: 'notes', icon: 'document-text-outline', tint: color.textSecondary, title: 'Note', detail: notes.trim() });
+  features.push({
+    key: 'route',
+    icon: FEATURE_ICONS.route.icon,
+    tint: color.route,
+    title: 'Percorso',
+    detail: routeId ? 'Percorso collegato' : 'Facoltativo',
+  });
+  features.push({
+    key: 'notes',
+    icon: 'document-text-outline',
+    tint: color.textSecondary,
+    title: 'Note',
+    detail: notes.trim() || 'Nessuna nota',
+  });
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <Sheet visible={proposalsOpen} onClose={() => setProposalsOpen(false)} title="Che uscita organizzi?">
-        <OutingProposals onCustom={() => setProposalsOpen(false)} onChoose={(p) => { applySport(p.sport); setKm(p.km); setPaceSec(p.pace); setMax(p.spots); setTitle(p.title); setTitleEdited(true); setPactOn({ ...NO_PACT, [p.pact]: true }); setProposalsOpen(false); go(LAST); }} />
+        <OutingProposals clubs={clubs} clubId={clubId}
+          onCustom={() => setProposalsOpen(false)}
+          onChoose={(p) => {
+            applySport(p.sport);
+            if(p.clubId){setClubId(p.clubId);setVisibility('club');}
+            setKm(p.km);
+            setPaceSec(p.pace);
+            setMax(p.spots);
+            setTitle(p.title);
+            setTitleEdited(true);
+            setPactOn({ ...NO_PACT, [p.pact]: true });
+            setProposalsOpen(false);
+            go(LAST);
+          }}
+        />
       </Sheet>
       <EventFrame
         title={id ? 'Modifica l’uscita' : 'Crea un’uscita'}
@@ -389,14 +616,33 @@ export default function EventoForm() {
           <>
             {err.general ? <Banner tone="error" text={err.general} /> : null}
             <GradientButton
-              title={i === LAST && !placeV && !placeText.trim() ? 'Conferma quando e dove' : i < LAST ? 'Avanti' : busy ? (id ? 'Salvo…' : 'Pubblico…') : id ? 'Salva le modifiche' : 'Pubblica l’uscita'}
+              title={
+                i === LAST && !placeV && !placeText.trim()
+                  ? 'Conferma quando e dove'
+                  : i < LAST
+                    ? 'Avanti'
+                    : busy
+                      ? id
+                        ? 'Salvo…'
+                        : 'Pubblico…'
+                      : id
+                        ? 'Salva le modifiche'
+                        : 'Pubblica l’uscita'
+              }
               busy={busy}
               onPress={next}
               accessibilityHint={i < LAST ? `Passo successivo: ${STEPS[i + 1]}` : undefined}
             />
           </>
-        }>
-        <Animated.View style={{ gap: S.lg, opacity: slide, transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [dir * 28, 0] }) }] }}>
+        }
+      >
+        <Animated.View
+          style={{
+            gap: S.lg,
+            opacity: slide,
+            transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [dir * 28, 0] }) }],
+          }}
+        >
           {i === 0 ? (
             <>
               <View>
@@ -411,9 +657,31 @@ export default function EventoForm() {
 
               <View style={{ gap: S.md }} onLayout={(e) => (whenY.current = e.nativeEvent.layout.y)}>
                 <Button variant="soft" title="Usa la mia posizione" busy={gpsBusy} onPress={() => void locateMeetingPlace()} />
-                {gpsAccuracy !== null ? <Text style={{ color: color.textSecondary }}>Precisione GPS: circa {Math.round(gpsAccuracy)} m. Controlla il ritrovo prima di pubblicare.</Text> : null}
-                {usual ? <Button small title={`Usa il ritrovo abituale: ${shortPlace(usual.name)}`} onPress={() => { setPlaceV(usual); setGpsAccuracy(null); }} /> : null}
-                {placeV ? <Button small title="Imposta questo come ritrovo abituale" onPress={async () => { await AsyncStorage.setItem('runngo:usual-meeting-place', JSON.stringify(placeV)); setUsual(placeV); }} /> : null}
+                {gpsAccuracy !== null ? (
+                  <Text style={{ color: color.textSecondary }}>
+                    Precisione GPS: circa {Math.round(gpsAccuracy)} m. Controlla il ritrovo prima di pubblicare.
+                  </Text>
+                ) : null}
+                {usual ? (
+                  <Button
+                    small
+                    title={`Usa il ritrovo abituale: ${shortPlace(usual.name)}`}
+                    onPress={() => {
+                      setPlaceV(usual);
+                      setGpsAccuracy(null);
+                    }}
+                  />
+                ) : null}
+                {placeV ? (
+                  <Button
+                    small
+                    title="Imposta questo come ritrovo abituale"
+                    onPress={async () => {
+                      await AsyncStorage.setItem('runngo:usual-meeting-place', JSON.stringify(placeV));
+                      setUsual(placeV);
+                    }}
+                  />
+                ) : null}
                 <SectionTitle title="Quando e dove" />
                 <DateField
                   label="Data e ora"
@@ -426,7 +694,10 @@ export default function EventoForm() {
                 {err.when ? <Banner tone="error" text={err.when} /> : null}
                 {geoOff || (id && placeText && !placeV) ? (
                   <>
-                    <Banner tone="warn" text="La ricerca dei luoghi non è attiva: scrivi il luogo a mano. Non sarà verificato e non comparirà tra le uscite vicine." />
+                    <Banner
+                      tone="warn"
+                      text="La ricerca dei luoghi non è attiva: scrivi il luogo a mano. Non sarà verificato e non comparirà tra le uscite vicine."
+                    />
                     <Field
                       label="Luogo (non verificato)"
                       value={placeText}
@@ -455,11 +726,39 @@ export default function EventoForm() {
               </View>
 
               <View style={{ gap: S.sm }} onLayout={(e) => (whoY.current = e.nativeEvent.layout.y)}>
-                <Pressable onPress={() => setWhoOpen(true)} accessibilityRole="button" accessibilityState={{ expanded: whoOpen }} accessibilityLabel="Visibilità e punto di ritrovo. Modifica i dettagli" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 64, padding: S.md, borderRadius: 18, backgroundColor: color.surface, opacity: pressed ? 0.75 : 1 })}>
-                  <Ionicons name={visibility === 'club' ? 'people-outline' : visibility === 'private' ? 'link-outline' : 'earth-outline'} size={23} color={color.accent} />
+                <Pressable
+                  onPress={() => setWhoOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: whoOpen }}
+                  accessibilityLabel="Visibilità e punto di ritrovo. Modifica i dettagli"
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: S.md,
+                    minHeight: 64,
+                    padding: S.md,
+                    borderRadius: 18,
+                    backgroundColor: color.surface,
+                    opacity: pressed ? 0.75 : 1,
+                  })}
+                >
+                  <Ionicons
+                    name={visibility === 'club' ? 'people-outline' : visibility === 'private' ? 'link-outline' : 'earth-outline'}
+                    size={23}
+                    color={color.accent}
+                  />
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={[type.headline, { color: color.text }]}>Visibilità e ritrovo</Text>
-                    <Text style={[type.footnote, { color: color.textSecondary }]}>{[visibility === 'club' ? club?.name ?? 'Scegli un club' : visibility === 'private' ? 'Solo chi ha il link' : 'Uscita pubblica', meet.trim() || 'Punto preciso facoltativo'].join(' · ')}</Text>
+                    <Text style={[type.footnote, { color: color.textSecondary }]}>
+                      {[
+                        visibility === 'club'
+                          ? (club?.name ?? 'Scegli un club')
+                          : visibility === 'private'
+                            ? 'Solo chi ha il link'
+                            : 'Uscita pubblica',
+                        meet.trim() || 'Punto preciso facoltativo',
+                      ].join(' · ')}
+                    </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
                 </Pressable>
@@ -478,7 +777,14 @@ export default function EventoForm() {
                     <PaceDial sport={pacedSport} value={paceSec} km={km} onChange={setPaceSec} />
                   </View>
                 </Reveal>
-                <LevelBar sport={dialSport} level={uiLevel} auto={manualLevel === null} estimate={estimate.level} onChange={setManualLevel} onReset={() => setManualLevel(null)} />
+                <LevelBar
+                  sport={dialSport}
+                  level={uiLevel}
+                  auto={manualLevel === null}
+                  estimate={estimate.level}
+                  onChange={setManualLevel}
+                  onReset={() => setManualLevel(null)}
+                />
               </View>
             </>
           ) : null}
@@ -487,11 +793,20 @@ export default function EventoForm() {
             <>
               <View>
                 <SectionTitle title="Patto di corsa" note="(opzionale)" />
-                <Text style={[type.footnote, { color: color.textSecondary, marginTop: S.sm, marginBottom: S.md }]}>Impegni che prendi con il gruppo. Non sono garanzie di sicurezza.</Text>
+                <Text style={[type.footnote, { color: color.textSecondary, marginTop: S.sm, marginBottom: S.md }]}>
+                  Impegni che prendi con il gruppo. Non sono garanzie di sicurezza.
+                </Text>
                 <PactTiles on={pactOn} onToggle={togglePact} />
                 <Reveal open={pactOn.regroupPoints}>
                   <View style={{ paddingTop: S.sm }}>
-                    <Field label="Dove ci si ricompatta" value={regroup} onChangeText={setRegroup} maxLength={160} placeholder="Es. fontana del parco, km 5" hint="Senza un luogo questo impegno non viene salvato." />
+                    <Field
+                      label="Dove ci si ricompatta"
+                      value={regroup}
+                      onChangeText={setRegroup}
+                      maxLength={160}
+                      placeholder="Es. fontana del parco, km 5"
+                      hint="Senza un luogo questo impegno non viene salvato."
+                    />
                   </View>
                 </Reveal>
               </View>
@@ -521,11 +836,24 @@ export default function EventoForm() {
                       }}
                     />
                   ))}
-                  <OptionChip label="Altro" accessibilityLabel="Altro numero di posti" on={maxCustom} onPress={() => setMaxCustom(!maxCustom)} />
+                  <OptionChip
+                    label="Altro"
+                    accessibilityLabel="Altro numero di posti"
+                    on={maxCustom}
+                    onPress={() => setMaxCustom(!maxCustom)}
+                  />
                 </Row>
                 <Reveal open={maxCustom}>
                   <View style={{ paddingTop: S.md }}>
-                    <Field label="Posti massimi" value={maxText} onChangeText={setMaxText} keyboardType="number-pad" placeholder="Es. 12" maxLength={3} error={err.max} />
+                    <Field
+                      label="Posti massimi"
+                      value={maxText}
+                      onChangeText={setMaxText}
+                      keyboardType="number-pad"
+                      placeholder="Es. 12"
+                      maxLength={3}
+                      error={err.max}
+                    />
                   </View>
                 </Reveal>
               </View>
@@ -551,40 +879,239 @@ export default function EventoForm() {
                   route={!!routeId}
                   spots={maxVal && maxVal >= 2 ? maxVal : null}
                 />
-                <Text style={[type.footnote, { color: color.textSecondary, textAlign: 'center' }]}>Così comparirà tra le uscite di gruppo.</Text>
+                <Text style={[type.footnote, { color: color.textSecondary, textAlign: 'center' }]}>
+                  Così comparirà tra le uscite di gruppo.
+                </Text>
               </View>
-              <Field
-                label="Nome dell’uscita"
-                value={title}
-                onChangeText={(v) => {
-                  setTitle(v);
-                  setTitleEdited(true);
-                  setErr({});
-                }}
-                maxLength={80}
-                error={err.title}
-              />
               <View>
                 <SectionTitle title="Caratteristiche" />
                 <View style={{ marginTop: S.md }}>
-                  <FeatureList items={features} onEdit={(key) => go(key === 'sport' ? 1 : key === 'pact' || key === 'spots' || key === 'notes' ? 2 : 0)} />
+                  <FeatureList items={features} onEdit={openEditor} />
                 </View>
               </View>
             </>
           ) : null}
         </Animated.View>
       </EventFrame>
-      <Sheet visible={whoOpen && i === 0} onClose={() => setWhoOpen(false)} title="Visibilità e ritrovo" footer={<Button title="Conferma dettagli" onPress={() => setWhoOpen(false)} />}>
-        <Field label="Punto di ritrovo preciso" value={meet} onChangeText={setMeet} optional placeholder="Es. fontana di piazza Saffi" maxLength={90} />
+      <Sheet
+        avoidKeyboard
+        visible={editKey !== null}
+        onClose={() => closeEditor(true)}
+        title={
+          (
+            {
+              name: 'Nome dell’uscita',
+              sport: 'Attività',
+              distance: 'Distanza',
+              pace: 'Passo',
+              level: 'Livello',
+              when: 'Data e ora',
+              place: 'Punto di ritrovo',
+              vis: 'Visibilità',
+              pact: 'Patto di corsa',
+              spots: 'Posti',
+              notes: 'Note',
+              route: 'Percorso',
+            } as Record<string, string>
+          )[editKey ?? ''] ?? 'Modifica'
+        }
+        footer={
+          <>
+            <Button title="Conferma modifica" onPress={confirmEditor} />
+            <Button small title="Annulla modifica" onPress={() => closeEditor(true)} />
+          </>
+        }
+      >
+        {editKey === 'name' ? (
+          <Field
+            label="Nome dell’uscita"
+            value={title}
+            maxLength={80}
+            onChangeText={(value) => {
+              setTitle(value);
+              setTitleEdited(true);
+            }}
+          />
+        ) : null}
+        {editKey === 'sport' ? <TypeCards value={sport} onChange={pickSport} /> : null}
+        {editKey === 'distance' ? <DistanceDial sport={dialSport} value={km} onChange={setKm} /> : null}
+        {editKey === 'pace' && withPace ? <PaceDial sport={pacedSport} value={paceSec} km={km} onChange={setPaceSec} /> : null}
+        {editKey === 'level' ? (
+          <LevelBar
+            sport={dialSport}
+            level={uiLevel}
+            auto={manualLevel === null}
+            estimate={estimate.level}
+            onChange={setManualLevel}
+            onReset={() => setManualLevel(null)}
+          />
+        ) : null}
+        {editKey === 'when' ? <DateField label="Data e ora" value={when} onChange={setWhen} /> : null}
+        {editKey === 'place' ? (
+          <>
+            <Button variant="soft" title="Usa la mia posizione" busy={gpsBusy} onPress={() => void locateMeetingPlace()} />
+            {gpsAccuracy !== null ? <Text style={{ color: color.textSecondary }}>Precisione circa {Math.round(gpsAccuracy)} m</Text> : null}
+            {usual ? <Button small title={`Usa il ritrovo abituale: ${shortPlace(usual.name)}`} onPress={() => setPlaceV(usual)} /> : null}
+            <PlacePicker label="Ritrovo" value={placeV} onChange={setPlaceV} onUnavailable={() => setGeoOff(true)} />
+            {geoOff ? <Field label="Luogo non verificato" value={placeText} onChangeText={setPlaceText} /> : null}
+            <Field label="Punto preciso" value={meet} onChangeText={setMeet} optional maxLength={90} />
+            {placeV ? (
+              <Button
+                small
+                title="Salva come ritrovo abituale"
+                onPress={async () => {
+                  await AsyncStorage.setItem('runngo:usual-meeting-place', JSON.stringify(placeV));
+                  setUsual(placeV);
+                }}
+              />
+            ) : null}
+          </>
+        ) : null}
+        {editKey === 'vis' ? (
+          <>
+            <ChoiceRow
+              title="Pubblica"
+              hint="Compare in Esplora"
+              icon="earth-outline"
+              on={visibility === 'public'}
+              onPress={() => {
+                setVisibility('public');
+                setClubId(null);
+              }}
+            />
+            <ChoiceRow
+              title="Solo con il link"
+              hint="La condividi tu"
+              icon="link-outline"
+              on={visibility === 'private'}
+              onPress={() => {
+                setVisibility('private');
+                setClubId(null);
+              }}
+            />
+            {clubs.map((c) => (
+              <ClubChoice
+                key={c.id}
+                club={c}
+                selected={visibility === 'club' && clubId === c.id}
+                onSelect={() => {
+                  setVisibility('club');
+                  setClubId(c.id);
+                }}
+              />
+            ))}
+          </>
+        ) : null}
+        {editKey === 'pact' ? (
+          <>
+            <PactTiles on={pactOn} onToggle={togglePact} />
+            {pactOn.regroupPoints ? (
+              <Field label="Dove ci si ricompatta" value={regroup} onChangeText={setRegroup} maxLength={160} />
+            ) : null}
+          </>
+        ) : null}
+        {editKey === 'spots' ? (
+          <>
+            <ChoiceRow
+              title="Senza limite"
+              icon="people-outline"
+              on={!maxCustom && max === null}
+              onPress={() => {
+                setMax(null);
+                setMaxCustom(false);
+              }}
+            />
+            <Field
+              label="Posti massimi"
+              value={maxCustom ? maxText : max ? String(max) : ''}
+              keyboardType="number-pad"
+              onChangeText={(value) => {
+                setMaxCustom(true);
+                setMaxText(value);
+              }}
+            />
+          </>
+        ) : null}
+        {editKey === 'notes' ? <Field label="Note" value={notes} onChangeText={setNotes} multiline optional /> : null}
+        {editKey === 'route' ? (
+          <>
+            <Button small title="Nessun percorso" onPress={() => setRouteId(null)} />
+            {availableRoutes.loading ? (
+              <Loading />
+            ) : availableRoutes.error ? (
+              <Banner tone="error" text={availableRoutes.error} action="Riprova" onAction={availableRoutes.reload} />
+            ) : availableRoutes.data?.length ? (
+              availableRoutes.data.map((r) => (
+                <ChoiceRow
+                  key={r.id}
+                  title={r.name}
+                  hint={r.distanceKm ? kmLabel(r.distanceKm) : 'Distanza non indicata'}
+                  icon="map-outline"
+                  on={routeId === r.id}
+                  onPress={() => setRouteId(r.id)}
+                />
+              ))
+            ) : (
+              <Text style={{ color: color.textSecondary }}>Nessun percorso proprio o salvato disponibile.</Text>
+            )}
+          </>
+        ) : null}
+        {editError ? <Banner tone="error" text={editError} /> : null}
+      </Sheet>
+      <Sheet
+        visible={whoOpen && i === 0}
+        onClose={() => setWhoOpen(false)}
+        title="Visibilità e ritrovo"
+        footer={<Button title="Conferma dettagli" onPress={() => setWhoOpen(false)} />}
+      >
+        <Field
+          label="Punto di ritrovo preciso"
+          value={meet}
+          onChangeText={setMeet}
+          optional
+          placeholder="Es. fontana di piazza Saffi"
+          maxLength={90}
+        />
         <View style={{ gap: S.sm }} accessibilityRole="radiogroup" accessibilityLabel="Visibilità">
           <SectionTitle title="Visibilità" />
-          <ChoiceRow title="Uscita pubblica" hint="Compare in Esplora: può partecipare chiunque" icon="earth-outline" on={visibility === 'public'} onPress={() => { setVisibility('public'); setClubId(null); setErr({}); }} />
-          <ChoiceRow title="Solo chi ha il link" hint="Non compare in Esplora: decidi tu con chi condividerla" icon="link-outline" on={visibility === 'private'} onPress={() => { setVisibility('private'); setClubId(null); setErr({}); }} />
+          <ChoiceRow
+            title="Uscita pubblica"
+            hint="Compare in Esplora: può partecipare chiunque"
+            icon="earth-outline"
+            on={visibility === 'public'}
+            onPress={() => {
+              setVisibility('public');
+              setClubId(null);
+              setErr({});
+            }}
+          />
+          <ChoiceRow
+            title="Solo chi ha il link"
+            hint="Non compare in Esplora: decidi tu con chi condividerla"
+            icon="link-outline"
+            on={visibility === 'private'}
+            onPress={() => {
+              setVisibility('private');
+              setClubId(null);
+              setErr({});
+            }}
+          />
         </View>
         <View style={{ gap: S.sm }} accessibilityRole="radiogroup" accessibilityLabel="Riservata a un club">
           <SectionTitle title="Riservata a un club" />
           <Text style={[type.footnote, { color: color.textSecondary }]}>Scegli un tuo club per riservare l’uscita ai suoi membri.</Text>
-          {clubs.map((c) => <ClubChoice key={c.id} club={c} selected={visibility === 'club' && clubId === c.id} onSelect={() => { setVisibility('club'); setClubId(c.id); setErr({}); }} />)}
+          {clubs.map((c) => (
+            <ClubChoice
+              key={c.id}
+              club={c}
+              selected={visibility === 'club' && clubId === c.id}
+              onSelect={() => {
+                setVisibility('club');
+                setClubId(c.id);
+                setErr({});
+              }}
+            />
+          ))}
           {!clubs.length ? <Text style={[type.footnote, { color: color.textSecondary }]}>Non fai ancora parte di un club.</Text> : null}
         </View>
         {err.who ? <Banner tone="error" text={err.who} /> : null}

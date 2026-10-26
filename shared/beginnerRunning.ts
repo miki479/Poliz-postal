@@ -28,7 +28,7 @@ const WEEKS: number[][][] = [
 ];
 export function beginnerRun(week: number, run: number): GuidedRun {
   if (!Number.isInteger(week) || !Number.isInteger(run) || week < 1 || week > 9 || run < 1 || run > 3)
-    throw new Error('Seduta guidata non valida.');
+    throw new Error('Allenamento guidato non valido.');
   const segments: Segment[] = [
     { kind: 'warmup', label: 'Cammina per riscaldarti', durationSec: 300, reps: 1 },
     ...WEEKS[week - 1][run - 1].map((durationSec, i): Segment => ({
@@ -43,7 +43,7 @@ export function beginnerRun(week: number, run: number): GuidedRun {
     id: `nhs-c25k-${week}-${run}`,
     week,
     run,
-    title: `Inizia a correre · settimana ${week}, seduta ${run}`,
+    title: `Inizia a correre · settimana ${week}, allenamento ${run}`,
     durationSec: segments.reduce((n, s) => n + s.durationSec, 0),
     segments,
   };

@@ -15,7 +15,7 @@ type Step = 'menu' | 'feeling' | 'time' | 'pain' | 'vacation';
 
 const ENTRIES: Array<{ step: Step | 'illness' | 'pause'; icon: IconName; title: string; hint: string }> = [
   { step: 'feeling', icon: 'happy-outline', title: 'Come ti senti oggi?', hint: 'Energia e stanchezza percepita' },
-  { step: 'time', icon: 'time-outline', title: 'Ho poco tempo', hint: 'Adatta la seduta ai minuti che hai' },
+  { step: 'time', icon: 'time-outline', title: 'Ho poco tempo', hint: 'Adatta l’allenamento ai minuti che hai' },
   { step: 'pain', icon: 'bandage-outline', title: 'Ho dolore', hint: 'Dove, quanto e da quando' },
   { step: 'illness', icon: 'thermometer-outline', title: 'Non sto bene', hint: 'Malessere o malattia' },
   { step: 'vacation', icon: 'airplane-outline', title: 'Sono in vacanza', hint: 'Pausa completa o calendario ridotto' },
@@ -129,7 +129,7 @@ export function CheckInSheet({ visible, onClose, onSaved, onChange }: { visible:
           <Pills value={trend} onChange={setTrend} options={[{ value: 'new', label: 'È nuovo' }, { value: 'persistent', label: 'Persiste' }, { value: 'worse', label: 'Peggiora' }]} />
           <SwitchRow label="Dolore al petto, fiato corto, svenimento o un trauma" hint="Se sì, chiama il 112." value={urgent} onChange={setUrgent} />
           {urgent ? <Banner tone="error" text="Interrompi l’attività e chiama il 112 o chiedi aiuto a chi è vicino a te." /> : null}
-          <Text style={t.small}>Runngo non fa diagnosi. Ti proporrà solo di fermare o mettere in pausa le sedute.</Text>
+          <Text style={t.small}>Runngo non fa diagnosi. Ti proporrà solo di fermare o mettere in pausa gli allenamenti.</Text>
         </>
       ) : null}
 

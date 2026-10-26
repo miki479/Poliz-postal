@@ -145,9 +145,9 @@ function Suggestion({ d, onChanged }: { d: HomeData; onChanged: () => void }) {
     const m = link.matches[0];
     return (
       <Panel style={{ padding: S.lg, gap: S.sm }}>
-        <Text style={t.title}>{link.source === 'event' ? 'Hai corso con il gruppo' : link.source === 'strava' ? 'Nuova corsa da Strava' : 'Nuova corsa registrata'}. Vuoi associarla alla seduta “{m.session.title || KIND_LABEL[m.session.kind]}”?</Text>
+        <Text style={t.title}>{link.source === 'event' ? 'Hai corso con il gruppo' : link.source === 'strava' ? 'Nuova corsa da Strava' : 'Nuova corsa registrata'}. Vuoi associarla all’allenamento “{m.session.title || KIND_LABEL[m.session.kind]}”?</Text>
         <Text style={t.small}>{m.reasons.join(' · ')}</Text>
-        <Button variant="soft" title="Associa alla seduta" iconName="link-outline" busy={busy} onPress={async () => { setBusy(true); try { await call('linkActivityToSession', link.activityId, m.session.id); } catch { /* il suggerimento resta: si può riprovare */ } finally { setBusy(false); onChanged(); } }} />
+        <Button variant="soft" title="Associa all’allenamento" iconName="link-outline" busy={busy} onPress={async () => { setBusy(true); try { await call('linkActivityToSession', link.activityId, m.session.id); } catch { /* il suggerimento resta: si può riprovare */ } finally { setBusy(false); onChanged(); } }} />
         <Button small title="No, è un’uscita extra" onPress={async () => { await call('dismissActivityLink', link.activityId).catch(() => {}); onChanged(); }} />
       </Panel>
     );

@@ -93,7 +93,7 @@ export function PlanChangeSheet({ req, onClose, onApplied }: { req: ChangeReques
                 </View>
               ))
             ) : (
-              <Text style={t.muted}>Nessuna seduta coinvolta.</Text>
+              <Text style={t.muted}>Nessun allenamento coinvolto.</Text>
             )}
           </View>
           {pv.stateAfter ? <Text style={t.muted}>{pv.stateAfter.mode === 'active' ? 'Il piano torna attivo.' : pv.stateAfter.mode === 'vacation' ? `Modalità vacanza${pv.stateAfter.until ? ` fino al ${shortDate(pv.stateAfter.until)}` : ''}. Potrai cambiare la data di rientro.` : 'Il piano resta in pausa finché non lo riprendi. Storico e progressi restano dove sono.'}</Text> : null}

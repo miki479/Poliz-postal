@@ -57,7 +57,7 @@ function Brief({ log }: { log: WorkoutLog }) {
   const f = r.facts;
   const [first, ...rest] = r.brief.text.split(/(?<=[.!?])\s+|\n+/).filter(Boolean);
   const evidences: string[] = [];
-  if (f.vsPlan) evidences.push(f.vsPlan.asPlanned ? `In linea con la seduta prevista (${f.vsPlan.plannedMin}′)` : `${f.vsPlan.durationDeltaPct > 0 ? '+' : ''}${f.vsPlan.durationDeltaPct}% di durata rispetto ai ${f.vsPlan.plannedMin}′ previsti`);
+  if (f.vsPlan) evidences.push(f.vsPlan.asPlanned ? `In linea con l’allenamento previsto (${f.vsPlan.plannedMin}′)` : `${f.vsPlan.durationDeltaPct > 0 ? '+' : ''}${f.vsPlan.durationDeltaPct}% di durata rispetto ai ${f.vsPlan.plannedMin}′ previsti`);
   if (f.vsHistory?.paceDeltaSec != null) evidences.push(Math.abs(f.vsHistory.paceDeltaSec) < 5 ? `Passo stabile rispetto alle ultime ${f.vsHistory.count} uscite` : `${Math.abs(f.vsHistory.paceDeltaSec)} s/km ${f.vsHistory.paceDeltaSec < 0 ? 'più rapido' : 'più tranquillo'} rispetto alle attività recenti`);
   if (f.vsOthers) evidences.push(`Passo più rapido del ${f.vsOthers.fasterThanPct}% su ${f.vsOthers.runners} uscite simili condivise da altre persone`);
   return (
@@ -219,11 +219,11 @@ function LinkSuggestion({ log, onLinked }: { log: WorkoutLog; onLinked: () => vo
   const best = m[0];
   return (
     <Panel style={{ padding: S.lg, gap: S.sm }}>
-      <Text style={t.title}>Vuoi associarla alla seduta “{best.session.title || KIND_LABEL[best.session.kind]}”?</Text>
+      <Text style={t.title}>Vuoi associarla all’allenamento “{best.session.title || KIND_LABEL[best.session.kind]}”?</Text>
       <Text style={t.small}>{best.reasons.join(' · ')}</Text>
       <Button
         variant="soft"
-        title="Associa alla seduta"
+        title="Associa all’allenamento"
         iconName="link-outline"
         busy={busy}
         onPress={async () => {
@@ -543,7 +543,7 @@ export default function LogDettaglio() {
               <ScrollProvider value={em.value}>
                 {track ? (
                   <View style={{ height: MAP_H }}>
-                    <RouteReplay track={track} marks={marks} tint={color.accent} chrome insetTop={0} onOpenMark={openMark} style={{ flex: 1 }} />
+                    <RouteReplay track={track} marks={marks} tint={typeStyle.solid} chrome insetTop={0} onOpenMark={openMark} style={{ flex: 1 }} />
 
                   </View>
                 ) : (
@@ -580,7 +580,7 @@ export default function LogDettaglio() {
                   <View style={{ gap: S.xxl, marginTop: S.sm }}>
                     <Brief log={l} />
                     <Trained log={l} session={s} />
-                    <LinkText title={s ? 'Apri la seduta del piano' : 'Il tuo prossimo allenamento'} onPress={() => s ? router.push({ pathname: '/allenamento/sessione/[id]', params: { id: s.id } }) : router.push('/allenamento')} />
+                    <LinkText title={s ? 'Apri l’allenamento del piano' : 'Il tuo prossimo allenamento'} onPress={() => s ? router.push({ pathname: '/allenamento/sessione/[id]', params: { id: s.id } }) : router.push('/allenamento')} />
                     <ActivityStats log={l} />
                     {l.notes ? (
                       <Section title="Note">

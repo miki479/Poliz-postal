@@ -197,8 +197,8 @@ export function skipSession(ctx: Ctx, id: Id, skipped = true): PlannedSession {
 export function markSessionDone(ctx: Ctx, id: Id, done = true): PlannedSession {
   const s = own(ctx, ctx.db.sessions[id], 'Sessione');
   if (typeof done !== 'boolean') throw new AppError('validation', 'Stato non valido.');
-  if (s.logId || s.linkedActivityId) throw new AppError('conflict', 'Questa seduta ha un’attività collegata: modifica la registrazione.');
-  if (done && s.date > new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(ctx.now)) throw new AppError('validation', 'Non puoi completare una seduta futura.');
+  if (s.logId || s.linkedActivityId) throw new AppError('conflict', 'Questo allenamento ha un’attività collegata: modifica la registrazione.');
+  if (done && s.date > new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(ctx.now)) throw new AppError('validation', 'Non puoi completare un allenamento futuro.');
   s.manualDone = done;
   s.status = done ? 'completed' : s.rescheduledFrom ? 'rescheduled' : 'planned';
   s.updatedAt = iso(ctx.now);
@@ -267,7 +267,7 @@ export function validateLog(raw: Partial<WorkoutLogInput> | null | undefined, no
   const gq = r.gpsQuality;
   const gpsQuality = gq && Number.isInteger(gq.gaps) && gq.gaps >= 0 && gq.gaps < 1000 && typeof gq.lostSec === 'number' && gq.lostSec >= 0 && gq.lostSec <= 24 * 3600 ? { gaps: gq.gaps, lostSec: Math.round(gq.lostSec) } : null;
   const guided = r.guidedWorkoutId == null ? null : guidedRunById(r.guidedWorkoutId);
-  if (r.guidedWorkoutId != null && (!guided || r.mode !== 'timer')) errors.guidedWorkoutId = 'Seduta guidata non valida.';
+  if (r.guidedWorkoutId != null && (!guided || r.mode !== 'timer')) errors.guidedWorkoutId = 'Allenamento guidato non valido.';
   const eventId = typeof r.eventId === 'string' && r.eventId ? r.eventId : null;
   if (Object.keys(errors).length) return { ok: false, errors };
   return {
@@ -514,7 +514,7 @@ export function createPlanFromWizard(ctx: Ctx, input: PlanWizardInput): { plan: 
   return { plan, sessions: created };
 }
 
-/** Protocollo NHS pubblico: 27 sedute con giorni di riposo, senza sostituire altri piani. */
+/** Protocollo NHS pubblico: 27 allenamenti con giorni di riposo, senza sostituire altri piani. */
 export function createBeginnerPlan(ctx: Ctx, startDate: string): {plan: TrainingPlan; sessions: PlannedSession[]} {
  const uid=actor(ctx);
  if(!validDay(startDate)||new Date(startDate+'T12:00:00Z').getUTCDay()!==1)throw new AppError('validation','Scegli un lunedì per iniziare le nove settimane.');
@@ -522,12 +522,12 @@ export function createBeginnerPlan(ctx: Ctx, startDate: string): {plan: Training
  if(days < -7 || days > 180)throw new AppError('validation','Scegli una data nelle prossime settimane.');
  const existing=Object.values(ctx.db.plans).find((p)=>p.userId===uid&&!p.archived&&p.programId==='nhs-c25k'&&p.startDate===startDate);
  if(existing)return {plan:existing,sessions:Object.values(ctx.db.sessions).filter((s)=>s.planId===existing.id)};
- if(Object.values(ctx.db.sessions).filter((s)=>s.userId===uid).length+27>3000)throw new AppError('conflict','Hai raggiunto il limite delle sedute salvate.');
+ if(Object.values(ctx.db.sessions).filter((s)=>s.userId===uid).length+27>3000)throw new AppError('conflict','Hai raggiunto il limite degli allenamenti salvati.');
  const plan=insertPlan(ctx,uid,{name:'Inizia a correre · NHS 9 settimane',goal:'start_running',level:'beginner',weekdays:[1,3,5],maxMinutes:40,equipment:[],preference:'mixed',includeStrength:false,startDate,weeks:9},'wizard');plan.programId='nhs-c25k';
  const sessions:PlannedSession[]=[];
  for(let w=1;w<=9;w++)for(let r=1;r<=3;r++){
   const g=beginnerRun(w,r);const date=new Date(Date.parse(startDate+'T12:00:00Z')+((w-1)*7+(r-1)*2)*86400000).toISOString().slice(0,10);
-  sessions.push(insertSession(ctx,uid,{date,time:null,kind:'run_walk',title:g.title,description:'Protocollo pubblico NHS Couch to 5K. Passo comodo, senza distanza imposta. Lascia un giorno di recupero fra le sedute e ripeti la settimana se serve.',durationMin:g.durationSec/60,distanceKm:null,intensity:'low',paceSecPerKm:null,warmupMin:5,cooldownMin:5,segments:g.segments,exercises:[],notes:'Fonte: NHS Couch to 5K, programma consultato il 26 ottobre 2026.',guidedWorkoutId:g.id},plan.id));
+  sessions.push(insertSession(ctx,uid,{date,time:null,kind:'run_walk',title:g.title,description:'Protocollo pubblico NHS Couch to 5K. Passo comodo, senza distanza imposta. Lascia un giorno di recupero fra gli allenamenti e ripeti la settimana se serve.',durationMin:g.durationSec/60,distanceKm:null,intensity:'low',paceSecPerKm:null,warmupMin:5,cooldownMin:5,segments:g.segments,exercises:[],notes:'Fonte: NHS Couch to 5K, programma consultato il 26 ottobre 2026.',guidedWorkoutId:g.id},plan.id));
  }
  return {plan,sessions};
 }

@@ -186,7 +186,7 @@ function Pact({ e }: { e: EventView }) {
   );
 }
 
-/** Perché l'uscita può essere pertinente per la seduta del piano di quel giorno (criteri dichiarati). */
+/** Perché l'uscita può essere pertinente per l’allenamento del piano di quel giorno (criteri dichiarati). */
 function PlanFit({ e }: { e: EventView }) {
   const [s, setS] = useState<PlannedSession | null>(null);
   useEffect(() => {

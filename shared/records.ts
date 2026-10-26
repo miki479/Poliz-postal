@@ -12,11 +12,11 @@
  *    distanza e durata massime: escluse attività corrette a mano e tapis roulant. Le metriche di corsa non si applicano ad altri sport.
  *  - Trail (corsa su sentieri, `trail: true`): gruppo a sé con record di distanza e durata, MAI di passo o di tempo sui km
  *    da strada (il dislivello li falsa).
- *  - Corsa + camminata (seduta `run_walk`): resta tra le corse per conteggi, distanza e durata, ma non entra nei tempi
+ *  - Corsa + camminata (allenamento `run_walk`): resta tra le corse per conteggi, distanza e durata, ma non entra nei tempi
  *    su porzione né nei tempi totali (alterna due andature, il passo non è confrontabile).
  *  - "Altro": nessun allenamento registrato ha questo tipo, quindi nessun record di prestazione.
  *  - Forza: carico per esercizio solo con serie svolte e peso indicato; volume = Σ ripetizioni × carico.
- *  - Ripetute: "Precisione" solo per una seduta a intervalli del piano svolta; nessun progresso di ritmo (dati insufficienti).
+ *  - Ripetute: "Precisione" solo per un allenamento a intervalli del piano svolta; nessun progresso di ritmo (dati insufficienti).
  *  - Distanza totale e serie di settimane restano nei distintivi (badges.ts): qui non si duplicano.
  *  - Fuso orario: gli orari sono UTC; le settimane vanno da lunedì a domenica UTC (limite dichiarato).
  */
@@ -366,7 +366,7 @@ export function awardsFor(log: WorkoutLog, history: WorkoutLog[]): Award[] {
 
   if (log.kind === 'run_intervals' && log.plannedSessionId) {
     const n = sameSport.filter((l) => l.kind === 'run_intervals' && l.plannedSessionId).length + 1;
-    out.push(mk(log, g, { code: 'intervals_done', category: 'precision', tone: 'precision', name: 'Precisione', description: 'Seduta a intervalli del piano completata.', headline: 'Ripetute del piano completate!', mark: String(n), unit: '×', record: false, value: `${n}ª seduta`, previous: null, improvement: null }));
+    out.push(mk(log, g, { code: 'intervals_done', category: 'precision', tone: 'precision', name: 'Precisione', description: 'Allenamento a intervalli del piano completata.', headline: 'Ripetute del piano completate!', mark: String(n), unit: '×', record: false, value: `${n}ª allenamento`, previous: null, improvement: null }));
   }
 
   const wk = weekKey(log.startedAt);

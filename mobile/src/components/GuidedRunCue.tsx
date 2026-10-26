@@ -11,7 +11,7 @@ export function GuidedRunCue({ segments, elapsedSec, paused, compact=false }: { 
   const [voice, setVoice] = useState(false);
   const last = useRef(-1);
   const step = guidedStep(segments, elapsedSec);
-  const label = step.done ? 'Seduta guidata conclusa' : (step.segment?.label ?? '');
+  const label = step.done ? 'Allenamento guidato concluso' : (step.segment?.label ?? '');
   useEffect(() => {
     if (paused) {
       void Speech.stop();

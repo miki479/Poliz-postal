@@ -43,7 +43,7 @@ function Ring({ done, total, size = 42 }: { done: number; total: number; size?: 
         cy={size / 2}
         r={r}
         fill="none"
-        stroke={color.success}
+        stroke={color.brandText}
         strokeWidth={5}
         strokeLinecap="round"
         strokeDasharray={`${2 * Math.PI * r}`}
@@ -77,13 +77,13 @@ function Tile({
       await call('markSessionDone', session.id, session.status !== 'completed');
       onChanged();
     } catch (e) {
-      Alert.alert('Seduta non aggiornata', humanError(e, 'Riprova.'));
+      Alert.alert('Allenamento non aggiornato', humanError(e, 'Riprova.'));
     } finally {
       setBusy(false);
     }
   };
   return (
-    <View style={{ borderRadius: 22, backgroundColor: color.surface, overflow: 'hidden', borderWidth: 1, borderColor: color.separator }}>
+    <View style={{ borderRadius: 22, backgroundColor: st.tint, overflow: 'hidden', borderWidth: 1, borderColor: color.separator }}>
       <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 12, backgroundColor: st.solid }} />
       <View style={{ padding: S.xxl, paddingLeft: S.xxxl, gap: S.md }}>
         <Row style={{ alignItems: 'flex-start' }}>
@@ -103,7 +103,7 @@ function Tile({
               checked: session.status === 'completed',
               disabled: busy || session.date > today || !!session.logId || !!session.linkedActivityId,
             }}
-            accessibilityLabel="Segna seduta come fatta: dichiarazione manuale"
+            accessibilityLabel="Segna allenamento come fatto: dichiarazione manuale"
             onPress={() => void mark()}
             disabled={busy || session.date > today || !!session.logId || !!session.linkedActivityId}
             style={{
@@ -177,6 +177,7 @@ export function PlanDashboard({
       {tab === 'today' || tab === 'calendar' ? (
         <Button
           title="Registra l’allenamento"
+          variant="brand"
           iconName="play"
           onPress={() =>
             pending
@@ -233,7 +234,7 @@ export function PlanDashboard({
             </Pressable>
             <IconButton
               name="add"
-              label="Aggiungi una seduta"
+              label="Aggiungi un allenamento"
               onPress={() => router.push({ pathname: '/allenamento/sessione-form', params: { date: chosen } })}
             />
           </>
@@ -257,7 +258,7 @@ export function PlanDashboard({
                   key={date}
                   accessibilityRole="button"
                   accessibilityState={{ selected: date === chosen }}
-                  accessibilityLabel={`${WEEKDAYS_SHORT[i]} ${date.slice(8)}, ${items.length} sedute`}
+                  accessibilityLabel={`${WEEKDAYS_SHORT[i]} ${date.slice(8)}, ${items.length} allenamenti`}
                   onPress={() => setDay(date)}
                   style={{ flex: 1, alignItems: 'center', gap: S.sm }}
                 >
@@ -292,7 +293,7 @@ export function PlanDashboard({
   return (
     <Screen onRefresh={onRefresh} bottomPad={148} footer={footer} header={header} style={{ gap: S.xxl }}>
       {notice}
-      {data.state.mode !== 'active' ? <Banner text={data.advice.message ?? 'Il piano � in pausa.'} action="Gestisci" onAction={onManage} /> : null}
+      {data.state.mode !== 'active' ? <Banner text={data.advice.message ?? 'Il piano è in pausa.'} action="Gestisci" onAction={onManage} /> : null}
       {data.advice.tone === 'urgent' ? (
         <Banner
           tone="warn"
@@ -319,7 +320,7 @@ export function PlanDashboard({
               <Text style={t.title1}>{plan ? 'Un giorno di recupero' : 'Inizia con una guida'}</Text>
               <Text style={t.muted}>
                 {plan
-                  ? 'Nessuna seduta prevista per questo giorno. Il riposo fa parte del programma.'
+                  ? 'Nessun allenamento previsto per questo giorno. Il riposo fa parte del programma.'
                   : 'Scegli un piano o il percorso NHS per iniziare a correre con fasi guidate.'}
               </Text>
               {!plan ? <Button title="Inizia a correre" onPress={() => router.push('/allenamento/iniziare')} /> : null}
@@ -352,7 +353,7 @@ export function PlanDashboard({
                 </Pressable>
               </View>
             ))}
-            {!week.sessions.length ? <Text style={t.muted}>Nessuna seduta pianificata.</Text> : null}
+            {!week.sessions.length ? <Text style={t.muted}>Nessun allenamento pianificato.</Text> : null}
             <Button variant="soft" title="Riorganizza gli allenamenti" onPress={() => setTab('calendar')} />
           </Panel>
           <Text style={t.h2}>I miei approfondimenti</Text>
@@ -389,7 +390,7 @@ export function PlanDashboard({
                 </View>
               );
             })}
-            <Text style={t.small}>Sedute completate, comprese quelle dichiarate manualmente.</Text>
+            <Text style={t.small}>Allenamenti completati, compresi quelli dichiarati manualmente.</Text>
           </Panel>
         </>
       ) : null}
@@ -457,7 +458,7 @@ export function PlanDashboard({
                         setTab('today');
                       }}
                       accessibilityRole="button"
-                      accessibilityLabel={`Settimana ${w.index + 1}: ${w.plannedMin} minuti previsti, ${w.completed} sedute completate`}
+                      accessibilityLabel={`Settimana ${w.index + 1}: ${w.plannedMin} minuti previsti, ${w.completed} allenamenti completati`}
                       style={{ width:summary.weeks.length>12?30:undefined, flex:summary.weeks.length<=12?1:undefined, alignItems: 'center', gap: S.sm }}
                     >
                       <View
@@ -466,7 +467,7 @@ export function PlanDashboard({
                           width: '85%',
                           maxWidth:26,
                           borderRadius: 6,
-                          backgroundColor: w.index === index ? color.success : color.successTint,
+                          backgroundColor: w.index === index ? color.brandText : color.brandTint,
                           borderWidth: 1,
                           borderColor: color.successTint,
                         }}
@@ -498,11 +499,11 @@ export function PlanDashboard({
                   </View>
                 </Row>
                 <Text style={t.small}>
-                  Le barre mostrano minuti previsti. Il completamento usa le sedute segnate come fatte, non una stima del tempo GPS.
+                  Le barre mostrano minuti previsti. Il completamento usa gli allenamenti segnati come fatti, non una stima del tempo GPS.
                 </Text>
               </>
             ) : (
-              <Text style={t.muted}>La panoramica comparirà quando avrai un piano con sedute reali.</Text>
+              <Text style={t.muted}>La panoramica comparirà quando avrai un piano con allenamenti reali.</Text>
             )}
           </Panel>
         </>
@@ -511,9 +512,9 @@ export function PlanDashboard({
         <>
           <Text style={t.h2}>Settimana {index + 1}</Text>
           <PlanCalendar key={week.start} weekStart={week.start} sessions={week.sessions} />
-          <Button variant="soft" title="Sposta o modifica una seduta" onPress={() => setWeekOpen(true)} />
+          <Button variant="soft" title="Sposta o modifica un allenamento" onPress={() => setWeekOpen(true)} />
           <Text style={t.small}>
-            Apri una seduta del giorno per cambiarne data e dettagli.
+            Apri un allenamento del giorno per cambiarne data e dettagli.
           </Text>
           {week.sessions.map((s) => (
             <Button
@@ -528,7 +529,7 @@ export function PlanDashboard({
       {tab === 'support' ? (
         <>
           <Text style={t.h2}>Un piano adatto alla tua giornata</Text>
-          <Text style={t.muted}>{data.advice.message ?? 'Puoi modificare le sedute in base al tempo disponibile e a come ti senti.'}</Text>
+          <Text style={t.muted}>{data.advice.message ?? 'Puoi modificare gli allenamenti in base al tempo disponibile e a come ti senti.'}</Text>
           <Button title="Come mi sento oggi" onPress={onCheckIn} />
           {data.advice.options.map((o, i) => (
             <Button
@@ -541,7 +542,7 @@ export function PlanDashboard({
           <Panel style={{ padding: S.xl, gap: S.md }}>
             <Text style={t.title}>Inizia a correre con una guida</Text>
             <Text style={t.muted}>Programma pubblico NHS: 9 settimane, tre uscite a settimana, corsa e camminata guidate da timer.</Text>
-            <Button variant="soft" title="Apri le sedute guidate" onPress={() => router.push('/allenamento/iniziare')} />
+            <Button variant="soft" title="Apri gli allenamenti guidati" onPress={() => router.push('/allenamento/iniziare')} />
           </Panel>
           {data.advice.basis.map((b) => (
             <Text key={b} style={t.small}>

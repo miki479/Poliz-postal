@@ -425,7 +425,7 @@ export default function Registra() {
           }} />
 
           {chosen ? (
-            // Seduta del piano scelta: il tipo di attività lo decide il piano, non l'utente.
+            // Allenamento del piano scelta: il tipo di attività lo decide il piano, non l'utente.
             <View style={{ gap: S.xs }}>
               <Text style={t.h2}>{chosen.title || KIND_LABEL[chosen.kind]}</Text>
               <Text style={t.muted}>
@@ -455,7 +455,7 @@ export default function Registra() {
               {sessions.map((s) => (
                 <View key={s.id}>
                   <Divider inset={36} />
-                  <ContextRow on={ctxKind === 'session' && sessionId === s.id} icon="calendar-outline" title={`Seduta del piano: ${s.title || KIND_LABEL[s.kind]}`} subtitle={`${s.durationMin} minuti previsti`} onPress={() => { setCtxKind('session'); setSessionId(s.id); }} />
+                  <ContextRow on={ctxKind === 'session' && sessionId === s.id} icon="calendar-outline" title={`Allenamento del piano: ${s.title || KIND_LABEL[s.kind]}`} subtitle={`${s.durationMin} minuti previsti`} onPress={() => { setCtxKind('session'); setSessionId(s.id); }} />
                 </View>
               ))}
             </View>

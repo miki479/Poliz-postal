@@ -4,7 +4,7 @@ import type { AdjustAction, PlannedSession } from '@shared/types.ts';
 export type Tone = 'default' | 'accent' | 'success' | 'danger' | 'warn' | 'brand';
 
 /**
- * Stato mostrato di una seduta. "Non registrata" e "In attesa di sincronizzazione" sono DERIVATI:
+ * Stato mostrato di un allenamento. "Non registrata" e "In attesa di sincronizzazione" sono DERIVATI:
  * non vengono mai salvati, quindi un'importazione in ritardo non marca nulla come "non svolto".
  */
 export function sessionOutcome(s: PlannedSession, today: string, sync: { connected: boolean; lastSyncAt: string | null }): { label: string; tone: Tone; icon: IconName } {
@@ -26,8 +26,8 @@ export function sessionOutcome(s: PlannedSession, today: string, sync: { connect
 export const ACTION_LABEL: Record<AdjustAction, string> = {
   swap_easy: 'Alternativa leggera',
   shorten: 'Riduci la durata',
-  move: 'Sposta la seduta',
-  skip: 'Salta la seduta',
+  move: 'Sposta l’allenamento',
+  skip: 'Salta l’allenamento',
   pause: 'Metti in pausa il piano',
   vacation: 'Modalità vacanza',
   resume: 'Riprendi il piano',

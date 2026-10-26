@@ -249,7 +249,7 @@ export function catalogFor(s: AwardSport): CatalogEntry[] {
     out.push(e('tot_21', 'new_peak', 'Miglior mezza maratona', `Migliora il tempo totale di una mezza maratona. ${NEEDS_HISTORY}`, { km: '21', unit: 'km' }));
     out.push(e('run_longest_dist', 'beyond_limit', 'Nuova distanza massima', `Corri più lontano della tua corsa più lunga. ${NEEDS_HISTORY}`, { unit: 'km' }));
     out.push(e('run_longest_time', 'beyond_limit', 'Nuova durata massima', `Corri più a lungo del tuo allenamento di corsa più lungo. ${NEEDS_HISTORY}`, { unit: 'min' }));
-    out.push(e('intervals_done', 'precision', 'Precisione', 'Completa una seduta di ripetute del tuo piano.'));
+    out.push(e('intervals_done', 'precision', 'Precisione', 'Completa un allenamento di ripetute del tuo piano.'));
   }
   if (s === 'walking') {
     out.push(e('walk_longest_dist', 'beyond_limit', 'Nuova distanza massima', `Cammina più lontano della tua camminata più lunga. ${NEEDS_HISTORY}`, { unit: 'km' }));

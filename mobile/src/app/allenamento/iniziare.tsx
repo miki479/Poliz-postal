@@ -38,8 +38,8 @@ export default function Iniziare() {
       <Stack.Screen options={{ title: 'Inizia a correre' }} />
       <Text style={t.h1}>Dalla camminata alla corsa</Text>
       <Text style={t.muted}>
-        27 sedute in 9 settimane dal programma pubblico NHS Couch to 5K. Tre uscite a settimana con almeno un giorno di riposo fra le
-        sedute. Puoi ripetere una settimana: nessuna progressione obbligatoria.
+        27 allenamenti in 9 settimane dal programma pubblico NHS Couch to 5K. Tre uscite a settimana con almeno un giorno di riposo fra le
+        allenamenti. Puoi ripetere una settimana: nessuna progressione obbligatoria.
       </Text>
       <Button small title="Leggi il programma NHS originale" onPress={() => void Linking.openURL(BEGINNER_SOURCE.url)} />
       <Pills
@@ -48,22 +48,22 @@ export default function Iniziare() {
         onChange={setWeek}
         options={Array.from({ length: 9 }, (_, i) => ({ value: i + 1, label: `Settimana ${i + 1}` }))}
       />
-      <Pills value={run} onChange={setRun} options={[1, 2, 3].map((n) => ({ value: n, label: `Seduta ${n}` }))} />
+      <Pills value={run} onChange={setRun} options={[1, 2, 3].map((n) => ({ value: n, label: `Allenamento ${n}` }))} />
       <Panel style={{ padding: S.lg, gap: S.md }}>
         <Text style={[t.title, { color: color.brandText }]}>{session.title}</Text>
         <Text style={t.body}>{fmtClock(session.durationSec)} totali · passo libero, senza obiettivo di distanza</Text>
         <Text style={t.small}>Alla fine del programma la corsa continua prevista è di 30 minuti: non è una promessa di coprire 5 km.</Text>
         {history.length ? (
           <Text style={t.small}>
-            {history.length} registrazioni associate a questa seduta. Ultima: {fmtClock(history[0].durationSec)} di tempo registrato.
+            {history.length} registrazioni associate a questo allenamento. Ultima: {fmtClock(history[0].durationSec)} di tempo registrato.
           </Text>
         ) : null}
-        <Button title="Inizia la seduta guidata" onPress={() => router.push({ pathname: '/registra', params: { guided: session.id } })} />
+        <Button title="Inizia l’allenamento guidato" onPress={() => router.push({ pathname: '/registra', params: { guided: session.id } })} />
       </Panel>
       <Panel style={{ padding: S.lg, gap: S.md }}>
         <Text style={t.title}>Metti le nove settimane nel tuo piano</Text>
         <Text style={t.small}>
-          27 sedute di lunedì, mercoledì e venerdì. Un eventuale piano già presente resta al suo posto: controlla il recupero se li
+          27 allenamenti di lunedì, mercoledì e venerdì. Un eventuale piano già presente resta al suo posto: controlla il recupero se li
           affianchi.
         </Text>
         <DateField label="Lunedì di inizio" mode="date" value={start} onChange={setStart} />

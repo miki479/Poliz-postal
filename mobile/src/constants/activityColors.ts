@@ -44,7 +44,7 @@ export interface ActivityStyle {
 }
 
 const C = {
-  run: '#35C6CF', // turchese: l'accento di Runngo
+  run: '#70A7FF', // blu: corsa
   walk: '#F2B84B', // ambra
   trail: '#5DBF5A', // verde bosco: sentieri (≥ 6,2:1 su bg, surface e surfaceElevated)
   other: '#B5ADA3', // pietra, neutro caldo: attività di altro tipo (≥ 6,5:1)
@@ -52,13 +52,13 @@ const C = {
   intervals: '#FF7A59', // corallo
   long: '#5B8CFF', // blu
   tempo: '#C38BFF', // lilla
-  strength: '#A6D86A', // lime
+  strength: '#F58AB6', // rosa: forza
   aerobic: '#4FD1A5', // menta
-  mobility: '#7CB6FF', // cielo
+  mobility: '#B7A6FF', // lavanda: mobilità
   recovery: '#9FB4C7', // grigio-azzurro
   rest: '#8693A0', // grigio
   injury: '#FF5C6C', // rosso, solo per limitazioni fisiche
-  paused: '#B7A6FF', // lavanda: stato del piano
+  paused: '#C6B8D9', // malva: stato del piano
   event: '#9F8BFF', // viola brand chiaro: uscite di gruppo
 } as const;
 

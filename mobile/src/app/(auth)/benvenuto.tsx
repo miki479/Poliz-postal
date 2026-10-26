@@ -10,7 +10,7 @@ import { canPlayWelcome } from '@/lib/welcomePlayback';
 
 const SLIDES = [
   { art: 0, icon: 'sparkles-outline', label: 'QUESTA È RUNNGO', title: 'La tua prossima corsa\ncomincia qui.', text: 'Un piano da seguire, strade da scoprire e persone con cui condividere il percorso.' },
-  { art: 1, icon: 'calendar-outline', label: 'UN PASSO ALLA VOLTA', title: 'Un piano che\nparte da te.', text: 'Scegli obiettivo, giorni e tempo a disposizione. Segna le sedute fatte, spostale o saltale quando serve.' },
+  { art: 1, icon: 'calendar-outline', label: 'UN PASSO ALLA VOLTA', title: 'Un piano che\nparte da te.', text: 'Scegli obiettivo, giorni e tempo a disposizione. Segna gli allenamenti fatti, spostale o saltale quando serve.' },
   { art: 3, icon: 'navigate-outline', label: 'LE TUE STRADE', title: 'Ogni corsa\nlascia un racconto.', text: 'Registra il percorso con il GPS e ritrova distanza, ritmo e giri. Le mappe di calore crescono con le attività che i runner scelgono di condividere.' },
   { art: 4, icon: 'people-outline', label: 'LA TUA GENTE', title: 'Corri insieme.\nLo ritrovi dopo.', text: 'Trova uscite, club e sfide. Se condividete le attività, Runngo può riconoscere con chi hai corso, anche senza confermarlo a mano.' },
   { art: 2, icon: 'trophy-outline', label: 'I TUOI PROGRESSI', title: 'Le piccole uscite.\nI grandi passi.', text: 'Ritrova costanza, riconoscimenti e record basati sui dati registrati. Collega Strava per importare le tue attività.' },

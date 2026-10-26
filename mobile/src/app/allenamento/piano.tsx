@@ -61,7 +61,7 @@ const WEEKS: Opt<number>[] = [
 const EXTRAS: Opt<'none' | 'mobility' | 'strength' | 'both'>[] = [
   { value: 'none', title: 'Solo corsa', figure: 'run', tone: 'run' },
   { value: 'mobility', title: 'Corsa + mobilità', hint: '10 minuti facoltativi dopo le uscite più dure', icon: 'body', tone: 'mobility' },
-  { value: 'strength', title: 'Corsa + forza', hint: 'Una seduta a corpo libero a settimana', icon: 'barbell', tone: 'strength' },
+  { value: 'strength', title: 'Corsa + forza', hint: 'Un allenamento a corpo libero a settimana', icon: 'barbell', tone: 'strength' },
   { value: 'both', title: 'Corsa, forza e mobilità', icon: 'sparkles', tone: 'tempo' },
 ];
 
@@ -97,7 +97,7 @@ const SUBTITLE: Partial<Record<Step, string>> = {
   days: 'Scegli i giorni liberi: il piano lascia sempre spazio al recupero.',
   minutes: 'Il tempo che hai di solito per un’uscita.',
   weeks: 'Quanto dura il piano, dalla prima all’ultima settimana.',
-  extras: 'Sedute facoltative da aggiungere alla corsa.',
+  extras: 'Allenamenti facoltativi da aggiungere alla corsa.',
   preview: 'Ecco il piano che abbiamo creato per te.',
 };
 /** Nome dei passi per lo screen reader (pallini dell'avanzamento). */
@@ -131,8 +131,8 @@ function describeUser(a: { goal: PlanGoal | null; level: PlanLevel | null; days:
   const plan = a.level === 'beginner' || a.goal === 'start_running'
     ? 'Per questo ti preparo un piano graduale: alterno corsa leggera e camminata e decido io la struttura di ogni uscita, così non devi scegliere niente. Aumento poco alla volta e lascio sempre giorni di recupero.'
     : a.goal === 'pace'
-      ? 'Per questo ti preparo un piano con uscite facili e qualche seduta di ritmo, salite e fartlek, senza metterne due dure di fila.'
-      : 'Per questo ti preparo un piano vario: uscite facili, un lungo che cresce con calma e, ogni tanto, una seduta più vivace.';
+      ? 'Per questo ti preparo un piano con uscite facili e qualche allenamento di ritmo, salite e fartlek, senza metterne due dure di fila.'
+      : 'Per questo ti preparo un piano vario: uscite facili, un lungo che cresce con calma e, ogni tanto, un allenamento più vivace.';
   return { who, text, plan };
 }
 
@@ -491,8 +491,8 @@ export default function Piano() {
     }
   }
 
-  // Anteprima con numeri veri, dalle sedute generate: giorni con una seduta (la mobilità facoltativa aggiunta dalla lettura
-  // non è un giorno in più) e seduta più lunga del piano (dopo la lettura: "Con calma" accorcia, "Con più grinta" allunga).
+  // Anteprima con numeri veri, dagli allenamenti generati: giorni con un allenamento (la mobilità facoltativa aggiunta dalla lettura
+  // non è un giorno in più) e allenamento più lungo del piano (dopo la lettura: "Con calma" accorcia, "Con più grinta" allunga).
   const adjNow = adjust(tone, { days, minutes: minutes ?? 30, level: level ?? 'beginner' });
   const perWeek = preview ? Math.round(new Set(preview.sessions.filter((x) => x.kind !== 'mobility' && x.kind !== 'rest').map((x) => x.date)).size / (weeks ?? 8)) : adjNow.days.length;
   const capMin = preview?.sessions.length ? Math.max(...preview.sessions.map((x) => x.durationMin)) : adjNow.minutes;
@@ -685,7 +685,7 @@ export default function Piano() {
                 <SummaryRow order={2} lead={<RingIcon icon="repeat-outline" />} label="Frequenza" value={`${perWeek} ${perWeek === 1 ? 'allenamento' : 'allenamenti'} / settimana`} onPress={() => goTo('days')} />
                 <SummaryRow order={3} lead={<RingIcon icon="ribbon-outline" />} label="Livello" value={LEVELS.find((l) => l.value === level)?.title ?? '—'} onPress={() => goTo('level')} />
               </Panel>
-              <Text style={[t.small, { marginTop: S.xs }]}>Al massimo {capMin} minuti per uscita. Puoi spostare o cambiare ogni seduta quando vuoi.</Text>
+              <Text style={[t.small, { marginTop: S.xs }]}>Al massimo {capMin} minuti per uscita. Puoi spostare o cambiare ogni allenamento quando vuoi.</Text>
               {err ? <Banner tone="error" text={err} action={preview ? undefined : 'Riprova'} onAction={() => setPreviewTry((n) => n + 1)} /> : null}
               {preview?.warnings.map((w) => (
                 <Banner key={w} tone="warn" text={w} />

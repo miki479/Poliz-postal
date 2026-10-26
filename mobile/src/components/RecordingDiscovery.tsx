@@ -115,7 +115,7 @@ export function WorkoutSuggestions({ onChoose, onGearChange, selectedGear: gearS
           </LinearGradient>
         </Pressable>)}
       </ScrollView>
-    </View> : <Panel style={{ padding: S.lg, gap: S.sm }}><Text style={t.title}>Un allenamento per te</Text><Text style={t.muted}>Crea il tuo piano: qui ritroverai le sedute realmente previste, pronte da selezionare.</Text><Button title="Crea il piano" variant="soft" onPress={() => router.push('/allenamento/piano')} /></Panel>}
+    </View> : <Panel style={{ padding: S.lg, gap: S.sm }}><Text style={t.title}>Un allenamento per te</Text><Text style={t.muted}>Crea il tuo piano: qui ritroverai gli allenamenti realmente previsti, pronte da selezionare.</Text><Button title="Crea il piano" variant="soft" onPress={() => router.push('/allenamento/piano')} /></Panel>}
     {data.routes.length ? <View style={{ gap: S.sm }}>
       <Text style={t.h2}>{data.basis ? 'Creato per te' : 'Percorsi da esplorare'}</Text>
       {data.basis ? <Text style={t.small}>{data.basis}</Text> : null}

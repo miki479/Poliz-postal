@@ -8,15 +8,15 @@
  *    ed è idempotente per `requestId` (doppio tap, retry).
  *
  * Regole di carico (revisionabili, non cliniche):
- *  R1 Stanchezza (energia ≤ 2) o fatica alta nell'ultima seduta (RPE ≥ 8 nelle 36 h): una seduta intensa di oggi/domani
+ *  R1 Stanchezza (energia ≤ 2) o fatica alta nell’ultimo allenamento (RPE ≥ 8 nelle 36 h): un allenamento intenso di oggi/domani
  *     può diventare corsa facile al 70% della durata (min 20'), essere spostata o saltata. Mai aumentare.
- *  R2 Poco tempo: se i minuti disponibili sono meno della seduta, si riduce la durata (min 15'); le sedute intense
+ *  R2 Poco tempo: se i minuti disponibili sono meno dell’allenamento, si riduce la durata (min 15'); gli allenamenti intensi
  *     si trasformano in facili invece di comprimere l'intensità.
  *  R3 Dolore o malessere: solo "salta" o "pausa". Nessuna alternativa "sicura", nessun invito a continuare.
- *  R4 Spostamento: solo nei 7 giorni successivi, in un giorno senza altre sedute; una seduta intensa non va
+ *  R4 Spostamento: solo nei 7 giorni successivi, in un giorno senza altri allenamenti; un allenamento intenso non va
  *     accanto a un'altra intensa.
- *  R5 Pausa/vacanza: le sedute del periodo diventano "in pausa" (o ridotte e facili in vacanza "ridotta");
- *     alla ripresa NON si recuperano le sedute perse.
+ *  R5 Pausa/vacanza: gli allenamenti del periodo diventano "in pausa" (o ridotte e facili in vacanza "ridotta");
+ *     alla ripresa NON si recuperano gli allenamenti persi.
  */
 import { AppError, type Ctx } from './engine.ts';
 import { isRunKind } from './exercises.ts';
@@ -103,7 +103,7 @@ export interface AdviceOption {
 export interface PlanAdvice {
   date: string;
   state: PlanState;
-  /** Seduta a cui si riferisce il consiglio (oggi o la prossima entro 2 giorni). */
+  /** Allenamento a cui si riferisce il consiglio (oggi o la prossima entro 2 giorni). */
   session: PlannedSession | null;
   tone: AdviceTone;
   /** Messaggio breve; null se non c'è nulla da decidere. */
@@ -147,7 +147,7 @@ export function planAdvice(ctx: Ctx, date: string): PlanAdvice {
   const feel = checks.find((c) => c.kind === 'feeling');
   const time = checks.find((c) => c.kind === 'time');
   const opts: AdviceOption[] = [];
-  const skip = (s: PlannedSession): AdviceOption => ({ action: 'skip', label: 'Salta questa seduta', params: { sessionId: s.id } });
+  const skip = (s: PlannedSession): AdviceOption => ({ action: 'skip', label: 'Salta questo allenamento', params: { sessionId: s.id } });
   const pause: AdviceOption = { action: 'pause', label: 'Metti in pausa il piano', params: { from: date, until: null } };
 
   // R3: dolore o malessere hanno la precedenza e non offrono alternative "sicure".
@@ -177,12 +177,12 @@ export function planAdvice(ctx: Ctx, date: string): PlanAdvice {
 
   // R2: poco tempo.
   if (time && time.minutes !== null && time.minutes < session.durationMin) {
-    basis.push(`Oggi hai ${time.minutes} minuti; la seduta ne prevede ${session.durationMin}`);
+    basis.push(`Oggi hai ${time.minutes} minuti; l’allenamento ne prevede ${session.durationMin}`);
     if (time.minutes >= 15) opts.push(isHigh(session) ? { action: 'swap_easy', label: `Corsa facile di ${round5(time.minutes)}'`, params: { sessionId: session.id, minutes: time.minutes } } : { action: 'shorten', label: `Riduci a ${round5(time.minutes)}'`, params: { sessionId: session.id, minutes: time.minutes } });
     const d = freeDay(ctx, uid, session, date);
     if (d) opts.push({ action: 'move', label: `Sposta al ${d.slice(8)}/${d.slice(5, 7)}`, params: { sessionId: session.id, date: d } });
     opts.push(skip(session));
-    return { ...base, session, message: 'Oggi hai meno tempo del previsto. Scegli tu come adattare la seduta.', basis, options: opts, canTalk: true };
+    return { ...base, session, message: 'Oggi hai meno tempo del previsto. Scegli tu come adattare l’allenamento.', basis, options: opts, canTalk: true };
   }
 
   // R1: stanchezza.
@@ -192,7 +192,7 @@ export function planAdvice(ctx: Ctx, date: string): PlanAdvice {
     const d = freeDay(ctx, uid, session, date);
     if (d) opts.push({ action: 'move', label: `Sposta al ${d.slice(8)}/${d.slice(5, 7)}`, params: { sessionId: session.id, date: d } });
     opts.push(skip(session));
-    return { ...base, session, message: isHigh(session) ? 'Hai indicato una fatica elevata. Possiamo rivedere la seduta intensa in programma.' : 'Hai indicato una fatica elevata. Se vuoi, alleggeriamo la seduta.', basis, options: opts, canTalk: true };
+    return { ...base, session, message: isHigh(session) ? 'Hai indicato una fatica elevata. Possiamo rivedere l’allenamento intenso in programma.' : 'Hai indicato una fatica elevata. Se vuoi, alleggeriamo l’allenamento.', basis, options: opts, canTalk: true };
   }
   return { ...base, session };
 }
@@ -208,8 +208,8 @@ function draftFor(ctx: Ctx, uid: Id, action: AdjustAction, p: ChangeParams, toda
   const out: Draft = { sessions: [], stateAfter: null };
   const one = () => {
     const s = p.sessionId ? ctx.db.sessions[p.sessionId] : undefined;
-    if (!s || s.userId !== uid) throw new AppError('not_found', 'Seduta non trovata.');
-    if (!pending(s)) throw new AppError('conflict', 'Questa seduta è già stata completata, saltata o messa in pausa.');
+    if (!s || s.userId !== uid) throw new AppError('not_found', 'Allenamento non trovato.');
+    if (!pending(s)) throw new AppError('conflict', 'Questo allenamento è già stato completato, saltato o messo in pausa.');
     return s;
   };
   const stamp = (s: PlannedSession, over: Partial<PlannedSession>, label: string, adj: AdjustAction) =>
@@ -218,7 +218,7 @@ function draftFor(ctx: Ctx, uid: Id, action: AdjustAction, p: ChangeParams, toda
   switch (action) {
     case 'swap_easy': {
       const s = one();
-      if (!isRunKind(s.kind)) throw new AppError('validation', 'Solo le sedute di corsa hanno un’alternativa facile.');
+      if (!isRunKind(s.kind)) throw new AppError('validation', 'Solo gli allenamenti di corsa hanno un’alternativa facile.');
       const mins = round5(Math.min(s.durationMin, p.minutes ?? Math.max(20, s.durationMin * 0.7)));
       stamp(s, { kind: 'run_easy', title: 'Corsa facile', intensity: 'low', durationMin: mins, distanceKm: null, paceSecPerKm: null, segments: [], description: `Al posto di “${s.title}”: corsa facile e rilassata, a un ritmo in cui riesci a parlare.` }, `“${s.title}” diventa corsa facile di ${mins}'`, action);
       break;
@@ -232,10 +232,10 @@ function draftFor(ctx: Ctx, uid: Id, action: AdjustAction, p: ChangeParams, toda
     }
     case 'move': {
       const s = one();
-      if (!p.date || !DAY_RE.test(p.date) || p.date < today || p.date > addDays(today, 7)) throw new AppError('validation', 'Puoi spostare la seduta nei prossimi 7 giorni.');
+      if (!p.date || !DAY_RE.test(p.date) || p.date < today || p.date > addDays(today, 7)) throw new AppError('validation', 'Puoi spostare l’allenamento nei prossimi 7 giorni.');
       const busy = mySessions(ctx, uid).some((x) => x.id !== s.id && x.date === p.date && (pending(x) || x.status === 'completed'));
-      if (busy) throw new AppError('conflict', 'In quel giorno c’è già un’altra seduta.');
-      if (isHigh(s) && mySessions(ctx, uid).some((x) => x.id !== s.id && isHigh(x) && pending(x) && (x.date === addDays(p.date!, -1) || x.date === addDays(p.date!, 1)))) throw new AppError('conflict', 'Due sedute intense vicine non lasciano recupero: scegli un altro giorno.');
+      if (busy) throw new AppError('conflict', 'In quel giorno c’è già un altro allenamento.');
+      if (isHigh(s) && mySessions(ctx, uid).some((x) => x.id !== s.id && isHigh(x) && pending(x) && (x.date === addDays(p.date!, -1) || x.date === addDays(p.date!, 1)))) throw new AppError('conflict', 'Due allenamenti intensi vicini non lasciano recupero: scegli un altro giorno.');
       stamp(s, { date: p.date, status: 'rescheduled', rescheduledFrom: s.date }, `“${s.title}” spostata dal ${s.date.slice(8)}/${s.date.slice(5, 7)} al ${p.date.slice(8)}/${p.date.slice(5, 7)}`, action);
       break;
     }
@@ -264,7 +264,7 @@ function draftFor(ctx: Ctx, uid: Id, action: AdjustAction, p: ChangeParams, toda
     }
     case 'resume': {
       const from = p.date && DAY_RE.test(p.date) ? p.date : today;
-      // R5: tornano in programma solo le sedute dalla ripresa in poi. Quelle perse restano "in pausa": nessun recupero forzato.
+      // R5: tornano in programma solo gli allenamenti dalla ripresa in poi. Quelle perse restano "in pausa": nessun recupero forzato.
       for (const s of mySessions(ctx, uid).filter((x) => x.status === 'paused' && x.date >= from)) stamp(s, { status: 'planned' }, `“${s.title}” del ${s.date.slice(8)}/${s.date.slice(5, 7)} torna in programma`, action);
       out.stateAfter = { userId: uid, mode: 'active', from: null, until: null, vacation: null, updatedAt: iso(ctx.now) };
       break;
@@ -288,9 +288,9 @@ export interface ChangePreview {
 const tokenOf = (ctx: Ctx, uid: Id, d: Draft) => [planStateOf(ctx, uid).updatedAt, ...d.sessions.map((x) => `${x.before.id}@${x.before.updatedAt}`)].join('|');
 
 function impactOf(action: AdjustAction, d: Draft): string {
-  if (action === 'resume') return d.sessions.length ? 'Le sedute dalla ripresa in poi tornano in programma. Quelle passate non vengono recuperate.' : 'Il piano riprende; non ci sono sedute da riattivare.';
-  if (action === 'pause' || action === 'vacation') return `${d.sessions.length} ${d.sessions.length === 1 ? 'seduta' : 'sedute'} nel periodo. Se prepari una gara con data fissa, una pausa lunga può rendere l’obiettivo meno realistico.`;
-  if (action === 'skip') return 'Una seduta in meno questa settimana: non verrà recuperata in automatico.';
+  if (action === 'resume') return d.sessions.length ? 'Gli allenamenti dalla ripresa in poi tornano in programma. Quelli passati non vengono recuperati.' : 'Il piano riprende; non ci sono allenamenti da riattivare.';
+  if (action === 'pause' || action === 'vacation') return `${d.sessions.length} ${d.sessions.length === 1 ? 'allenamento' : 'allenamenti'} nel periodo. Se prepari una gara con data fissa, una pausa lunga può rendere l’obiettivo meno realistico.`;
+  if (action === 'skip') return 'Un allenamento in meno questa settimana: non verrà recuperato in automatico.';
   if (action === 'move') return 'Il volume della settimana non cambia.';
   return 'Il volume della settimana si riduce leggermente.';
 }
@@ -320,7 +320,7 @@ export function applyPlanChange(ctx: Ctx, action: AdjustAction, params: ChangePa
   return change;
 }
 
-/** Annulla una modifica se le sedute non sono state toccate dopo; altrimenti non tocca nulla. */
+/** Annulla una modifica se gli allenamenti non sono state toccate dopo; altrimenti non tocca nulla. */
 export function undoPlanChange(ctx: Ctx, id: Id): PlanChange {
   const uid = actor(ctx);
   const c = ctx.db.planChanges[id];
@@ -328,7 +328,7 @@ export function undoPlanChange(ctx: Ctx, id: Id): PlanChange {
   if (c.undone) return c;
   for (const x of c.sessions) {
     const cur = ctx.db.sessions[x.before.id];
-    if (cur && cur.updatedAt !== x.afterUpdatedAt) throw new AppError('conflict', 'Una seduta è stata modificata dopo: non posso annullare in automatico.');
+    if (cur && cur.updatedAt !== x.afterUpdatedAt) throw new AppError('conflict', 'Un allenamento è stato modificato dopo: non posso annullare in automatico.');
   }
   for (const x of c.sessions) if (ctx.db.sessions[x.before.id]) ctx.db.sessions[x.before.id] = { ...x.before, updatedAt: iso(ctx.now) };
   if (c.stateAfter) {
@@ -352,13 +352,13 @@ export interface SessionMatch {
 
 /**
  * Sedute compatibili con un'attività reale. Criteri dichiarati: corsa (anche trail o corsa + camminata); stesso giorno o ±1;
- * seduta ancora da fare; durata tra 50% e 160% del previsto (se nota); distanza tra 60% e 150% (se nota).
+ * allenamento ancora da fare; durata tra 50% e 160% del previsto (se nota); distanza tra 60% e 150% (se nota).
  */
 export function sessionMatches(ctx: Ctx, activityId: Id): SessionMatch[] {
   const uid = actor(ctx);
   const a = ctx.db.activities[activityId];
   if (!a || a.userId !== uid) throw new AppError('not_found', 'Attività non trovata.');
-  // Corsa, trail e corsa + camminata possono completare una seduta di corsa del piano (come le corse Strava di prima).
+  // Corsa, trail e corsa + camminata possono completare un allenamento di corsa del piano (come le corse Strava di prima).
   if (!isRunFamily(a.sport) || a.planSessionId) return [];
   if (Object.values(ctx.db.sessions).some((s) => s.linkedActivityId === a.id)) return [];
   const day = a.date.slice(0, 10);
@@ -366,7 +366,7 @@ export function sessionMatches(ctx: Ctx, activityId: Id): SessionMatch[] {
   for (const s of mySessions(ctx, uid)) {
     if (!pending(s) || !isRunKind(s.kind)) continue;
     if (![addDays(day, -1), day, addDays(day, 1)].includes(s.date)) continue;
-    const reasons = [s.date === day ? 'Stesso giorno della seduta' : 'Giorno vicino alla seduta'];
+    const reasons = [s.date === day ? 'Stesso giorno dell’allenamento' : 'Giorno vicino all’allenamento'];
     if (a.durationMin !== null && s.durationMin > 0) {
       const r = a.durationMin / s.durationMin;
       if (r < 0.5 || r > 1.6) continue;
@@ -382,14 +382,14 @@ export function sessionMatches(ctx: Ctx, activityId: Id): SessionMatch[] {
   return out.sort((x, y) => (x.session.date === day ? -1 : 0) - (y.session.date === day ? -1 : 0));
 }
 
-/** Associa un'attività a una seduta: una corsa completa una sola seduta e viceversa. */
+/** Associa un'attività a un allenamento: una corsa completa un solo allenamento e viceversa. */
 export function linkActivityToSession(ctx: Ctx, activityId: Id, sessionId: Id): PlannedSession {
   const uid = actor(ctx);
   const ok = sessionMatches(ctx, activityId).find((m) => m.session.id === sessionId);
-  if (!ok) throw new AppError('conflict', 'Questa attività non è compatibile con la seduta, oppure è già associata.');
+  if (!ok) throw new AppError('conflict', 'Questa attività non è compatibile con l’allenamento, oppure è già associata.');
   const a = ctx.db.activities[activityId];
   const s = ctx.db.sessions[sessionId];
-  if (s.userId !== uid) throw new AppError('not_found', 'Seduta non trovata.');
+  if (s.userId !== uid) throw new AppError('not_found', 'Allenamento non trovato.');
   a.planSessionId = s.id;
   a.updatedAt = iso(ctx.now);
   s.status = 'completed';
@@ -406,7 +406,7 @@ export function dismissActivityLink(ctx: Ctx, activityId: Id): { ok: true } {
   return { ok: true };
 }
 
-/** Attività recenti (48 h) non ancora associate per cui esiste una seduta compatibile. */
+/** Attività recenti (48 h) non ancora associate per cui esiste un allenamento compatibile. */
 export function pendingActivityLinks(ctx: Ctx): Array<{ activityId: Id; title: string; source: string; date: string; matches: SessionMatch[] }> {
   const uid = actor(ctx);
   const since = ctx.now.getTime() - 48 * 3_600_000;

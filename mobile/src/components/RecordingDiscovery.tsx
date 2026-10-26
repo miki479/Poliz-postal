@@ -64,14 +64,14 @@ export function RecordingMap({ track = [], height = 250, fill = false, initialHe
         {suggested.length > 1 ? <Polyline coordinates={suggested.map((p) => ({ latitude: p.lat, longitude: p.lng }))} strokeColor={color.brand} strokeWidth={4} lineDashPattern={[8, 5]} /> : null}
       </MapView>
       <View style={{ position: 'absolute', top: S.sm, right: S.sm }}><IconButton name="layers-outline" label="Stile e livelli della mappa" filled onPress={() => setLayers(true)} /></View>
-      <View pointerEvents="none" style={{ position: 'absolute', left: S.sm, bottom: S.sm, borderRadius: R.pill, backgroundColor: color.overlay, paddingHorizontal: S.md, paddingVertical: S.xs }}><Text style={[type.caption, { color: color.text }]}>{BASES.find((s) => s.value === base)?.label}{heat !== 'off' ? ' · Mappa di calore' : ''}</Text></View>
+      <View pointerEvents="none" style={{ position: 'absolute', left: S.sm, bottom: S.sm, borderRadius: R.pill, backgroundColor: color.overlay, paddingHorizontal: S.md, paddingVertical: S.xs }}><Text style={[type.caption, { color: color.text }]}>{BASES.find((s) => s.value === base)?.label}{heat !== 'off' && data?.heat.length ? ' · Mappa di calore' : ''}</Text></View>
     </View>
     {failed ? <Text style={t.small}>I livelli aggiuntivi non sono raggiungibili ora. La registrazione resta disponibile.</Text> : null}
-    {heat !== 'off' && data && !data.heat.length ? <Text style={t.small}>Non ci sono ancora abbastanza contributi condivisi per mostrare la mappa di calore in questo periodo.</Text> : null}
     {popular && data && !data.routes.some((r) => r.favoriteCount > 0) ? <Text style={t.small}>Nessun percorso con salvataggi disponibile al momento.</Text> : null}
     <Sheet title="Stile e livelli della mappa" visible={layers} onClose={() => setLayers(false)}>
       <View style={{ gap: S.sm }}><Text style={t.title}>Stile</Text><Pills value={base} onChange={setBase} options={BASES} /></View>
       <View style={{ gap: S.sm }}><Text style={t.title}>Mappa di calore Runngo</Text><Pills value={heat} onChange={setHeat} options={HEAT} /><Text style={t.small}>Solo percorsi registrati in Runngo condivisi con una scelta distinta. Celle approssimate di 300 m, visibili con almeno tre atleti: nessuna traccia personale o attività Strava viene pubblicata qui.</Text></View>
+    {heat !== 'off' && data && !data.heat.length ? <Text style={t.small}>Non ci sono ancora abbastanza contributi condivisi per mostrare la mappa di calore in questo periodo.</Text> : null}
       <SwitchRow label="Percorsi più salvati" hint="Mostra i percorsi condivisi dalla comunità che qualcuno ha salvato." value={popular} onChange={setPopular} />
     </Sheet>
   </View>;

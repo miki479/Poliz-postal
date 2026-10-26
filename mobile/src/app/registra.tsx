@@ -56,6 +56,7 @@ export default function Registra() {
   const [routeBusy, setRouteBusy] = useState(false);
   const [routeError, setRouteError] = useState('');
   const [locating, setLocating] = useState(false);
+  const [positionAccuracy, setPositionAccuracy] = useState<number | null>(null);
   const [mapMessage, setMapMessage] = useState('Centra la mappa sulla tua posizione');
   const [shared, setShared] = useState(me?.setup?.groupMatching ?? false);
   const [gearId, setGearId] = useState<string | null>(null);
@@ -113,6 +114,7 @@ export default function Registra() {
       const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const center = { lat: fix.coords.latitude, lng: fix.coords.longitude };
       setPosition(center);
+      setPositionAccuracy(fix.coords.accuracy);
       setMapMessage('Tieni premuto sulla mappa per scegliere una destinazione.');
     } catch { setMapMessage('GPS non disponibile. Riprova all’aperto.'); }
     finally { setLocating(false); }
@@ -384,11 +386,12 @@ export default function Registra() {
     const activityLabel = kind === 'treadmill' ? 'Tapis roulant' : kind === 'walking' ? 'Camminata' : 'Corsa';
     const contextLabel = chosen?.title || (ctxKind === 'event' ? events.find((e) => e.id === eventId)?.title || 'Uscita di gruppo' : 'Da solo');
     return <>
-      <RecordingSetupFrame insets={insets} summary={recovered ? 'Attività da recuperare' : activityLabel} subtitle={recovered ? 'Apri la card per vedere la bozza' : `${contextLabel} · Opzioni`} onOptions={() => setOptionsOpen(true)} onClose={() => router.back()}
+      <RecordingSetupFrame insets={insets} summary={recovered ? 'Attività da recuperare' : activityLabel} subtitle={recovered ? 'Apri la card per vedere la bozza' : `${contextLabel} · ${shared ? 'Ai compagni' : 'Privata'} · ${chosen ? 'Piano' : 'Obiettivo libero'}`} onOptions={() => setOptionsOpen(true)} onClose={() => router.back()}
         starting={starting} disabled={starting || (!recovered && ctxKind === 'event' && !eventId)} resume={!!recovered} onStart={() => { if (recovered) void resumeDraft(recovered); else void start(); }}
         map={<View style={{ flex: 1, minHeight: 0, gap: S.xs }}>
-          <RecordingMap fill initialHeat="global" center={position} suggested={suggested} showLocation={perm === 'granted' && kind !== 'treadmill'} onDestination={(point) => void personalize(point)} />
-          <Row><Text style={[t.small, { flex: 1 }]} numberOfLines={2}>{locating ? 'Cerco il GPS…' : routeBusy ? 'Calcolo il percorso a piedi…' : mapMessage}</Text><IconButton name="locate-outline" label="Centra sulla mia posizione" onPress={() => { if (!locating) void locate(); }} /></Row>
+          {position ? <RecordingMap fill initialHeat="global" center={position} suggested={suggested} showLocation={perm === 'granted' && kind !== 'treadmill'} onDestination={(point) => void personalize(point)} /> : <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: S.xl, gap: S.md, borderRadius: R.card, backgroundColor: color.surface }}><Ionicons name="locate-outline" size={36} color={color.textSecondary} /><Text style={t.title}>{locating ? 'Attendo GPS…' : 'Trova il punto di partenza'}</Text><Text style={[t.muted, { textAlign: 'center' }]}>La mappa si apre sulla tua zona quando la posizione è disponibile.</Text><Button variant="soft" title="Usa la mia posizione" busy={locating} onPress={() => void locate()} /></View>}
+          {!chosen ? <Pills value={kind} onChange={setKind} options={[{ value: 'running', label: 'Corsa' }, { value: 'walking', label: 'Camminata' }, { value: 'treadmill', label: 'Al chiuso' }]} /> : null}
+          <Row><Text style={[t.small, { flex: 1 }]} numberOfLines={2}>{locating ? 'Attendo GPS…' : routeBusy ? 'Calcolo il percorso a piedi…' : position ? positionAccuracy !== null && positionAccuracy > 40 ? 'Precisione bassa: meglio attendere all’aperto' : `Pronto${positionAccuracy !== null ? ` · precisione circa ${Math.round(positionAccuracy)} m` : ''}` : mapMessage}</Text><IconButton name="locate-outline" label="Centra sulla mia posizione" onPress={() => { if (!locating) void locate(); }} /></Row>
           {routeError ? <Text style={[t.small, { color: color.warning }]} numberOfLines={2}>{routeError}</Text> : null}
         </View>} />
       <Sheet title="Opzioni registrazione" visible={optionsOpen} onClose={() => setOptionsOpen(false)} footer={<Button title="Fatto" onPress={() => setOptionsOpen(false)} />}>

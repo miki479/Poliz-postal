@@ -1,3 +1,7 @@
+import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { OutingProposals } from '@/components/event/OutingProposals';
+import { contextualLocationPermission } from '@/lib/locationPermissionPolicy';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -65,6 +69,10 @@ const kmLabel = (km: number) => `${String(Math.round(km * 100) / 100).replace('.
 export default function EventoForm() {
   const { id, clubId: clubParam } = useLocalSearchParams<{ id?: string; clubId?: string }>();
   const reduce = useReduceMotion();
+  const [proposalsOpen, setProposalsOpen] = useState(!id);
+  const [gpsBusy, setGpsBusy] = useState(false);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [usual, setUsual] = useState<GeoPlace | null>(null);
   const [ready, setReady] = useState(!id);
   const [i, setI] = useState(0);
   const iRef = useRef(0);
@@ -114,7 +122,7 @@ export default function EventoForm() {
 
   useEffect(() => {
     call<ClubView[]>('listMyClubs').then(setClubs, () => {});
-    if (!id) return;
+    if (!id) { void AsyncStorage.getItem('runngo:usual-meeting-place').then((value) => { if (!value) return; try { const p = JSON.parse(value); if (typeof p.name === 'string' && Number.isFinite(p.lat) && Number.isFinite(p.lng)) setUsual(p); } catch { /* ignora preferenza danneggiata */ } }); return; }
     setLoadErr('');
     setReady(false);
     return loadEventForEdit(() => call<EventView>('getEvent', id, null),
@@ -249,7 +257,24 @@ export default function EventoForm() {
     go(i + 1);
   }
 
+  async function locateMeetingPlace() {
+    setGpsBusy(true);
+    try {
+      const permission = await contextualLocationPermission('map', Location);
+      if (permission.status !== 'granted') { setErr({ place: 'La posizione non è consentita. Puoi scegliere il ritrovo manualmente.' }); return; }
+      const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const addresses = await Location.reverseGeocodeAsync({ latitude: fix.coords.latitude, longitude: fix.coords.longitude }).catch(() => []);
+      const a = addresses[0];
+      const name = a ? [a.street, a.streetNumber, a.city].filter(Boolean).join(' ') : 'Punto scelto con GPS';
+      setPlaceV({ name, lat: fix.coords.latitude, lng: fix.coords.longitude });
+      setGpsAccuracy(fix.coords.accuracy); setErr({});
+    } catch { setErr({ place: 'Non riesco a rilevare la posizione. Riprova all’aperto o scegli il ritrovo manualmente.' }); }
+    finally { setGpsBusy(false); }
+  }
+
   async function save() {
+    if (!placeV && !placeText.trim()) { go(0); return setErr({ place: 'Conferma il punto di ritrovo prima di pubblicare.' }); }
+    if (visibility === 'club' && !clubId) { go(0); setWhoOpen(true); return; }
     if (title.trim().length < 3) return setErr({ title: 'Dai un nome all’uscita: almeno 3 lettere.' });
     const dErr = checkDate(when, { future: !id });
     if (dErr) {
@@ -322,7 +347,7 @@ export default function EventoForm() {
     glyph: sportStyle,
     tint: sportStyle.solid,
     title: 'Tipo di attività',
-    detail: [km ? kmLabel(km) : null, withPace && paceSec ? `${formatPace(paceSec)}/km` : null, `Livello ${levelLabel(uiLevel).toLowerCase()}`].filter(Boolean).join(' · '),
+    detail: [km ? kmLabel(km) : null, withPace && paceSec ? `Passo ${formatPace(paceSec)}` : null, `Livello ${levelLabel(uiLevel).toLowerCase()}`].filter(Boolean).join(' · '),
     value: SPORT_LABEL[sport],
   });
   features.push({ key: 'when', icon: 'calendar-outline', tint: color.accent, title: whenText, detail: placeLine || undefined });
@@ -349,6 +374,9 @@ export default function EventoForm() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
+      <Sheet visible={proposalsOpen} onClose={() => setProposalsOpen(false)} title="Che uscita organizzi?">
+        <OutingProposals onCustom={() => setProposalsOpen(false)} onChoose={(p) => { applySport(p.sport); setKm(p.km); setPaceSec(p.pace); setMax(p.spots); setTitle(p.title); setTitleEdited(true); setPactOn({ ...NO_PACT, [p.pact]: true }); setProposalsOpen(false); go(LAST); }} />
+      </Sheet>
       <EventFrame
         title={id ? 'Modifica l’uscita' : 'Crea un’uscita'}
         steps={STEPS}
@@ -382,6 +410,10 @@ export default function EventoForm() {
               </View>
 
               <View style={{ gap: S.md }} onLayout={(e) => (whenY.current = e.nativeEvent.layout.y)}>
+                <Button variant="soft" title="Usa la mia posizione" busy={gpsBusy} onPress={() => void locateMeetingPlace()} />
+                {gpsAccuracy !== null ? <Text style={{ color: color.textSecondary }}>Precisione GPS: circa {Math.round(gpsAccuracy)} m. Controlla il ritrovo prima di pubblicare.</Text> : null}
+                {usual ? <Button small title={`Usa il ritrovo abituale: ${shortPlace(usual.name)}`} onPress={() => { setPlaceV(usual); setGpsAccuracy(null); }} /> : null}
+                {placeV ? <Button small title="Imposta questo come ritrovo abituale" onPress={async () => { await AsyncStorage.setItem('runngo:usual-meeting-place', JSON.stringify(placeV)); setUsual(placeV); }} /> : null}
                 <SectionTitle title="Quando e dove" />
                 <DateField
                   label="Data e ora"
@@ -535,7 +567,7 @@ export default function EventoForm() {
               <View>
                 <SectionTitle title="Caratteristiche" />
                 <View style={{ marginTop: S.md }}>
-                  <FeatureList items={features} />
+                  <FeatureList items={features} onEdit={(key) => go(key === 'sport' ? 1 : key === 'pact' || key === 'spots' || key === 'notes' ? 2 : 0)} />
                 </View>
               </View>
             </>

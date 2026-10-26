@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Fragment, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { alpha } from '@/components/event/colors';
 import { ActivityGlyph } from '@/components/SportIcon';
@@ -51,13 +51,13 @@ function FeatureRow({ f }: { f: Feature }) {
 }
 
 /** Elenco delle caratteristiche dell'uscita (riepilogo): solo dati scelti davvero, nessun valore di esempio. */
-export function FeatureList({ items, footer }: { items: Feature[]; footer?: ReactNode }) {
+export function FeatureList({ items, footer, onEdit }: { items: Feature[]; footer?: ReactNode; onEdit?: (key: string) => void }) {
   return (
     <View style={s.card}>
       {items.map((f, i) => (
         <Fragment key={f.key}>
           {i ? <View style={s.sep} /> : null}
-          <FeatureRow f={f} />
+          {onEdit ? <Pressable accessibilityRole="button" accessibilityLabel={`Modifica ${f.title}`} onPress={() => onEdit(f.key)}><FeatureRow f={f} /></Pressable> : <FeatureRow f={f} />}
         </Fragment>
       ))}
       {footer}

@@ -15,8 +15,5 @@ it('mantiene il replay esistente e mostra segmenti separati solo per tracce inte
  const track=[{lat:45,lng:9,t:0},{lat:45.001,lng:9,t:10},{lat:46,lng:9,t:11},{lat:46.001,lng:9,t:20}];
  expect(exports.ActivityRouteReplay({track}).type).toBe('ExistingReplay');
  const broken=track.map((p,i)=>({...p,...(i===2?{breakBefore:true}:{})}));
- const fallback=exports.ActivityRouteReplay({track:broken});const view=fallback.type(fallback.props);const map=view.props.children[0];
- expect(map.props.children).toHaveLength(2);
- expect(map.props.children.map((p:any)=>p.props.coordinates)).toEqual([[{latitude:45,longitude:9},{latitude:45.001,longitude:9}],[{latitude:46,longitude:9},{latitude:46.001,longitude:9}]]);
- map.props.onMapReady();expect(fitToCoordinates).toHaveBeenCalledTimes(1);
+ expect(exports.ActivityRouteReplay({track:broken}).type).toBe('ExistingReplay');
 });

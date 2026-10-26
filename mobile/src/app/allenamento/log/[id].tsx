@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ActionSheetIOS, Alert, Platform, Pressable, RefreshControl, ScrollView, Share, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ActivityStatsModal } from '@/components/ActivityStats';
+import { ActivityStats } from '@/components/ActivityStats';
 import { AwardDetailSheet, ConquestModal } from '@/components/AwardConquest';
 import { ScrollProvider, useScrollEmitter } from '@/components/Motion';
 import { AwardBanner, AwardMark, AwardRow, awardFxKey } from '@/components/Results';
@@ -30,7 +30,7 @@ import type { PlannedSession, UserPublic, WorkoutLog } from '@shared/types.ts';
 import type { GearView } from '@shared/gear.ts';
 import { hasMapConsent } from '@shared/mapConsent.ts';
 
-const MAP_H = 380;
+const MAP_H = 300;
 const timeOf = (iso: string) => new Intl.DateTimeFormat('it-IT', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 
 /* ---------- blocchi esistenti (fatti, briefing, compagni, offerte) ---------- */
@@ -55,7 +55,7 @@ function Brief({ log }: { log: WorkoutLog }) {
   const [first, ...rest] = r.brief.text.split(/(?<=[.!?])\s+|\n+/).filter(Boolean);
   const evidences: string[] = [];
   if (f.vsPlan) evidences.push(f.vsPlan.asPlanned ? `In linea con la seduta prevista (${f.vsPlan.plannedMin}′)` : `${f.vsPlan.durationDeltaPct > 0 ? '+' : ''}${f.vsPlan.durationDeltaPct}% di durata rispetto ai ${f.vsPlan.plannedMin}′ previsti`);
-  if (f.vsHistory?.paceDeltaSec != null) evidences.push(Math.abs(f.vsHistory.paceDeltaSec) < 5 ? `Passo stabile rispetto alle ultime ${f.vsHistory.count} uscite` : `${Math.abs(f.vsHistory.paceDeltaSec)} s/km ${f.vsHistory.paceDeltaSec < 0 ? 'più rapido' : 'più lento'} della tua media recente`);
+  if (f.vsHistory?.paceDeltaSec != null) evidences.push(Math.abs(f.vsHistory.paceDeltaSec) < 5 ? `Passo stabile rispetto alle ultime ${f.vsHistory.count} uscite` : `${Math.abs(f.vsHistory.paceDeltaSec)} s/km ${f.vsHistory.paceDeltaSec < 0 ? 'più rapido' : 'più tranquillo'} rispetto alle attività recenti`);
   if (f.vsOthers) evidences.push(`Passo più rapido del ${f.vsOthers.fasterThanPct}% su ${f.vsOthers.runners} uscite simili condivise da altre persone`);
   return (
     <View style={{ gap: S.md }}>
@@ -69,7 +69,7 @@ function Brief({ log }: { log: WorkoutLog }) {
       <Text style={[type.title2, { color: color.text }]}>{first}</Text>
       {evidences.length ? (
         <View style={{ gap: S.xs }}>
-          {evidences.slice(0, 3).map((e) => (
+          {evidences.slice(0, 1).map((e) => (
             <Row key={e} gap={S.sm} style={{ alignItems: 'flex-start' }}>
               <Ionicons name="analytics-outline" size={16} color={color.accent} style={{ marginTop: 2 }} />
               <Text style={[t.body, { flex: 1 }]}>{e}</Text>
@@ -77,7 +77,7 @@ function Brief({ log }: { log: WorkoutLog }) {
           ))}
         </View>
       ) : null}
-      {rest.length ? <Text style={t.muted}>{rest.join(' ')}</Text> : null}
+      {rest.length ? <Text style={t.muted} numberOfLines={open ? undefined : 2}>{rest.join(' ')}</Text> : null}
       <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityState={{ expanded: open }} style={{ minHeight: HIT, justifyContent: 'center' }}>
         <Text style={[type.subhead, { color: color.accent, fontWeight: '600' }]}>{open ? 'Nascondi i dati usati' : 'Dati e periodo usati'}</Text>
       </Pressable>
@@ -138,10 +138,11 @@ function Companions({ log }: { log: WorkoutLog }) {
     if (!log.track?.length) return;
     call<UserPublic[]>('runCompanions', log.id).then(setList, () => setList([]));
   }, [log.id, log.track?.length]);
-  if (!list.length) return null;
+  if (!list.length) return <View style={{ gap: S.sm }}><Text style={t.title}>Con chi hai corso</Text><Text style={t.body}>{log.eventId ? 'Uscita di gruppo collegata' : log.origin === 'strava' ? 'Attività importata da Strava' : 'Corsa in solitaria'}</Text><Text style={t.small}>{log.eventId ? 'Apri l’uscita per vedere il gruppo, il patto e i partecipanti.' : 'Non hai collegato compagni o un’uscita di gruppo.'}</Text><LinkText title={log.eventId ? 'Apri l’uscita' : 'Invita il gruppo la prossima volta'} onPress={() => log.eventId ? router.push({ pathname: '/evento/[id]', params: { id: log.eventId } }) : router.push('/evento/form')} /></View>;
   const names = list.map((u) => u.displayName);
   return (
     <Row gap={S.sm}>
+      <Text style={t.small}>Con chi hai corso</Text>
       <AvatarStack people={list} size={24} />
       <Text style={[t.muted, { flex: 1 }]}>con {names.length <= 2 ? names.join(' e ') : `${names.slice(0, 2).join(', ')} e altre ${names.length - 2} persone`}</Text>
     </Row>
@@ -360,7 +361,10 @@ export default function LogDettaglio() {
   const [refreshing, setRefreshing] = useState(false);
   const [share, setShare] = useState(false);
   const [listOpen, setListOpen] = useState(false);
-  const [statsOpen, setStatsOpen] = useState(false);
+  const [gpsReport, setGpsReport] = useState(false);
+  const [gpsDescription, setGpsDescription] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportError, setReportError] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [detail, setDetail] = useState<Award | null>(null);
   const [conquest, setConquest] = useState<Award | null>(null);
@@ -412,6 +416,7 @@ export default function LogDettaglio() {
           call('setMapVisibility', l.id, false).then(() => state.reload(), (e) => Alert.alert('Non aggiornato', humanError(e, 'Riprova.')));
         } }] : []),
         { label: 'Condividi', icon: 'share-outline', run: () => setShare(true) },
+        { label: 'Segnala percorso errato', icon: 'flag-outline', run: () => setGpsReport(true) },
         {
           label: 'Modifica',
           icon: 'create-outline',
@@ -500,7 +505,7 @@ export default function LogDettaglio() {
           const track = l.track && l.track.length > 1 ? l.track : null;
           const laps = track ? countLaps(track) : 1;
           const marks = track ? buildMarks({ id: l.id, track }, awards) : [];
-          const meta = [laps > 1 ? `${laps} giri` : '', l.environment === 'treadmill' ? 'Tapis roulant' : '', l.distanceSource === 'manual' ? 'Distanza dichiarata' : '', l.shared ? 'Visibile ai compagni' : 'Solo tu'].filter(Boolean).join(' · ');
+          const meta = [laps > 1 ? `${laps} giri` : '', l.environment === 'treadmill' ? 'Tapis roulant' : '', l.distanceSource === 'manual' ? 'Distanza dichiarata' : '', l.shared ? 'Visibile ai compagni' : 'Attività privata'].filter(Boolean).join(' · ');
           return (
             <ScrollView
               contentInsetAdjustmentBehavior="never"
@@ -522,7 +527,7 @@ export default function LogDettaglio() {
               <ScrollProvider value={em.value}>
                 {track ? (
                   <View style={{ height: MAP_H }}>
-                    <RouteReplay track={track} marks={marks} tint={state.data?.group ? color.brand : styleOfLog(l).solid} chrome insetTop={headerH} onOpenMark={openMark} style={{ flex: 1 }} />
+                    <RouteReplay track={track} marks={marks} tint={color.accent} chrome insetTop={headerH} onOpenMark={openMark} style={{ flex: 1 }} />
                     {/* velo per la leggibilità dell'intestazione trasparente */}
                     <LinearGradient pointerEvents="none" colors={['rgba(5,7,9,0.7)', 'rgba(5,7,9,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: headerH + S.lg }} />
                   </View>
@@ -551,9 +556,7 @@ export default function LogDettaglio() {
 
                   {conquestFor !== null ? <Traguardi awards={awards} hint={hint} celebrate={conquestFor !== awards[0]?.id} onOpen={setDetail} onList={() => setListOpen(true)} /> : <Skeleton height={120} />}
 
-                  <Panel style={{ overflow: 'hidden' }}>
-                    <NavRow title="Andamento" icon="stats-chart-outline" onPress={() => setStatsOpen(true)} label="Andamento: statistiche complete dell’attività" />
-                  </Panel>
+                  <Panel style={{ padding: S.lg, gap: S.sm }}><Text style={t.h2}>Rivivi la corsa</Text><Text style={t.muted}>Percorso animato, momenti principali e traguardi della tua attività.</Text><Button title="Guarda il Racconto" variant="soft" onPress={() => router.push({ pathname: '/allenamento/storie/[id]', params: { id: l.id } })} /></Panel>
 
                   {l.eventId ? <LinkText title="Riconosci chi ha reso speciale l’uscita" onPress={() => router.push({ pathname: '/evento/[id]', params: { id: l.eventId!, recognize: '1' } })} /> : null}
                   <StravaOffer fresh={!!fresh} />
@@ -561,6 +564,8 @@ export default function LogDettaglio() {
                   <View style={{ gap: S.xxl, marginTop: S.sm }}>
                     <Brief log={l} />
                     <Trained log={l} session={s} />
+                    <LinkText title={s ? 'Apri la seduta del piano' : 'Il tuo prossimo allenamento'} onPress={() => s ? router.push({ pathname: '/allenamento/sessione/[id]', params: { id: s.id } }) : router.push('/allenamento')} />
+                    <ActivityStats log={l} />
                     {l.notes ? (
                       <Section title="Note">
                         <Text style={t.body}>{l.notes}</Text>
@@ -574,7 +579,12 @@ export default function LogDettaglio() {
         })()
       )}
 
-      {l ? <ActivityStatsModal log={l} visible={statsOpen} onClose={() => setStatsOpen(false)} /> : null}
+      <Sheet visible={gpsReport} onClose={() => setGpsReport(false)} title="Segnala percorso errato">
+        <Text style={t.muted}>Indica in quale tratto la traccia non corrisponde al percorso seguito. La segnalazione resta privata e non modifica i dati GPS.</Text>
+        <Field label="Cosa non corrisponde" value={gpsDescription} onChangeText={setGpsDescription} multiline />
+        {reportError ? <Banner tone="error" text={reportError} /> : null}
+        <Button title="Invia segnalazione" busy={reportBusy} disabled={gpsDescription.trim().length < 5} onPress={async () => { if (!l) return; setReportBusy(true); setReportError(''); try { await call('reportUser', { reason: 'other', text: `Percorso errato attività ${l.id}: ${gpsDescription}`.slice(0, 1000) }); setGpsReport(false); setGpsDescription(''); Alert.alert('Segnalazione inviata', 'Grazie, il problema è stato segnalato.'); } catch (e) { setReportError(humanError(e, 'Non riesco a inviare la segnalazione. Riprova.')); } finally { setReportBusy(false); } }} />
+      </Sheet>
 
       <ConquestModal
         award={conquest}

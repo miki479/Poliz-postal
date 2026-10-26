@@ -48,7 +48,7 @@ export function ProfileHeader({ p, style, right, onBadges, stories, onIdentity }
 
       {u.bio ? <Text style={t.body}>{u.bio}</Text> : null}
 
-      {!p.isSelf && p.clubs?.length ? (
+      {p.clubs?.length ? (
         <Row gap={S.sm} style={{ flexWrap: 'wrap' }}>
           {p.clubs.map((c) => (
             <Pressable key={c.id} onPress={() => router.push({ pathname: '/club/[id]', params: { id: c.id } })} accessibilityRole="button" accessibilityLabel={`Club ${c.name}`} style={({ pressed }) => [{ minHeight: 36, paddingHorizontal: S.md, borderRadius: R.chip, backgroundColor: color.surface, justifyContent: 'center' }, pressed && { opacity: 0.6 }]}>
@@ -62,7 +62,7 @@ export function ProfileHeader({ p, style, right, onBadges, stories, onIdentity }
         <Row gap={0}>
           <Metric size="sm" align="center" value={String(p.stats.completedRuns)} label="Attività" />
           {stories !== undefined ? <Metric size="sm" align="center" value={String(stories)} label="Racconti" /> : <Metric size="sm" align="center" value={kmParts(p.stats.declaredDistanceKm)[0]} label="Km totali" />}
-          <Metric size="sm" align="center" value={p.clubs ? String(p.clubs.length) : '—'} label="Club" />
+          <Metric size="sm" align="center" value={p.clubs ? String(p.clubs.length) : '—'} label="Gruppi" />
         </Row>
       ) : (
         <Text style={t.muted}>Statistiche non pubbliche.</Text>

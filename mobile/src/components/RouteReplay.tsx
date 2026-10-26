@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ComponentType, type Componen
 import { Modal, Platform, ScrollView, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import MapView, { AnimatedRegion, Marker, Polyline } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconButton, Pills, Row, t, useReduceMotion } from '@/components/ui';
+import { IconButton, Pills, t, useReduceMotion } from '@/components/ui';
 import { color, S, R, type } from '@/constants/theme';
 import { lapEnds, trackKey } from '@/lib/routeGeometry';
 import { displayTrack } from '@shared/routeDisplay.ts';
@@ -29,7 +29,7 @@ function NativeReplay({track,style,loop=false,seconds=10,paused=false,marks=[],t
  const map=useRef<MapView>(null), head=useRef<MarkerHandle>(null);const clock=useRef(0);const previousIndex=useRef(0);
  const [position]=useState(()=>new AnimatedRegion({...coord(filtered.points[0]??{lat:0,lng:0,t:0}),latitudeDelta:0,longitudeDelta:0}));
  const rate=timeline.timed?Math.max(1,timeline.total/Math.max(1,seconds)):timeline.total/Math.max(1,seconds);
- const fit=()=>{if(map.current&&visible.points.length)map.current.fitToCoordinates(visible.points.map(coord),{edgePadding:{top:(expanded?insets.top+42:insetTop)+48,bottom:chrome?70:30,left:32,right:32},animated:false});};
+ const fit=()=>{if(map.current&&visible.points.length)map.current.fitToCoordinates(visible.points.map(coord),{edgePadding:{top:(expanded?insets.top+42:insetTop)+48,bottom:32,left:32,right:chrome?64:32},animated:false});};
  useEffect(()=>{clock.current=0;previousIndex.current=0;const first=visible.points[0];if(first)position.setValue({...coord(first),latitudeDelta:0,longitudeDelta:0});},[visible.points,position]);
  useEffect(()=>{
   if(!ready||reduce||paused||manualPause||timeline.total<=0)return;
@@ -47,7 +47,7 @@ function NativeReplay({track,style,loop=false,seconds=10,paused=false,marks=[],t
   },100);
   return()=>{clearInterval(timer);position.stopAnimation(()=>{});};
  },[ready,reduce,paused,manualPause,timeline,rate,loop,position,visible.points]);
- useEffect(()=>{if(ready&&map.current&&visible.points.length)map.current.fitToCoordinates(visible.points.map(coord),{edgePadding:{top:(expanded?insets.top+42:insetTop)+48,bottom:chrome?70:30,left:32,right:32},animated:false});},[visible.points,ready,expanded,insetTop,insets.top,chrome]);
+ useEffect(()=>{if(ready&&map.current&&visible.points.length)map.current.fitToCoordinates(visible.points.map(coord),{edgePadding:{top:(expanded?insets.top+42:insetTop)+48,bottom:32,left:32,right:chrome?64:32},animated:false});},[visible.points,ready,expanded,insetTop,insets.top,chrome]);
  const top=(expanded?insets.top:insetTop)+S.sm;
  const surface=()=> <View style={{flex:1,backgroundColor:color.surface}}>
   <MapView ref={map} style={{flex:1}} userInterfaceStyle="dark" mapType={mapType==='satellite'?'hybrid':Platform.OS==='ios'?'mutedStandard':'standard'} pitchEnabled={false} rotateEnabled scrollEnabled zoomEnabled moveOnMarkerPress={false}
@@ -61,13 +61,10 @@ function NativeReplay({track,style,loop=false,seconds=10,paused=false,marks=[],t
   {chrome?<View style={{position:'absolute',top,right:S.sm,gap:S.xs}}>
    <IconButton name="scan-outline" label="Centra percorso" filled onPress={fit}/>
    <IconButton name="layers-outline" label="Cambia tipo di mappa" filled onPress={()=>setMapType(mapType==='night'?'satellite':'night')}/>
+   {!reduce?<IconButton name={manualPause?'play':'pause'} label={manualPause?'Riprendi replay':'Pausa replay'} filled onPress={()=>setManualPause(!manualPause)}/>:null}
    <IconButton name={expanded?'contract-outline':'expand-outline'} label={expanded?'Chiudi schermo intero':'Apri mappa a schermo intero'} filled onPress={()=>{setReady(false);setExpanded(!expanded);}}/>
   </View>:null}
   {chrome&&ranges.length>2?<View style={{position:'absolute',top,left:S.sm,right:60}}><ScrollView horizontal showsHorizontalScrollIndicator={false}><Pills value={lap} onChange={setLap} options={[{value:0,label:'Tutto'},...ends.map((_,i)=>({value:i+1,label:`Giro ${i+1}`}))]}/></ScrollView></View>:null}
-  <View style={{position:'absolute',left:S.sm,right:chrome?64:S.sm,bottom:S.sm,padding:S.sm,borderRadius:R.control,backgroundColor:color.overlay,gap:S.xs}}>
-   <Row><Text style={[type.caption,{color:color.text,flex:1}]}>{reduce?'Percorso registrato':timeline.timed?`Replay · ×${Math.round(rate)}`:'Animazione · tempi GPS assenti'}{lap?` · Giro ${lap}`:''}</Text>{!reduce?<IconButton name={manualPause?'play':'pause'} label={manualPause?'Riprendi replay':'Pausa replay'} onPress={()=>setManualPause(!manualPause)}/>:null}</Row>
-   {filtered.filtered||filtered.points.some(p=>p.breakBefore)?<Text style={t.small}>Alcuni tratti potrebbero essere meno precisi a causa del segnale GPS.</Text>:null}
-  </View>
  </View>;
  if(!filtered.points.length)return <View style={[{padding:S.lg,backgroundColor:color.surface},style]}><Text style={t.muted}>Il percorso non è disponibile per questa attività.</Text></View>;
  return <View style={[{overflow:'hidden',backgroundColor:color.surface},style]}>{expanded?<Modal visible animationType="none" onRequestClose={()=>{setReady(false);setExpanded(false);}}>{surface()}</Modal>:surface()}</View>;

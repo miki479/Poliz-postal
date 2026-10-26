@@ -1,3 +1,6 @@
+import { storyExportData } from '../shared/storyExport.ts';
+import { renderStoryVideo } from './storyVideo.ts';
+let storyExportBusy = false;
 import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
@@ -341,6 +344,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
         weather: weather.enabled,
         ai: ai.enabled,
       },
+      storyExport: { available: existsSync(process.env.STORY_FFMPEG_PATH || '/usr/bin/ffmpeg'), format: 'video/mp4' },
       map: { tileUrl: geo.tileUrl, attribution: geo.tileAttribution },
     });
   }
@@ -478,11 +482,20 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
 
   // ---- da qui servono credenziali valide: l'identità viene SOLO dal cookie di sessione ----
   const publicCall = pathname === '/api/call' && PUBLIC_METHODS.has(String(body.method ?? '') as MethodName);
-  if ((['/api/auth/', '/api/strava/', '/api/geo/', '/api/ai/'].some((p) => pathname.startsWith(p)) || pathname === '/api/call') && !publicCall) {
+  if ((['/api/auth/', '/api/strava/', '/api/geo/', '/api/ai/', '/api/story/'].some((p) => pathname.startsWith(p)) || pathname === '/api/call') && !publicCall) {
     if (!userId) throw new AppError('unauthenticated', 'Sessione scaduta o assente. Accedi di nuovo.');
   }
 
   switch (pathname) {
+    case '/api/story/export': {
+      if (!userId) throw new AppError('unauthenticated','Accedi per esportare il Racconto.');
+      if (limited(`storyexport:${userId}`,3,900_000)) throw new AppError('rate_limited','Hai già esportato diversi Racconti. Riprova tra qualche minuto.');
+      const data = storyExportData({db:store.db,actorId:userId,now:new Date()},String(body.logId??''),{includeRoute:body.includeRoute===true,includePeople:body.includePeople===true,reduceMotion:body.reduceMotion===true,timezone:typeof body.timezone==='string'?body.timezone:'UTC'});
+      if (storyExportBusy) throw new AppError('unavailable','Sto preparando un altro Racconto. Riprova tra poco.');
+      storyExportBusy=true;
+      try { const video = await renderStoryVideo(data); return send(res,200,{filename:'runngo-racconto.mp4',mime:'video/mp4',base64:video.toString('base64')}); }
+      finally { storyExportBusy=false; }
+    }
     case '/api/auth/account': {
       const a = store.accounts[userId!];
       return send(res, 200, { email: a.email, emailVerified: a.emailVerified, hasPassword: !!a.hash, google: !!a.google, apple: !!a.apple, mailEnabled: mailEnabled(mail) });

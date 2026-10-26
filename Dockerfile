@@ -7,6 +7,8 @@ COPY . .
 RUN npm run build
 
 FROM node:22-slim
+# Encoder MP4 sul server: il client resta compatibile con Expo Go.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 WORKDIR /app
 COPY package.json package-lock.json ./

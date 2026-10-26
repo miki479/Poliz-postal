@@ -1,3 +1,5 @@
+import { displayTrack } from '@shared/routeDisplay.ts';
+import { StoryExportSheet } from '@/components/StoryExport';
 import { WorkoutCompanions } from '@/components/WorkoutCompanions';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -361,7 +363,6 @@ export default function LogDettaglio() {
   const { id, fresh } = useLocalSearchParams<{ id: string; fresh?: string }>();
   const insets = useSafeAreaInsets();
   const em = useScrollEmitter();
-  const headerH = insets.top + (Platform.OS === 'ios' ? 44 : 56);
   const state = useLoad(async () => {
     const l = await call<WorkoutLog>('getWorkoutLog', id);
     const s = l.plannedSessionId ? await call<PlannedSession>('getSession', l.plannedSessionId).catch(() => null) : null;
@@ -373,6 +374,7 @@ export default function LogDettaglio() {
   const [refreshing, setRefreshing] = useState(false);
   const [share, setShare] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  const [exportOpen,setExportOpen]=useState(false);
   const [gpsReport, setGpsReport] = useState(false);
   const [gpsDescription, setGpsDescription] = useState('');
   const [reportBusy, setReportBusy] = useState(false);
@@ -428,6 +430,7 @@ export default function LogDettaglio() {
           call('setMapVisibility', l.id, false).then(() => state.reload(), (e) => Alert.alert('Non aggiornato', humanError(e, 'Riprova.')));
         } }] : []),
         { label: 'Condividi', icon: 'share-outline', run: () => setShare(true) },
+        { label: 'Esporta Racconto MP4', icon: 'download-outline', run: () => setExportOpen(true) },
         { label: 'Segnala percorso errato', icon: 'flag-outline', run: () => setGpsReport(true) },
         {
           label: 'Modifica',
@@ -497,7 +500,7 @@ export default function LogDettaglio() {
       <Stack.Screen
         options={{
           title: 'Allenamento',
-          headerTransparent: true,
+          headerTransparent: false,
           headerTintColor: color.storyInk,
           headerTitleStyle: { color: color.storyInk, fontSize: type.headline.fontSize, fontWeight: '600' },
           headerRight: () =>
@@ -509,13 +512,14 @@ export default function LogDettaglio() {
         }}
       />
       {!state.data ? (
-        <View style={{ paddingTop: headerH + S.lg, paddingHorizontal: GUTTER }}>{state.loading ? <Loading /> : <Banner tone="error" text={state.error} action="Riprova" onAction={state.reload} />}</View>
+        <View style={{ paddingTop: S.lg, paddingHorizontal: GUTTER }}>{state.loading ? <Loading /> : <Banner tone="error" text={state.error} action="Riprova" onAction={state.reload} />}</View>
       ) : (
         (() => {
           const { l, s, hint } = state.data;
           const typeStyle = styleOfLog(l);
           const track = l.track && l.track.length > 1 ? l.track : null;
           const laps = track ? countLaps(track) : 1;
+          const routeFiltered = track ? displayTrack(track).filtered : false;
           const marks = track ? buildMarks({ id: l.id, track }, awards) : [];
           const meta = [laps > 1 ? `${laps} giri` : '', l.environment === 'treadmill' ? 'Tapis roulant' : '', l.distanceSource === 'manual' ? 'Distanza dichiarata' : '', l.shared ? 'Visibile ai compagni' : 'Attività privata'].filter(Boolean).join(' · ');
           return (
@@ -527,7 +531,7 @@ export default function LogDettaglio() {
               refreshControl={
                 <RefreshControl
                   tintColor={color.accent}
-                  progressViewOffset={headerH}
+                  progressViewOffset={0}
                   refreshing={refreshing}
                   onRefresh={async () => {
                     setRefreshing(true);
@@ -539,12 +543,11 @@ export default function LogDettaglio() {
               <ScrollProvider value={em.value}>
                 {track ? (
                   <View style={{ height: MAP_H }}>
-                    <RouteReplay track={track} marks={marks} tint={color.accent} chrome insetTop={headerH} onOpenMark={openMark} style={{ flex: 1 }} />
-                    {/* velo per la leggibilità dell'intestazione trasparente */}
-                    <LinearGradient pointerEvents="none" colors={['rgba(5,7,9,0.7)', 'rgba(5,7,9,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: headerH + S.lg }} />
+                    <RouteReplay track={track} marks={marks} tint={color.accent} chrome insetTop={0} onOpenMark={openMark} style={{ flex: 1 }} />
+
                   </View>
                 ) : (
-                  <TypeHero s={typeStyle} top={headerH}>
+                  <TypeHero s={typeStyle} top={0}>
                     <Identity log={l} s={typeStyle} />
                   </TypeHero>
                 )}
@@ -560,6 +563,7 @@ export default function LogDettaglio() {
 
                   <View style={{ gap: S.sm }}>
                     <Text style={t.small}>{meta}</Text>
+                    {routeFiltered?<Text style={t.small}>Alcuni tratti potrebbero essere meno precisi a causa del segnale GPS.</Text>:null}
                     <Companions log={l} />
                     <OwnSocial log={l} />
                   </View>
@@ -591,6 +595,7 @@ export default function LogDettaglio() {
         })()
       )}
 
+      {l ? <StoryExportSheet logId={l.id} strava={l.origin==='strava'} visible={exportOpen} onClose={()=>setExportOpen(false)} /> : null}
       <Sheet visible={gpsReport} onClose={() => setGpsReport(false)} title="Segnala percorso errato">
         <Text style={t.muted}>Indica in quale tratto la traccia non corrisponde al percorso seguito. La segnalazione resta privata e non modifica i dati GPS.</Text>
         <Field label="Cosa non corrisponde" value={gpsDescription} onChangeText={setGpsDescription} multiline />

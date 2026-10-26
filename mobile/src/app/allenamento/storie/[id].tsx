@@ -1,3 +1,4 @@
+import { StoryExportSheet } from '@/components/StoryExport';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useIsFocused, useLocalSearchParams } from 'expo-router';
@@ -706,6 +707,7 @@ function ResultsSlide({ awards, fresh, still, onOpen, dir }: { awards: Award[]; 
 
 /** Racconto della corsa: progressione discreta, avanzamento automatico disattivabile, controlli sempre visibili. */
 export default function Storie() {
+  const [exportOpen,setExportOpen]=useState(false);
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const still = useReduceMotion();
@@ -929,7 +931,9 @@ export default function Storie() {
           <CtrlBtn name="chevron-forward" label={i === slides.length - 1 ? 'Chiudi' : 'Scheda successiva'} onPress={() => go(1)} />
         </View>
       ) : null}
+      <StoryExportSheet logId={log.id} strava={log.origin==='strava'} visible={exportOpen} onClose={()=>setExportOpen(false)} />
       <Sheet visible={menu} onClose={() => setMenu(false)} title="Racconto">
+        <Pressable accessibilityRole="button" onPress={()=>{setPaused(true);setMenu(false);setExportOpen(true);}} style={{minHeight:48,justifyContent:'center'}}><Text style={{color:color.accent}}>Esporta Racconto MP4</Text></Pressable>
         <SwitchRow label="Avanzamento automatico" hint="Le schede scorrono da sole; tocca a destra o a sinistra per andare avanti o indietro." value={auto} onChange={setAuto} />
         {auto ? (
           <Pressable

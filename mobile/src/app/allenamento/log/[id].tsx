@@ -13,7 +13,7 @@ import { ActivityRouteReplay as RouteReplay } from '@/components/ActivityRouteRe
 import { SocialBar } from '@/components/SocialBar';
 import { ActivityGlyph } from '@/components/SportIcon';
 import { TypeHex } from '@/components/TypeBadge';
-import { AvatarStack, Banner, Button, Divider, Field, LinkText, Loading, Panel, Pills, Row, Section, Sheet, Skeleton, SwitchRow, t, useLoad } from '@/components/ui';
+import { Banner, Button, Divider, Field, LinkText, Loading, Panel, Pills, Row, Section, Sheet, Skeleton, SwitchRow, t, useLoad } from '@/components/ui';
 import type { ActivityStyle } from '@/constants/activityColors';
 import { color, GUTTER, HIT, R, S, type } from '@/constants/theme';
 import { briefFor, call, ext, type WorkoutBriefResult } from '@/lib/api';
@@ -26,7 +26,7 @@ import { activityAwards, nextHint, type Award } from '@shared/records.ts';
 import type { SocialCounts } from '@shared/social.ts';
 import { countLaps } from '@shared/track.ts';
 import { buildMarks, type TrackMark } from '@shared/trackMarks.ts';
-import type { PlannedSession, UserPublic, WorkoutLog } from '@shared/types.ts';
+import type { EventView, PlannedSession, UserPublic, WorkoutLog } from '@shared/types.ts';
 import type { GearView } from '@shared/gear.ts';
 import { hasMapConsent } from '@shared/mapConsent.ts';
 
@@ -135,20 +135,27 @@ function Trained({ log, session }: { log: WorkoutLog; session: PlannedSession | 
 
 /** "Con Mario Rossi": chi ha fatto lo stesso tragitto alla stessa ora (calcolato dal server). */
 function Companions({ log }: { log: WorkoutLog }) {
-  const [list, setList] = useState<UserPublic[]>([]);
-  useEffect(() => {
-    if (!log.track?.length) return;
-    call<UserPublic[]>('runCompanions', log.id).then(setList, () => setList([]));
-  }, [log.id, log.track?.length]);
-  if (!list.length) return <View style={{ gap: S.sm }}><Text style={t.title}>Con chi hai corso</Text><Text style={t.body}>{log.eventId ? 'Uscita di gruppo collegata' : log.origin === 'strava' ? 'Attività importata da Strava' : 'Corsa in solitaria'}</Text><Text style={t.small}>{log.eventId ? 'Apri l’uscita per vedere il gruppo, il patto e i partecipanti.' : 'Non hai collegato compagni o un’uscita di gruppo.'}</Text><LinkText title={log.eventId ? 'Apri l’uscita' : 'Invita il gruppo la prossima volta'} onPress={() => log.eventId ? router.push({ pathname: '/evento/[id]', params: { id: log.eventId } }) : router.push('/evento/form')} /></View>;
-  const names = list.map((u) => u.displayName);
-  return (
-    <Row gap={S.sm}>
-      <Text style={t.small}>Con chi hai corso</Text>
-      <AvatarStack people={list} size={24} />
-      <Text style={[t.muted, { flex: 1 }]}>con {names.length <= 2 ? names.join(' e ') : `${names.slice(0, 2).join(', ')} e altre ${names.length - 2} persone`}</Text>
-    </Row>
-  );
+  const [eventId, setEventId] = useState(log.eventId ?? null);
+  const [event, setEvent] = useState<EventView | null>(null);
+  const [open, setOpen] = useState(false);
+  const [choices, setChoices] = useState<EventView[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { let active = true; if (eventId) call<EventView>('getEvent', eventId, null).then((value) => { if (active) setEvent(value); }, () => {}); return () => { active = false; }; }, [eventId]);
+  const choose = async () => { setOpen(true); setBusy(true); setError(''); try { const items = await call<EventView[]>('listEvents', { scope: 'mine', includePast: true }); setChoices(items.filter((e) => e.viewer.isParticipant && e.status === 'active' && Math.abs(Date.parse(e.startsAt) - Date.parse(log.startedAt)) <= 6 * 3_600_000)); } catch (e) { setError(humanError(e, 'Non riesco a caricare le uscite. Riprova.')); } finally { setBusy(false); } };
+  const link = async (id: string | null) => { setBusy(true); setError(''); try { await call('linkWorkoutEvent', log.id, id); setEventId(id); if (!id) setEvent(null); setOpen(false); } catch (e) { setError(humanError(e, 'Collegamento non riuscito. Riprova.')); } finally { setBusy(false); } };
+  return <View style={{ gap: S.sm }}><Text style={t.title}>Con chi hai corso</Text>
+    <Text style={t.body}>{event ? `${event.club ? event.club.name + ' · ' : ''}${event.title}` : eventId ? 'Uscita di gruppo collegata' : log.origin === 'strava' ? 'Attività importata da Strava' : 'Corsa in solitaria'}</Text>
+    <Text style={t.small}>{event ? `${event.participantCount} iscritti · organizza ${event.organizer.displayName}${event.paceSecPerKm ? ` · Passo ${fmtPace(event.paceSecPerKm)}` : ''}` : 'Non hai collegato compagni o un’uscita di gruppo.'}</Text>
+    {event?.pact?.noDrop ? <Text style={t.small}>Patto: nessuno resta indietro.</Text> : null}
+    {eventId ? <LinkText title="Apri gruppo e partecipanti" onPress={() => router.push({ pathname: '/evento/[id]', params: { id: eventId } })} /> : <LinkText title="Collega a un’uscita" onPress={() => void choose()} />}
+    <Sheet visible={open} onClose={() => setOpen(false)} title="Collega all’uscita">
+      <Text style={t.muted}>Solo uscite a cui sei iscritto, entro sei ore dall’attività. Il collegamento non conferma presenze e mantiene la privacy dell’allenamento.</Text>
+      {busy ? <Loading /> : choices.length ? choices.map((e) => <Button key={e.id} variant="soft" title={e.title} onPress={() => void link(e.id)} />) : <Text style={t.muted}>Non risultano uscite compatibili. Puoi organizzare la prossima con i tuoi compagni.</Text>}
+      {error ? <Banner tone="error" text={error} action="Riprova" onAction={() => void choose()} /> : null}
+      <Button small title="Organizza la prossima uscita" onPress={() => { setOpen(false); router.push('/evento/form'); }} />
+    </Sheet>
+  </View>;
 }
 
 /** Scintille e commenti ricevuti sulla propria corsa condivisa. */

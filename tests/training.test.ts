@@ -330,3 +330,31 @@ describe('spunta senza registrazione', () => {
     expect(code(() => run('a', 'markSessionDone', [s.id]))).toBe('validation');
   });
 });
+
+describe('collegamento di un allenamento a un’uscita', () => {
+ const prepare = () => {
+  const { log: l } = run<{ log: WorkoutLog }>('a', 'logWorkout', [logIn()]);
+  db.events.e = { id: 'e', status: 'active', startsAt: l.startedAt } as typeof db.events[string];
+  return l;
+ };
+ it('richiede il proprietario e l’iscrizione senza creare presenze', () => {
+  const l = prepare();
+  expect(code(() => run('b', 'linkWorkoutEvent', [l.id, 'e']))).toBe('not_found');
+  expect(code(() => run('a', 'linkWorkoutEvent', [l.id, 'e']))).toBe('validation');
+  expect(Object.keys(db.participations)).toHaveLength(0);
+ });
+ it('collega e scollega un’uscita compatibile lasciando Strava privata', () => {
+  const l = prepare(); l.origin = 'strava';
+  db.participations.e__a = { eventId: 'e', userId: 'a' } as typeof db.participations[string];
+  const updated = run<WorkoutLog>('a', 'linkWorkoutEvent', [l.id, 'e']);
+  expect(updated.eventId).toBe('e'); expect(updated.shared).toBe(false); expect(updated.origin).toBe('strava');
+  expect(run<WorkoutLog>('a', 'linkWorkoutEvent', [l.id, null]).eventId).toBeNull();
+ });
+ it('rifiuta orari non compatibili e uscite cancellate', () => {
+  const l = prepare(); db.participations.e__a = { eventId: 'e', userId: 'a' } as typeof db.participations[string];
+  db.events.e.startsAt = '2026-10-10T06:30:00Z';
+  expect(code(() => run('a', 'linkWorkoutEvent', [l.id, 'e']))).toBe('validation');
+  db.events.e.startsAt = l.startedAt; db.events.e.status = 'cancelled';
+  expect(code(() => run('a', 'linkWorkoutEvent', [l.id, 'e']))).toBe('validation');
+ });
+});

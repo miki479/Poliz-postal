@@ -411,6 +411,21 @@ export function getWorkoutLog(ctx: Ctx, id: Id): WorkoutLog {
   return own(ctx, ctx.db.workoutLogs[id], 'Allenamento');
 }
 
+/** Collegamento dichiarato dal proprietario: non iscrive né conferma presenze. */
+export function linkWorkoutEvent(ctx: Ctx, id: Id, eventId: Id | null): WorkoutLog {
+  const log = own(ctx, ctx.db.workoutLogs[id], 'Allenamento');
+  if (eventId !== null) {
+    const event = ctx.db.events[eventId];
+    if (!event || event.status !== 'active' || !ctx.db.participations[`${eventId}__${log.userId}`]) throw new AppError('validation', 'Scegli un’uscita a cui sei iscritto.');
+    if (Math.abs(Date.parse(log.startedAt) - Date.parse(event.startsAt)) > 6 * 3_600_000) throw new AppError('validation', 'L’uscita non corrisponde all’orario dell’allenamento.');
+  }
+  log.eventId = eventId;
+  log.brief = null;
+  log.updatedAt = iso(ctx.now);
+  // La provenienza e la privacy rimangono inalterate, anche per Strava.
+  return log;
+}
+
 export function updateWorkoutLog(ctx: Ctx, id: Id, patch: Partial<WorkoutLogInput>): WorkoutLog {
   const l = own(ctx, ctx.db.workoutLogs[id], 'Allenamento');
   const merged = { ...l, ...patch, plannedSessionId: l.plannedSessionId, kind: l.kind, timezone: 'UTC', mode: l.mode } as unknown as Partial<WorkoutLogInput>;
@@ -685,6 +700,7 @@ export const trainingMethods = {
   listWorkoutLogs,
   getWorkoutLog,
   updateWorkoutLog,
+  linkWorkoutEvent,
   deleteWorkoutLog,
   previewPlan,
   createPlanFromWizard,

@@ -6,7 +6,7 @@ import { relativeFromNow } from '../format.ts';
 import { useSession } from '../session.tsx';
 import { EmptyState, ErrorState, ListSkeleton, useAsync } from '../ui.tsx';
 
-const ICON = { event_updated: CalendarClock, event_cancelled: CalendarX, participant_joined: UserPlus, club_member_joined: Users, challenge_joined: Flag, challenge_ended: Trophy, new_follower: UserPlus, new_comment: Bell, club_invite: Users, event_invite: UserPlus } as const;
+const ICON = { workout_companion: Users, event_updated: CalendarClock, event_cancelled: CalendarX, participant_joined: UserPlus, club_member_joined: Users, challenge_joined: Flag, challenge_ended: Trophy, new_follower: UserPlus, new_comment: Bell, club_invite: Users, event_invite: UserPlus } as const;
 
 export function Notifications() {
   const { backend, refreshUnread } = useSession();

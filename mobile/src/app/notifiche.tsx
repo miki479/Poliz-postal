@@ -1,3 +1,5 @@
+import { CompanionRequestCard } from '@/components/WorkoutCompanions';
+import type { CompanionRequestView } from '@shared/workoutCompanions.ts';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -75,14 +77,15 @@ function EventInviteCard({ inv, onDone }: { inv: EventInviteView; onDone: () => 
 }
 
 export default function Notifiche() {
-  const state = useLoad(async () => ({ list: await call<Notification[]>('listNotifications'), invites: await call<InviteView[]>('myClubInvites'), eventInvites: await call<EventInviteView[]>('myEventInvites') }));
+  const state = useLoad(async () => ({ list: await call<Notification[]>('listNotifications'), invites: await call<InviteView[]>('myClubInvites'), eventInvites: await call<EventInviteView[]>('myEventInvites'), companions: await call<CompanionRequestView[]>('myWorkoutCompanionRequests') }));
   useEffect(() => () => void call('markNotificationsRead').catch(() => {}), []);
   return (
     <Screen onRefresh={state.reload}>
       <Stack.Screen options={{ title: 'Notifiche' }} />
       <Async state={state}>
-        {({ list, invites, eventInvites }) => (
+        {({ list, invites, eventInvites, companions }) => (
           <View style={{ gap: S.xl }}>
+            {companions.length ? <Section title="Conferme dei compagni">{companions.map((request)=><CompanionRequestCard key={request.id} request={request} onDone={()=>void state.reload()} />)}</Section> : null}
             {eventInvites.length ? <Section title="Inviti alle uscite">{eventInvites.map((inv) => <EventInviteCard key={inv.id} inv={inv} onDone={() => void state.reload()} />)}</Section> : null}
             {invites.length ? (
               <Section title="Inviti ai club">
@@ -110,7 +113,7 @@ export default function Notifiche() {
                   </Card>
                 ))}
               </View>
-            ) : !invites.length && !eventInvites.length ? (
+            ) : !invites.length && !eventInvites.length && !companions.length ? (
               <Empty title="Nessuna notifica" />
             ) : null}
           </View>

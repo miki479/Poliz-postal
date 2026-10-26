@@ -52,7 +52,6 @@ export function companionsOf(db: Ctx['db'], log: WorkoutLog): UserPublic[] {
 export function runCompanions(ctx: Ctx, logId: Id): UserPublic[] {
   const log = ctx.db.workoutLogs[logId];
   if (!ctx.actorId || !log || log.userId !== ctx.actorId) throw new AppError('not_found', 'Allenamento non trovato.');
-  // Anche chi chiede deve condividere: se il proprio allenamento è privato, non si scoprono gli altri.
-  if (!log.shared) return [];
-  return companionsOf(ctx.db, log);
+  const confirmed = Object.values(ctx.db.workoutCompanions ?? {}).filter((r) => r.logId === logId && r.fromId === ctx.actorId && r.status === 'accepted' && ctx.db.users[r.toId]);
+  return confirmed.map((r) => toPublic(ctx.db,r.toId));
 }

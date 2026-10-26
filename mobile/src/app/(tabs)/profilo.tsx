@@ -1,3 +1,5 @@
+import { Connections } from '@/components/Connections';
+import { RouteTrace, isDrawableTrack } from '@/components/RouteTrace';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -137,8 +139,8 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
             <View key={a.id}>
               {i ? <Divider inset={56} /> : null}
               <Pressable disabled={!log && a.source !== 'file'} onPress={() => log ? router.push({ pathname: '/allenamento/log/[id]', params: { id: log.id } }) : a.source === 'file' && router.push({ pathname: '/allenamento/file/[id]', params: { id: a.id } })} accessibilityRole={log || a.source === 'file' ? 'button' : undefined} accessibilityLabel={`${a.title || st.label}, ${fmtDate(a.date)}${measure ? `, ${measure}` : ''}${got.length ? `, ${got.length} ${got.length === 1 ? 'riconoscimento' : 'riconoscimenti'}` : ''}`} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 60, paddingVertical: S.sm }, pressed && { opacity: 0.6 }]}>
-                <View style={{ width: 42, height: 42, borderRadius: R.control, backgroundColor: st.tint, alignItems: 'center', justifyContent: 'center' }}>
-                  <ActivityGlyph style={st} size={24} color={st.solid} />
+                <View style={{ width: 64, height: 56, overflow:'hidden', borderRadius: R.control, backgroundColor: st.tint, alignItems: 'center', justifyContent: 'center' }}>
+                  {log?.track && !log.track.some((p)=>p.breakBefore) && isDrawableTrack(log.track,64,56,7) ? <RouteTrace track={log.track} width={64} height={56} tint={st.solid} pad={7} duration={0} dotEvery={null} glow={false} /> : <ActivityGlyph style={st} size={28} color={st.solid} />}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={t.title} numberOfLines={1}>
@@ -224,7 +226,7 @@ export default function Profilo() {
         {(d) => (
           <>
             <ProfileHeader p={d.p} onIdentity={() => router.push('/profilo-modifica')} />
-            {d.follows ? <Text style={t.muted}>{d.follows.followers} follower · {d.follows.following} persone seguite</Text> : null}
+            {d.follows ? <Connections followers={d.follows.followers} following={d.follows.following} /> : null}
             <Button variant="soft" title="Modifica profilo" onPress={() => router.push('/profilo-modifica')} />
             <View style={{ gap: S.lg }}>
               <Tabs value={tab} onChange={setTab} />

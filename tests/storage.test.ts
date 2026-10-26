@@ -40,6 +40,7 @@ function sample(): Persisted {
   const p = emptyPersisted();
   p.db.users.usr_a = user('usr_a');
   p.db.users.usr_b = user('usr_b');
+  p.db.workoutCompanions.wco_test = {id:'wco_test',logId:'log_test',fromId:'usr_a',toId:'usr_b',status:'pending',createdAt:'2026-10-26T10:00:00Z',respondedAt:null};
   p.accounts.usr_a = { userId: 'usr_a', email: 'a@example.com', emailVerified: false, salt: 'ab', hash: 'cd', createdAt: '2026-10-23T00:00:00.000Z' };
   p.sessions.abc123 = { userId: 'usr_a', expires: 99 };
   p.ai.usage['usr_a__2026-10-23'] = { userId: 'usr_a', day: '2026-10-23', count: 2 };
@@ -82,7 +83,7 @@ describe('FirestoreStorage', () => {
     const p = sample();
     await s.save(p);
     const first = fs.commits.reduce((x, y) => x + y, 0);
-    expect(first).toBe(7); // 2 utenti + 1 account + 1 sessione + 1 percorso + 1 uso AI + 1 contatore globale
+    expect(first).toBe(8); // 2 utenti + 1 account + 1 sessione + 1 percorso + 1 uso AI + 1 contatore globale
     fs.commits.length = 0;
     await s.save(p); // nessuna modifica → nessuna scrittura
     expect(fs.commits).toEqual([]);

@@ -164,6 +164,7 @@ export interface Activity {
 }
 
 export type NotificationType =
+  | 'workout_companion'
   | 'event_updated'
   | 'event_cancelled'
   | 'participant_joined'
@@ -215,6 +216,7 @@ export interface DbState {
   clubInvites: Record<string, import('./invites.ts').ClubInvite>;
   gear: Record<string, import('./gear.ts').Gear>;
   eventInvites: Record<string, import('./eventInvites.ts').EventInvite>;
+  workoutCompanions: Record<string, import('./workoutCompanions.ts').WorkoutCompanion>;
   sparks: Record<string, import('./social.ts').Spark>;
   comments: Record<Id, import('./social.ts').Comment>;
 }

@@ -126,6 +126,7 @@ export function emptyDb(): DbState {
     clubInvites: {},
     gear: {},
     eventInvites: {},
+    workoutCompanions: {},
     follows: {},
     sparks: {},
     comments: {},

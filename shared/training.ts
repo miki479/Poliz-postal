@@ -463,6 +463,7 @@ export function deleteWorkoutLog(ctx: Ctx, id: Id): { deleted: true } {
     s.status = s.rescheduledFrom ? 'rescheduled' : 'planned';
     s.logId = null;
   }
+  for (const [key, link] of Object.entries(ctx.db.workoutCompanions ?? {})) if (link.logId === l.id) delete ctx.db.workoutCompanions[key];
   delete ctx.db.workoutLogs[l.id];
   return { deleted: true };
 }

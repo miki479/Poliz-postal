@@ -78,6 +78,10 @@ export function followInfo(ctx: Ctx, userId?: Id | null): { followers: number; f
   return { followers: all.filter((f) => f.toId === t).length, following: all.filter((f) => f.fromId === t).length, iFollow: !!ctx.db.follows[fKey(uid, t)], followsMe: !!ctx.db.follows[fKey(t, uid)] };
 }
 
+export function listFollowing(ctx: Ctx): UserPublic[] {
+ const uid = actor(ctx); return Object.values(ctx.db.follows).filter((f)=>f.fromId===uid && ctx.db.users[f.toId]).map((f)=>toPublic(ctx.db,f.toId));
+}
+
 export function listFollowers(ctx: Ctx): UserPublic[] {
   const uid = actor(ctx);
   return Object.values(ctx.db.follows).filter((f) => f.toId === uid && ctx.db.users[f.fromId]).map((f) => toPublic(ctx.db, f.fromId));
@@ -231,5 +235,5 @@ registerPurger((ctx, userId) => {
   for (const [k, c] of Object.entries(ctx.db.comments)) if (c.userId === userId) delete ctx.db.comments[k];
 });
 
-export const socialMethods = { follow, unfollow, removeFollower, followInfo, listFollowers, suggestRunners, toggleSpark, socialFor, sparkersOf, listComments, addComment, deleteComment, getSocialFeed, setTrackVisibility } as const;
-export const SOCIAL_READ_ONLY = ['followInfo', 'listFollowers', 'suggestRunners', 'socialFor', 'sparkersOf', 'listComments', 'getSocialFeed'];
+export const socialMethods = { follow, unfollow, removeFollower, followInfo, listFollowers, listFollowing, suggestRunners, toggleSpark, socialFor, sparkersOf, listComments, addComment, deleteComment, getSocialFeed, setTrackVisibility } as const;
+export const SOCIAL_READ_ONLY = ['followInfo', 'listFollowers', 'listFollowing', 'suggestRunners', 'socialFor', 'sparkersOf', 'listComments', 'getSocialFeed'];

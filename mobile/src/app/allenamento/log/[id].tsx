@@ -1,3 +1,4 @@
+import { WorkoutCompanions } from '@/components/WorkoutCompanions';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -145,10 +146,11 @@ function Companions({ log }: { log: WorkoutLog }) {
   const choose = async () => { setOpen(true); setBusy(true); setError(''); try { const items = await call<EventView[]>('listEvents', { scope: 'mine', includePast: true }); setChoices(items.filter((e) => e.viewer.isParticipant && e.status === 'active' && Math.abs(Date.parse(e.startsAt) - Date.parse(log.startedAt)) <= 6 * 3_600_000)); } catch (e) { setError(humanError(e, 'Non riesco a caricare le uscite. Riprova.')); } finally { setBusy(false); } };
   const link = async (id: string | null) => { setBusy(true); setError(''); try { await call('linkWorkoutEvent', log.id, id); setEventId(id); if (!id) setEvent(null); setOpen(false); } catch (e) { setError(humanError(e, 'Collegamento non riuscito. Riprova.')); } finally { setBusy(false); } };
   return <View style={{ gap: S.sm }}><Text style={t.title}>Con chi hai corso</Text>
-    <Text style={t.body}>{event ? `${event.club ? event.club.name + ' · ' : ''}${event.title}` : eventId ? 'Uscita di gruppo collegata' : log.origin === 'strava' ? 'Attività importata da Strava' : 'Corsa in solitaria'}</Text>
-    <Text style={t.small}>{event ? `${event.participantCount} iscritti · organizza ${event.organizer.displayName}${event.paceSecPerKm ? ` · Passo ${fmtPace(event.paceSecPerKm)}` : ''}` : 'Non hai collegato compagni o un’uscita di gruppo.'}</Text>
+    <Text style={t.body}>{event ? `${event.club ? event.club.name + ' · ' : ''}${event.title}` : eventId ? 'Uscita di gruppo collegata' : log.origin === 'strava' ? 'Attività importata da Strava' : 'Nessuna uscita di gruppo collegata'}</Text>
+    <Text style={t.small}>{event ? `${event.participantCount} iscritti · organizza ${event.organizer.displayName}${event.paceSecPerKm ? ` · Passo ${fmtPace(event.paceSecPerKm)}` : ''}` : 'Puoi collegare un’uscita e chiedere conferma ai compagni qui sotto.'}</Text>
     {event?.pact?.noDrop ? <Text style={t.small}>Patto: nessuno resta indietro.</Text> : null}
     {eventId ? <LinkText title="Apri gruppo e partecipanti" onPress={() => router.push({ pathname: '/evento/[id]', params: { id: eventId } })} /> : <LinkText title="Collega a un’uscita" onPress={() => void choose()} />}
+    <WorkoutCompanions logId={log.id} />
     <Sheet visible={open} onClose={() => setOpen(false)} title="Collega all’uscita">
       <Text style={t.muted}>Solo uscite a cui sei iscritto, entro sei ore dall’attività. Il collegamento non conferma presenze e mantiene la privacy dell’allenamento.</Text>
       {busy ? <Loading /> : choices.length ? choices.map((e) => <Button key={e.id} variant="soft" title={e.title} onPress={() => void link(e.id)} />) : <Text style={t.muted}>Non risultano uscite compatibili. Puoi organizzare la prossima con i tuoi compagni.</Text>}

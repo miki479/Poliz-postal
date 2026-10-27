@@ -1,7 +1,6 @@
-import { themeMode , themedStyles , color, C, GUTTER, HIT, M, R, S, type } from '@/constants/theme';
+import { themedStyles , color, C, GUTTER, HIT, M, R, S, type } from '@/constants/theme';
 
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -430,39 +429,7 @@ export function SwitchRow({ label, hint, value, onChange }: { label: string; hin
   );
 }
 
-/** Selettore data e/o ora con i controlli nativi del sistema. */
-export function DateField({ label, value, onChange, mode = 'datetime' }: { label: string; value: Date; onChange: (d: Date) => void; mode?: 'date' | 'time' | 'datetime' }) {
-  const [show, setShow] = useState(false);
-  const text =
-    mode === 'time'
-      ? value.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
-      : value.toLocaleString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', ...(mode === 'datetime' ? { hour: '2-digit', minute: '2-digit' } : {}) });
-  if (Platform.OS === 'ios')
-    return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: HIT }}>
-        <Text style={st.label}>{label}</Text>
-        <DateTimePicker value={value} mode={mode} display="compact" themeVariant={themeMode()} locale="it-IT" accentColor={color.accent} onChange={(_, d) => d && onChange(d)} />
-      </View>
-    );
-  return (
-    <View style={{ gap: 6 }}>
-      <Text style={st.label}>{label}</Text>
-      <Pressable onPress={() => setShow(true)} accessibilityRole="button" accessibilityLabel={`${label}: ${text}`} style={[st.input, { justifyContent: 'center' }]}>
-        <Text style={[type.body, { color: color.text }]}>{text}</Text>
-      </Pressable>
-      {show ? (
-        <DateTimePicker
-          value={value}
-          mode={mode === 'datetime' ? 'date' : mode}
-          onChange={(e, d) => {
-            setShow(false);
-            if (e.type === 'set' && d) onChange(d);
-          }}
-        />
-      ) : null}
-    </View>
-  );
-}
+export { DateField } from './DateField';
 
 /* ---------- persone ---------- */
 

@@ -36,7 +36,15 @@ export const color = {
   storyInk: '#FFFFFF',
   storyInkSecondary: 'rgba(255,255,255,0.82)',
   storyGlass: 'rgba(255,255,255,0.14)',
+  /** Arancio energia: azione primaria "Registra", selezione attività, glow. Testo sopra: onEnergy. */
+  energy: '#FC5A1F',
+  energyHot: '#FF8A3D',
+  energyTint: 'rgba(252,90,31,0.18)',
+  onEnergy: '#1A0700',
 } as const;
+
+/** Gradienti delle mappe di calore: da freddo (poco frequentato) a caldo (molto frequentato). */
+export const HEAT = ['#5B2BD9', '#B12FD0', '#FF3D7F', '#FC5A1F', '#FFC857'] as const;
 
 /** Alias storici usati dalle schermate esistenti. */
 export const C = {

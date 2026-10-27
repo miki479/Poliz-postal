@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, BackHandler, Easing, Text, View, type ScrollViewInstance } from 'react-native';
+import { Animated, BackHandler, Easing, Pressable, Text, View, type ScrollViewInstance } from 'react-native';
 
 import { ClubHeroCard } from '@/components/cards';
 import { EventFrame } from '@/components/event/EventFrame';
@@ -48,6 +49,43 @@ function suggestTitle(sport: SportId, when: Date): string {
   const part = h < 11 ? 'mattina' : h < 15 ? 'pranzo' : h < 19 ? 'pomeriggio' : 'sera';
   // "Altro del sabato" non suona: per un'attività diversa si parla di uscita.
   return `${sport === 'other' ? 'Uscita' : SPORT_LABEL[sport]} del ${day} ${part}`;
+}
+
+const VIS_OPTIONS: { v: Visibility; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { v: 'public', label: 'Pubblica', icon: 'earth-outline' },
+  { v: 'club', label: 'Gruppo', icon: 'people-outline' },
+  { v: 'private', label: 'Solo link', icon: 'link-outline' },
+];
+const VIS_HINT: Record<Visibility, string> = {
+  public: 'Compare in Esplora: può unirsi chiunque.',
+  club: 'La vedono e la raggiungono solo i membri del gruppo scelto.',
+  private: 'Non compare da nessuna parte: la condividi tu con il link.',
+};
+
+/** Interruttore a tre posizioni: la privacy dell'uscita, separata dalla scelta del gruppo. */
+function VisibilitySwitch({ value, onChange }: { value: Visibility; onChange: (v: Visibility) => void }) {
+  return (
+    <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', padding: 4, gap: 4, borderRadius: R.control + 4, backgroundColor: color.surface, borderWidth: 1, borderColor: color.controlBorder }}>
+      {VIS_OPTIONS.map((o) => {
+        const on = o.v === value;
+        return (
+          <Pressable
+            key={o.v}
+            onPress={() => onChange(o.v)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={o.label}
+            style={{ flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: R.control, backgroundColor: on ? color.accent : 'transparent' }}
+          >
+            <Ionicons name={o.icon} size={17} color={on ? color.onAccent : color.textSecondary} />
+            <Text style={[type.subhead, { fontWeight: '700', color: on ? color.onAccent : color.textSecondary }]} numberOfLines={1}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }
 
 const kmLabel = (km: number) => `${String(Math.round(km * 100) / 100).replace('.', ',')} km`;
@@ -415,43 +453,34 @@ export default function EventoForm() {
               </View>
 
               <View style={{ gap: S.md }} onLayout={(e) => (whoY.current = e.nativeEvent.layout.y)}>
-                <SectionTitle title="Per chi è?" />
-                <ChoiceRow
-                  title="Uscita pubblica"
-                  hint="Non è legata a nessun club: compare in Esplora e può unirsi chiunque"
-                  icon="earth-outline"
-                  on={visibility === 'public'}
-                  onPress={() => {
-                    setVisibility('public');
-                    setClubId(null);
+                <SectionTitle title="Visibilità" />
+                <VisibilitySwitch
+                  value={visibility}
+                  onChange={(v) => {
+                    setVisibility(v);
+                    if (v !== 'club') setClubId(null);
+                    else if (!clubId && clubs.length === 1) setClubId(clubs[0].id);
                     setErr({});
                   }}
                 />
-                {clubs.length ? <GroupLabel text="Oppure per un tuo club" /> : null}
-                {clubs.map((c) => (
-                  <ClubHeroCard
-                    key={c.id}
-                    c={c}
-                    selected={visibility === 'club' && clubId === c.id}
-                    onSelect={() => {
-                      setVisibility('club');
-                      setClubId(c.id);
-                      setErr({});
-                    }}
-                  />
-                ))}
-                {!clubs.length ? <Text style={[type.footnote, { color: color.textSecondary }]}>Non fai ancora parte di un club: entra o creane uno per organizzare uscite di gruppo riservate.</Text> : null}
-                <ChoiceRow
-                  title="Solo chi ha il link"
-                  hint="Non compare da nessuna parte: la condividi tu"
-                  icon="link-outline"
-                  on={visibility === 'private'}
-                  onPress={() => {
-                    setVisibility('private');
-                    setClubId(null);
-                    setErr({});
-                  }}
-                />
+                <Text style={[type.footnote, { color: color.textSecondary }]}>{VIS_HINT[visibility]}</Text>
+                <Reveal open={visibility === 'club'}>
+                  <View style={{ gap: S.sm, paddingTop: S.xs }}>
+                    <GroupLabel text="Quale gruppo?" />
+                    {clubs.map((c) => (
+                      <ClubHeroCard
+                        key={c.id}
+                        c={c}
+                        selected={clubId === c.id}
+                        onSelect={() => {
+                          setClubId(c.id);
+                          setErr({});
+                        }}
+                      />
+                    ))}
+                    {!clubs.length ? <Text style={[type.footnote, { color: color.textSecondary }]}>Non fai ancora parte di un gruppo: entra o creane uno per organizzare uscite riservate.</Text> : null}
+                  </View>
+                </Reveal>
                 {err.who ? <Banner tone="error" text={err.who} /> : null}
               </View>
             </>
@@ -459,12 +488,22 @@ export default function EventoForm() {
 
           {i === 1 ? (
             <>
-              <View>
-                <SectionTitle title="Cosa vuoi fare?" />
-                <View style={{ marginTop: S.md }}>
-                  <TypeTiles value={sport} onChange={pickSport} />
+              {/* Il tipo si sceglie una volta sola, al passo 1: qui solo un promemoria con scorciatoia per cambiarlo. */}
+              <Pressable
+                onPress={() => go(0)}
+                accessibilityRole="button"
+                accessibilityLabel={`Attività: ${SPORT_LABEL[sport]}. Tocca per cambiarla`}
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: S.md, padding: S.md, borderRadius: R.card, backgroundColor: color.surface, borderWidth: 1, borderColor: sportStyle.solid, opacity: pressed ? 0.8 : 1 })}
+              >
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: sportStyle.solid, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="walk" size={22} color={color.storyInk} />
                 </View>
-              </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[type.caption, { color: color.textSecondary }]}>Attività scelta</Text>
+                  <Text style={[type.headline, { color: color.text }]}>{SPORT_LABEL[sport]}</Text>
+                </View>
+                <Text style={[type.subhead, { color: color.accent, fontWeight: '700' }]}>Cambia</Text>
+              </Pressable>
               <DistanceDial sport={dialSport} value={km} onChange={setKm} />
               <View>
                 {/* Il ritmo si chiude scorrendo passando ad "Altro" (che non ha ritmo): il livello sale senza saltare. */}

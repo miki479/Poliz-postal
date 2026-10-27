@@ -1,35 +1,19 @@
-import { NativeTabs } from 'expo-router/native-tabs';
+import { Tabs } from 'expo-router';
 
-import { color } from '@/constants/theme';
+import { RecordTabBar } from '@/components/RecordTabBar';
 
 /**
- * Un'unica barra di navigazione, quella di sistema: rispetta safe area e Dynamic Type, resta leggibile
- * (su iOS recente il materiale è gestito dal sistema) e non si nasconde durante lo scroll.
- * Selezione: icona piena + etichetta in turchese, quindi mai affidata al solo colore.
+ * Barra personalizzata: quattro schede e, al centro, il tasto "Registra" sporgente con gradiente arancio.
+ * "Social" resta raggiungibile come rotta ma il suo feed vive ora nella Home.
  */
 export default function TabsLayout() {
   return (
-    <NativeTabs tintColor={color.accent} labelStyle={{ default: { color: color.textSecondary }, selected: { color: color.accent } }}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="esplora">
-        <NativeTabs.Trigger.Label>Esplora</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} md="explore" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="club">
-        <NativeTabs.Trigger.Label>Club</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'person.3', selected: 'person.3.fill' }} md="groups" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="social">
-        <NativeTabs.Trigger.Label>Social</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }} md="forum" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="profilo">
-        <NativeTabs.Trigger.Label>Profilo</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} md="account_circle" />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <RecordTabBar {...props} />}>
+      <Tabs.Screen name="index" options={{ title: 'Home' }} />
+      <Tabs.Screen name="esplora" options={{ title: 'Esplora' }} />
+      <Tabs.Screen name="club" options={{ title: 'Gruppi' }} />
+      <Tabs.Screen name="profilo" options={{ title: 'Profilo' }} />
+      <Tabs.Screen name="social" options={{ href: null }} />
+    </Tabs>
   );
 }

@@ -444,37 +444,96 @@ export function SwitchRow({ label, hint, value, onChange }: { label: string; hin
 
 /** Selettore data e/o ora con i controlli nativi del sistema. */
 export function DateField({ label, value, onChange, mode = 'datetime' }: { label: string; value: Date; onChange: (d: Date) => void; mode?: 'date' | 'time' | 'datetime' }) {
-  const [show, setShow] = useState(false);
-  const text =
-    mode === 'time'
-      ? value.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
-      : value.toLocaleString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', ...(mode === 'datetime' ? { hour: '2-digit', minute: '2-digit' } : {}) });
-  if (Platform.OS === 'ios')
-    return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: HIT }}>
-        <Text style={st.label}>{label}</Text>
-        <DateTimePicker value={value} mode={mode} display="compact" themeVariant="dark" locale="it-IT" accentColor={color.accent} onChange={(_, d) => d && onChange(d)} />
-      </View>
-    );
+  const [open, setOpen] = useState<'date' | 'time' | null>(null);
+  const [draft, setDraft] = useState(value);
+  const insets = useSafeAreaInsets();
+  const dateText = cap1(value.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' }));
+  const timeText = value.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  const parts: Array<'date' | 'time'> = mode === 'datetime' ? ['date', 'time'] : [mode];
+
+  function openPart(p: 'date' | 'time') {
+    setDraft(value);
+    setOpen(p);
+  }
+
+  /** Unisce la parte scelta (giorno oppure ora) al valore corrente senza toccare l'altra. */
+  function merge(p: 'date' | 'time', d: Date): Date {
+    const next = new Date(value);
+    if (p === 'date') next.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+    else next.setHours(d.getHours(), d.getMinutes(), 0, 0);
+    return next;
+  }
+
   return (
     <View style={{ gap: 6 }}>
       <Text style={st.label}>{label}</Text>
-      <Pressable onPress={() => setShow(true)} accessibilityRole="button" accessibilityLabel={`${label}: ${text}`} style={[st.input, { justifyContent: 'center' }]}>
-        <Text style={[type.body, { color: color.text }]}>{text}</Text>
-      </Pressable>
-      {show ? (
+      <View style={{ flexDirection: 'row', gap: S.sm }}>
+        {parts.map((p) => (
+          <Pressable
+            key={p}
+            onPress={() => openPart(p)}
+            accessibilityRole="button"
+            accessibilityLabel={`${p === 'date' ? 'Data' : 'Ora'}: ${p === 'date' ? dateText : timeText}`}
+            style={({ pressed }) => [st.input, st.datePill, p === 'date' ? { flex: 1.6 } : { flex: 1 }, pressed && { backgroundColor: color.surfacePressed }]}
+          >
+            <Ionicons name={p === 'date' ? 'calendar-outline' : 'time-outline'} size={18} color={color.accent} />
+            <Text style={[type.body, { color: color.text, fontWeight: '600', flexShrink: 1 }]} numberOfLines={1}>
+              {p === 'date' ? dateText : timeText}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {open && Platform.OS === 'android' ? (
         <DateTimePicker
           value={value}
-          mode={mode === 'datetime' ? 'date' : mode}
+          mode={open}
+          is24Hour
           onChange={(e, d) => {
-            setShow(false);
-            if (e.type === 'set' && d) onChange(d);
+            const part = open;
+            setOpen(null);
+            if (e.type === 'set' && d) onChange(merge(part, d));
           }}
         />
+      ) : null}
+      {Platform.OS !== 'android' ? (
+        <Modal visible={!!open} transparent animationType="slide" onRequestClose={() => setOpen(null)}>
+          <Pressable style={{ flex: 1, backgroundColor: color.overlay }} onPress={() => setOpen(null)} accessibilityLabel="Chiudi" />
+          <View style={[st.dateSheet, { paddingBottom: Math.max(insets.bottom, S.lg) + S.sm }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={[type.headline, { color: color.text }]}>{open === 'time' ? 'Scegli l’ora' : 'Scegli il giorno'}</Text>
+              <Pressable
+                onPress={() => {
+                  if (open) onChange(merge(open, draft));
+                  setOpen(null);
+                }}
+                accessibilityRole="button"
+                hitSlop={8}
+                style={{ minHeight: HIT, justifyContent: 'center', paddingHorizontal: S.sm }}
+              >
+                <Text style={[type.headline, { color: color.accent }]}>Fatto</Text>
+              </Pressable>
+            </View>
+            {open ? (
+              <DateTimePicker
+                value={draft}
+                mode={open}
+                display={open === 'date' ? 'inline' : 'spinner'}
+                themeVariant="dark"
+                locale="it-IT"
+                accentColor={color.accent}
+                minuteInterval={5}
+                onChange={(_, d) => d && setDraft(d)}
+                style={{ alignSelf: 'stretch' }}
+              />
+            ) : null}
+          </View>
+        </Modal>
       ) : null}
     </View>
   );
 }
+
+const cap1 = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /* ---------- persone ---------- */
 
@@ -624,6 +683,8 @@ export const st = StyleSheet.create({
   row: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: S.md },
   label: { ...type.footnote, color: C.text, fontWeight: '600' },
   input: { minHeight: 48, borderRadius: R.control, backgroundColor: color.surface, borderWidth: 1, borderColor: color.controlBorder, color: color.text, paddingHorizontal: S.lg, ...type.body },
+  datePill: { flexDirection: 'row', alignItems: 'center', gap: S.sm, paddingHorizontal: S.md },
+  dateSheet: { backgroundColor: color.surfaceElevated, borderTopLeftRadius: R.sheet, borderTopRightRadius: R.sheet, padding: S.lg, gap: S.sm },
   card: { backgroundColor: color.surface, borderRadius: R.card, padding: S.lg, gap: S.sm },
   pill: { minHeight: 38, paddingHorizontal: 14, borderRadius: R.pill, borderWidth: 1, borderColor: color.controlBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   pillOn: { backgroundColor: color.accentTint, borderColor: color.accent },

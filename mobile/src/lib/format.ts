@@ -14,13 +14,24 @@ export const fmtDateTimeShort = (iso: string) => new Intl.DateTimeFormat(LOCALE,
 export const dayNumber = (iso: string, tz: string) => new Intl.DateTimeFormat(LOCALE, { timeZone: tz, day: 'numeric' }).format(new Date(iso));
 export const monthShort = (iso: string, tz: string) => new Intl.DateTimeFormat(LOCALE, { timeZone: tz, month: 'short' }).format(new Date(iso)).replace('.', '');
 
+type RelUnit = 'minute' | 'hour' | 'day';
+const REL_WORDS: Record<RelUnit, [string, string]> = { minute: ['minuto', 'minuti'], hour: ['ora', 'ore'], day: ['giorno', 'giorni'] };
+
+/** Hermes non espone Intl.RelativeTimeFormat: formattazione relativa in puro TS. */
 export function relativeFromNow(iso: string, now = new Date()): string {
-  const diff = (new Date(iso).getTime() - now.getTime()) / 60000;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return '';
+  const diff = (t - now.getTime()) / 60000;
   const abs = Math.abs(diff);
-  const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
-  if (abs < 60) return rtf.format(Math.round(diff), 'minute');
-  if (abs < 60 * 24) return rtf.format(Math.round(diff / 60), 'hour');
-  return rtf.format(Math.round(diff / 1440), 'day');
+  const [value, unit]: [number, RelUnit] = abs < 60 ? [Math.round(diff), 'minute'] : abs < 1440 ? [Math.round(diff / 60), 'hour'] : [Math.round(diff / 1440), 'day'];
+  if (value === 0) return unit === 'day' ? 'oggi' : 'adesso';
+  if (unit === 'day' && value === 1) return 'domani';
+  if (unit === 'day' && value === -1) return 'ieri';
+  if (unit === 'day' && value === 2) return 'dopodomani';
+  if (unit === 'day' && value === -2) return "l'altro ieri";
+  const n = Math.abs(value);
+  const word = REL_WORDS[unit][n === 1 ? 0 : 1];
+  return value > 0 ? `tra ${n} ${word}` : `${n} ${word} fa`;
 }
 
 export const fmtKm = (km: number) => `${new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 }).format(km)} km`;

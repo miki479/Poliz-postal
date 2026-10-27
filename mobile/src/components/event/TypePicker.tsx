@@ -1,3 +1,4 @@
+import { themedStyles , color, R, S, type } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIsFocused } from 'expo-router';
@@ -10,7 +11,7 @@ import { alpha, shade } from '@/components/event/colors';
 import { ActivityGlyph, AnimatedActivityFigure } from '@/components/SportIcon';
 import { useReduceMotion } from '@/components/ui';
 import { EVENT_SPORTS, eventSportStyle } from '@/constants/eventStyle';
-import { color, R, S, type } from '@/constants/theme';
+
 import { SPORT_LABEL } from '@/lib/format';
 import type { SportId } from '@shared/types.ts';
 
@@ -156,7 +157,7 @@ export function TypeTiles({ value, onChange }: { value: SportId; onChange: (s: S
   );
 }
 
-const s = StyleSheet.create({
+const s = themedStyles({
   // L'altezza cresce con il testo; le tessere di ogni riga restano alte uguali.
   card: { flexGrow: 1, minHeight: 124, borderRadius: R.card, borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: S.sm, paddingHorizontal: S.sm, paddingTop: S.lg, paddingBottom: S.lg },
   cardLabel: { textAlign: 'center', fontWeight: '700' },

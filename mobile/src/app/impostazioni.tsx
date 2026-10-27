@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSyncExternalStore, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
-import { Async, Banner, Button, Divider, Field, Row, Screen, Section, Sheet, Skeleton, t, useLoad, type IconName } from '@/components/ui';
-import { color, S } from '@/constants/theme';
+import { Async, Banner, Pills, Button, Divider, Field, Row, Screen, Section, Sheet, Skeleton, t, useLoad, type IconName } from '@/components/ui';
+import { themeMode, subscribeTheme, setThemeMode, color, S } from '@/constants/theme';
 import { auth, call, ext, type AccountInfo, type StravaStatus } from '@/lib/api';
 import { fmtDateTimeShort } from '@/lib/format';
 import { useSession } from '@/lib/session';
@@ -25,6 +26,7 @@ function NavRow({ icon, title, subtitle, onPress, tone }: { icon: IconName; titl
 
 /** Gestione privata: account, integrazioni, privacy. Niente di tutto questo compare nel profilo pubblico. */
 export default function Impostazioni() {
+  const mode=useSyncExternalStore(subscribeTheme,themeMode,themeMode);
   const { logout, refresh } = useSession();
   const account = useLoad(() => auth.account());
   const strava = useLoad(() => ext.strava.status().catch(() => null as StravaStatus | null));
@@ -76,6 +78,7 @@ export default function Impostazioni() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Impostazioni' }} />
+      <Section title="Aspetto"><Pills value={mode} options={[{value:'dark',label:'Scuro'},{value:'light',label:'Chiaro'}]} onChange={value=>{setThemeMode(value);void AsyncStorage.setItem('runngo-appearance',value);}}/></Section>
       <Async state={account} skeleton={<Skeleton height={120} />}>
         {(a) => (
           <>

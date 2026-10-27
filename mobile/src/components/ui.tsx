@@ -1,3 +1,5 @@
+import { themeMode , themedStyles , color, C, GUTTER, HIT, M, R, S, type } from '@/constants/theme';
+
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,7 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AmbientGlow } from '@/components/Ambient';
 import { ScrollProvider, useCountUp, useScrollEmitter } from '@/components/Motion';
 import { AvatarCircle } from '@/components/AvatarCircle';
-import { color, C, GUTTER, HIT, M, R, S, type } from '@/constants/theme';
+
 import type { UserPublic } from '@shared/types.ts';
 
 import { humanError } from '@/lib/errors';
@@ -88,7 +90,7 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 
 /* ---------- struttura ---------- */
 
-export function Screen({ children, onRefresh, scroll = true, pad = true, bottomPad, style, footer, glow, header }: { children: ReactNode; onRefresh?: () => Promise<void> | void; scroll?: boolean; pad?: boolean; bottomPad?: number; style?: StyleProp<ViewStyle>; footer?: ReactNode; glow?: 'default' | 'brand' | 'accent'; header?: ReactNode }) {
+export function Screen({ children, onRefresh, scroll = true, pad = true, bottomPad, style, footer, glow, header, floatingFooter = false }: { children: ReactNode; onRefresh?: () => Promise<void> | void; scroll?: boolean; pad?: boolean; bottomPad?: number; style?: StyleProp<ViewStyle>; footer?: ReactNode; glow?: 'default' | 'brand' | 'accent'; header?: ReactNode; floatingFooter?:boolean }) {
   const insets = useSafeAreaInsets();
   const em = useScrollEmitter();
   const [refreshing, setRefreshing] = useState(false);
@@ -125,15 +127,15 @@ export function Screen({ children, onRefresh, scroll = true, pad = true, bottomP
       {glow ? <AmbientGlow variant={glow} /> : null}
       {header}
       <ScrollProvider value={em.value}>{body}</ScrollProvider>
-      {footer ? <FooterBar>{footer}</FooterBar> : null}
+      {footer ? <FooterBar floating={floatingFooter}>{footer}</FooterBar> : null}
     </View>
   );
 }
 
 /** Barra inferiore con l'azione principale; il contenuto sopra ha già il padding per non esserne coperto. */
-export function FooterBar({ children }: { children: ReactNode }) {
+export function FooterBar({ children, floating=false }: { children: ReactNode; floating?:boolean }) {
   const insets = useSafeAreaInsets();
-  return <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: GUTTER, paddingTop: S.md, paddingBottom: insets.bottom + S.md, backgroundColor: color.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.separator, gap: S.sm }}>{children}</View>;
+  return <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: GUTTER, paddingTop: S.md, paddingBottom: insets.bottom + S.md, backgroundColor: floating?'transparent':color.bg, borderTopWidth: floating?0:StyleSheet.hairlineWidth, borderTopColor: color.separator, gap: S.sm }}>{children}</View>;
 }
 
 /** Schermata di una tab: titolo grande, sottotitolo facoltativo, poche azioni a icona. */
@@ -178,7 +180,7 @@ export function Section({ title, action, onAction, children, gap = S.md }: { tit
  * `tone`: 'brand' e 'accent' danno una tinta di categoria (viola o turchese) per i pochi momenti distintivi.
  */
 export function Panel({ children, style, tone = 'default' }: { children: ReactNode; style?: StyleProp<ViewStyle>; tone?: 'default' | 'brand' | 'accent' }) {
-  const colors: [string, string] = tone === 'brand' ? ['#2A2352', color.surface] : tone === 'accent' ? ['#143A40', color.surface] : ['#212A33', color.surface];
+  const colors: [string, string] = tone === 'brand' ? [color.brandTint, color.surface] : [color.surfaceElevated, color.surface];
   return (
     <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[{ borderRadius: R.card, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }, style]}>
       {children}
@@ -211,7 +213,7 @@ export function Divider({ inset = 0 }: { inset?: number }) {
 
 /* ---------- testo ---------- */
 
-export const t = StyleSheet.create({
+export const t = themedStyles({
   h1: { ...type.display, color: color.text },
   h2: { ...type.title2, color: color.text },
   title1: { ...type.title1, color: color.text },
@@ -376,7 +378,7 @@ export function Chip({ label, tone = 'default', iconName }: { label: string; ton
 }
 
 /** Scelta singola o multipla a "pillole" (solo dentro filtri e moduli). */
-export function Pills<V extends string | number>({ options, value, onChange, multi, scroll }: { options: Array<{ value: V; label: string }>; value: V | V[] | null; onChange: (v: any) => void; multi?: boolean; scroll?: boolean }) {
+export function Pills<V extends string | number>({ options, value, onChange, multi, scroll }: { options: { value: V; label: string }[]; value: V | V[] | null; onChange: (v: any) => void; multi?: boolean; scroll?: boolean }) {
   const isOn = (v: V) => (Array.isArray(value) ? value.includes(v) : value === v);
   const toggle = (v: V) => {
     if (!multi) return onChange(v);
@@ -401,7 +403,7 @@ export function Pills<V extends string | number>({ options, value, onChange, mul
   return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: S.sm }}>{body}</View>;
 }
 
-export function Segmented<V extends string>({ options, value, onChange }: { options: Array<{ value: V; label: string }>; value: V; onChange: (v: V) => void }) {
+export function Segmented<V extends string>({ options, value, onChange }: { options: { value: V; label: string }[]; value: V; onChange: (v: V) => void }) {
   return (
     <View style={{ flexDirection: 'row', backgroundColor: color.surface, borderRadius: R.control, padding: 3 }} accessibilityRole="tablist">
       {options.map((o) => {
@@ -439,7 +441,7 @@ export function DateField({ label, value, onChange, mode = 'datetime' }: { label
     return (
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: HIT }}>
         <Text style={st.label}>{label}</Text>
-        <DateTimePicker value={value} mode={mode} display="compact" themeVariant="dark" locale="it-IT" accentColor={color.accent} onChange={(_, d) => d && onChange(d)} />
+        <DateTimePicker value={value} mode={mode} display="compact" themeVariant={themeMode()} locale="it-IT" accentColor={color.accent} onChange={(_, d) => d && onChange(d)} />
       </View>
     );
   return (
@@ -607,7 +609,7 @@ export function Sheet({ visible, onClose, title, children, footer, avoidKeyboard
   );
 }
 
-export const st = StyleSheet.create({
+export const st = themedStyles({
   primary: { minHeight: 52, borderRadius: R.pill, paddingHorizontal: S.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.sm },
   row: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: S.md },
   label: { ...type.footnote, color: C.text, fontWeight: '600' },

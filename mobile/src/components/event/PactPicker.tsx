@@ -1,3 +1,4 @@
+import { themedStyles , color, R, S, type } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,7 +7,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withS
 import { alpha } from '@/components/event/colors';
 import { useReduceMotion } from '@/components/ui';
 import { PACT_ICONS, PACT_MODES, PACT_TINT, pactBlocker, type PactMode } from '@/constants/eventStyle';
-import { color, R, S, type } from '@/constants/theme';
+
 
 const BOX = 64;
 
@@ -103,7 +104,7 @@ export function PactTiles({ on, onToggle }: { on: Record<PactMode, boolean>; onT
   );
 }
 
-const s = StyleSheet.create({
+const s = themedStyles({
   tile: { flex: 1, alignItems: 'center', gap: S.xs + 2, paddingVertical: S.xxs },
   box: { width: BOX, height: BOX, borderRadius: R.card, borderWidth: 1.5, backgroundColor: color.surface, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 3, right: 3 },

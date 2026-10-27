@@ -1,19 +1,20 @@
-import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { AccessibilityInfo } from 'react-native';
-import { useEffect, useState } from 'react';
+import { AccessibilityInfo, Appearance } from 'react-native';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { initializeReduceMotion } from '@/lib/reduceMotion';
 
-void initializeReduceMotion(AccessibilityInfo);
-
 import { Loading } from '@/components/ui';
-import { color, type } from '@/constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { themeMode, subscribeTheme, setThemeMode, color, type } from '@/constants/theme';
 import { SessionProvider, useSession } from '@/lib/session';
 import { useAutoStravaSync } from '@/lib/stravaSync';
 
+void initializeReduceMotion(AccessibilityInfo);
+
 export const unstable_settings = { initialRouteName: '(auth)/benvenuto' };
 
-const theme = { ...DarkTheme, colors: { ...DarkTheme.colors, background: color.bg, card: color.bg, border: color.separator, primary: color.accent, text: color.text } };
+
 
 function Routes() {
   const { me } = useSession();
@@ -84,16 +85,22 @@ function Routes() {
 }
 
 export default function RootLayout() {
+  const mode=useSyncExternalStore(subscribeTheme,themeMode,themeMode);
+  useEffect(()=>{if(typeof Appearance.setColorScheme==='function')Appearance.setColorScheme(mode);},[mode]);
+  const [appearanceReady,setAppearanceReady]=useState(false);
+  useEffect(()=>{void AsyncStorage.getItem('runngo-appearance').then(value=>{if(value==='light'||value==='dark')setThemeMode(value);}).catch(()=>{}).finally(()=>setAppearanceReady(true));},[]);
+  const base=mode==='light'?DefaultTheme:DarkTheme;
+  const theme={...base,colors:{...base.colors,background:color.bg,card:color.bg,border:color.separator,primary:color.accent,text:color.text}};
   const [motionReady, setMotionReady] = useState(false);
   useEffect(() => {
     let active = true;
     void initializeReduceMotion(AccessibilityInfo).then(() => { if (active) setMotionReady(true); });
     return () => { active = false; };
   }, []);
-  if (!motionReady) return null;
+  if (!motionReady || !appearanceReady) return null;
   return (
     <ThemeProvider value={theme}>
-      <StatusBar style="light" />
+      <StatusBar style={mode==='light'?'dark':'light'} />
       <SessionProvider>
         <Routes />
       </SessionProvider>

@@ -1,3 +1,4 @@
+import { themedStyles , color, R, S, type } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Fragment } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -7,7 +8,7 @@ import { ActivityGlyph } from '@/components/SportIcon';
 import type { IconName } from '@/components/ui';
 import type { ActivityStyle } from '@/constants/activityColors';
 import { eventSportStyle, FEATURE_ICONS, PACT_ICONS, VISIBILITY_ICONS, type PactMode } from '@/constants/eventStyle';
-import { color, R, S, type } from '@/constants/theme';
+
 import { fmtKm, SPORT_LABEL } from '@/lib/format';
 import type { SportId, Visibility } from '@shared/types.ts';
 
@@ -98,7 +99,7 @@ export function EventPreview({
   );
 }
 
-const s = StyleSheet.create({
+const s = themedStyles({
   title: { color: color.storyInk, fontSize: 24, lineHeight: 30, fontWeight: '800' },
   signs: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', rowGap: S.xs, marginTop: S.xs },
   sep: { width: StyleSheet.hairlineWidth * 2, height: 15, backgroundColor: SEP_INK, marginHorizontal: S.md },

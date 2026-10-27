@@ -119,7 +119,6 @@ export default function ProfiloModifica() {
       <View>
         <Entry icon="person-outline" title="Chi sei" hint={`${displayName || 'Nome'} · @${username || 'username'}`} p="who" />
         <Divider inset={34} />
-        <Entry icon="color-palette-outline" title="Stile" hint={`${PROFILE_ACCENTS[style.accent]?.label ?? 'Turchese'}${style.featuredBadges.length ? ` · ${style.featuredBadges.length} traguardi in evidenza` : ''}`} p="style" />
         <Divider inset={34} />
         <Entry icon="eye-outline" title="Cosa mostri agli altri" hint="Statistiche, club, uscite e feed" p="privacy" />
       </View>

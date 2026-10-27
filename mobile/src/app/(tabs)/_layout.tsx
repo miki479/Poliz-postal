@@ -5,7 +5,8 @@ import { Fragment } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { color, R, S, type } from '@/constants/theme';
+import { LiquidBar } from '@/components/LiquidBar';
+import { color, S, type } from '@/constants/theme';
 
 const ITEMS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; selected: keyof typeof Ionicons.glyphMap }> = {
   index: { label: 'Home', icon: 'home-outline', selected: 'home' },
@@ -22,14 +23,14 @@ function RecordButton() {
 
 function NavigationBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  return <View style={{ paddingTop: S.sm, paddingBottom: Math.max(insets.bottom, S.sm), paddingHorizontal: S.sm, backgroundColor: color.bg, borderTopWidth: 1, borderTopColor: color.separator }}>
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', minHeight: 64, borderRadius: R.card, backgroundColor: color.surface }}>
+  return <View style={{ position:'absolute',left:0,right:0,bottom:0,paddingBottom:Math.max(insets.bottom,8),paddingHorizontal:16 }}>
+    <LiquidBar>
       {state.routes.map((route, index) => {
         const item = ITEMS[route.name]; if (!item) return null;
         const selected = state.index === index;
         return <Fragment key={route.key}>
           {index === 2 ? <RecordButton /> : null}
-          <Pressable accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={item.label} style={({ pressed }) => [{ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: S.xs, gap: S.xs }, pressed && { opacity: 0.65 }]} onPress={() => {
+          <Pressable accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={item.label} style={({ pressed }) => [{ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: S.xs, gap: S.xs, borderRadius:32, backgroundColor:selected?color.accentTint:'transparent' }, pressed && { opacity: 0.65 }]} onPress={() => {
             const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
             if (!selected && !event.defaultPrevented) navigateToTab(route.key);
           }} onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}>
@@ -38,7 +39,7 @@ function NavigationBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
           </Pressable>
         </Fragment>;
       })}
-    </View>
+    </LiquidBar>
   </View>;
 }
 

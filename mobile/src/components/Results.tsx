@@ -1,3 +1,4 @@
+import { themedStyles , color, M, R, S, type } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -8,7 +9,7 @@ import Svg, { Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 import { BadgeHex, hexLabelText } from '@/components/BadgeHex';
 import { useReduceMotion } from '@/components/ui';
 import { awardSentence, awardSubtitle, awardTitle, kindOf, kmMark, toneOfAward, type AwardTone } from '@/constants/achievements';
-import { color, M, R, S, type } from '@/constants/theme';
+
 import { fmtDate } from '@/lib/format';
 import { markSeen, seenSet } from '@/lib/seen';
 import type { Award } from '@shared/records.ts';
@@ -525,6 +526,6 @@ export function AwardRow({ a, onPress, date, card }: { a: Award; onPress: () => 
   );
 }
 
-const st = StyleSheet.create({
+const st = themedStyles({
   liveInput: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, padding: 0, margin: 0, borderWidth: 0, includeFontPadding: false, textAlignVertical: 'center', backgroundColor: 'transparent' },
 });

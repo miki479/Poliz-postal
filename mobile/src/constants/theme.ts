@@ -2,9 +2,9 @@
  * Design system di Runngo: token semantici. Nessun colore, misura o durata arbitraria nei componenti.
  * Contrasti verificati: vedi docs/DESIGN-REFRESH.md.
  */
-import type { TextStyle } from 'react-native';
+import type { TextStyle, ViewStyle, ImageStyle } from 'react-native';
 
-export const color = {
+const dark = {
   bg: '#0E1216',
   surface: '#191F25',
   surfaceElevated: '#222A32',
@@ -16,10 +16,10 @@ export const color = {
   separator: '#2A313A',
   /** Bordo dei campi: ≥3:1 su tutte le superfici. */
   controlBorder: '#7A8693',
-  accent: '#35C6CF',
-  accentPressed: '#2BAFB7',
-  onAccent: '#04181A',
-  accentTint: 'rgba(53,198,207,0.14)',
+  accent: '#F4F7FA',
+  accentPressed: '#DDE2E8',
+  onAccent: '#111318',
+  accentTint: 'rgba(244,247,250,0.12)',
   /** Viola del logo: solo riempimenti e icone grandi; per il testo usare brandText. */
   brand: '#8268F5',
   brandStrong: '#6B4FE0',
@@ -40,19 +40,33 @@ export const color = {
   storyGlass: 'rgba(255,255,255,0.14)',
 } as const;
 
-/** Alias storici usati dalle schermate esistenti. */
-export const C = {
-  ...color,
-  surface2: color.surfaceElevated,
-  border: color.separator,
-  text2: color.textSecondary,
-  text3: color.textTertiary,
-  accentInk: color.onAccent,
-} as const;
+export type ThemeMode='dark'|'light';
+const light:Record<keyof typeof dark,string>={...dark,bg:'#F4F5F7',surface:'#FFFFFF',surfaceElevated:'#E8EBF0',surfacePressed:'#DEE2E8',text:'#171A20',textSecondary:'#505B68',textTertiary:'#647080',separator:'#D7DCE3',controlBorder:'#788493',accent:'#171A20',accentPressed:'#323943',onAccent:'#FFFFFF',accentTint:'rgba(23,26,32,0.07)',brand:'#7053D4',brandText:'#6543C6',brandTint:'rgba(112,83,212,0.10)',success:'#187849',successTint:'rgba(24,120,73,0.12)',warning:'#906000',warningTint:'rgba(144,96,0,0.10)',danger:'#BE343E',dangerTint:'rgba(190,52,62,0.10)'};
+let mode:ThemeMode='dark';
+const listeners=new Set<()=>void>();
+export const themeMode=()=>mode;
+export function setThemeMode(next:ThemeMode){if(next===mode)return;mode=next;listeners.forEach(fn=>fn());}
+export const subscribeTheme=(fn:()=>void)=>{listeners.add(fn);return()=>{listeners.delete(fn);};};
+export const color=new Proxy(dark as Record<keyof typeof dark,string>,{get:(_,key:string)=>(mode==='light'?light:dark)[key as keyof typeof dark]});
+export const C=new Proxy({} as Record<keyof typeof dark|'surface2'|'border'|'text2'|'text3'|'accentInk',string>,{get:(_,key:string)=>color[({surface2:'surfaceElevated',border:'separator',text2:'textSecondary',text3:'textTertiary',accentInk:'onAccent'} as Record<string,keyof typeof dark>)[key]??key as keyof typeof dark]});
+/** Static style declarations retain semantic colours when the appearance changes. */
+export function themedStyles<T extends Record<string,ViewStyle|TextStyle|ImageStyle>>(styles:T & Record<string,ViewStyle|TextStyle|ImageStyle>):T {
+ const origin=mode==='light'?light:dark;
+ const remap=(value:unknown):unknown=>{
+  if(typeof value==='string'){
+   const key=(Object.keys(origin) as (keyof typeof dark)[]).find(k=>origin[k]===value);
+   return key?color[key]:value;
+  }
+  if(Array.isArray(value))return value.map(remap);
+  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,remap(v)]));
+  return value;
+ };
+ return new Proxy(styles,{get:(target,key:string)=>remap(target[key as keyof T])});
+}
 
 /** Accenti personali del profilo: confinati al profilo, mai ai colori semantici. Tutti ≥4.5:1 su surface. */
 export const PROFILE_ACCENTS = {
-  teal: { solid: '#35C6CF', deep: '#0F3E44', label: 'Turchese' },
+  teal: { solid: '#70A7FF', deep: '#1D3157', label: 'Blu' },
   violet: { solid: '#9F8BFF', deep: '#2B2160', label: 'Viola' },
   amber: { solid: '#F2B84B', deep: '#4A3510', label: 'Ambra' },
   rose: { solid: '#F2879E', deep: '#4D1E2A', label: 'Rosa' },

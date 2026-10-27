@@ -1,3 +1,4 @@
+import { themeMode } from '@/constants/theme';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Share, Text, View } from 'react-native';
@@ -56,7 +57,7 @@ export default function PercorsoDettaglio() {
 
             {region ? (
               <View style={{ height: 240, borderRadius: 16, overflow: 'hidden' }}>
-                <MapView style={{ flex: 1 }} initialRegion={region} userInterfaceStyle="dark">
+                <MapView style={{ flex: 1 }} initialRegion={region} userInterfaceStyle={themeMode()}>
                   {r.geometry ? <Polyline coordinates={r.geometry.map((p) => ({ latitude: p.lat, longitude: p.lng }))} strokeColor="#3cc8cd" strokeWidth={4} /> : null}
                   {r.start ? <Marker coordinate={{ latitude: r.start.lat, longitude: r.start.lng }} title="Partenza" /> : null}
                   {r.end && r.end !== r.start ? <Marker coordinate={{ latitude: r.end.lat, longitude: r.end.lng }} title="Arrivo" pinColor="blue" /> : null}

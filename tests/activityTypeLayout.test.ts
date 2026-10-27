@@ -1,3 +1,4 @@
+import { themedStyles, themeMode } from '../mobile/src/constants/theme.ts';
 import { readFileSync } from 'node:fs';
 import { expect, it, vi } from 'vitest';
 import ts from 'typescript';
@@ -10,7 +11,7 @@ function renderChoices(width: number, fontScale: number) {
     'react/jsx-runtime': { jsx: node, jsxs: node },
     'react-native': { View: 'View', StyleSheet: { create: (value: unknown) => value }, useWindowDimensions: () => ({ width, fontScale }) },
     '@/constants/eventStyle': { EVENT_SPORTS: sports },
-    '@/constants/theme': { color: {}, S: { sm: 8, xl: 20 }, R: { card: 16 } },
+    '@/constants/theme': {themedStyles,themeMode, color: {}, S: { sm: 8, xl: 20 }, R: { card: 16 } },
   };
   const exports: Record<string, any> = {};
   const code = ts.transpileModule(readFileSync('mobile/src/components/event/TypePicker.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;

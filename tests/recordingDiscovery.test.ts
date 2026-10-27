@@ -1,3 +1,4 @@
+import { themedStyles, themeMode } from '../mobile/src/constants/theme.ts';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { expect, it, vi } from 'vitest';
@@ -51,7 +52,7 @@ function recordingMap(options: { data?: MapInsights; platform?: 'ios' | 'android
     'expo-linear-gradient': { LinearGradient: 'Gradient' },
     'expo-router': { router: { push: vi.fn() } },
     '@/components/ui': { Button: 'Button', IconButton: 'IconButton', Panel: 'Panel', Pills: 'Pills', Row: 'Row', Sheet: 'Sheet', Skeleton: 'Skeleton', SwitchRow: 'SwitchRow', t: {} },
-    '@/constants/theme': { color: { surface: '#111', overlay: '#222', accent: '#34C4CA', brandText: '#8662EF' }, R: {}, S: { xs: 4, sm: 8, md: 12 }, type: {} },
+    '@/constants/theme': {themedStyles,themeMode, color: { surface: '#111', overlay: '#222', accent: '#34C4CA', brandText: '#8662EF' }, R: {}, S: { xs: 4, sm: 8, md: 12 }, type: {} },
     '@/lib/api': { call: request },
   };
   const exports: Record<string, any> = {};
@@ -135,7 +136,7 @@ it('il foglio con tastiera mantiene il footer fuori dallo scroll e consente i to
     react: { useRef: (current: unknown) => ({ current }), useEffect() {} },
     'react-native': { Modal: 'Modal', View: 'View', Text: 'Text', ScrollView: 'ScrollView', Pressable: 'Pressable', KeyboardAvoidingView: 'KeyboardAvoidingView', Platform: { OS: 'ios' }, Animated: { Value, View: 'AnimatedView' }, StyleSheet: { create: (styles: unknown) => styles } },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ bottom: 34 }) },
-    '@/constants/theme': { color: {}, C: {}, S: { sm: 8, md: 12, lg: 16 }, R: {}, M: {}, type: {} },
+    '@/constants/theme': {themedStyles,themeMode, color: {}, C: {}, S: { sm: 8, md: 12, lg: 16 }, R: {}, M: {}, type: {} },
     '@/lib/useReduceMotion': { useReduceMotion: () => true },
   };
   const exports: Record<string, any> = {};

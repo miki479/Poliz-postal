@@ -1,3 +1,4 @@
+import { themedStyles , color, HIT, M, R, S, type } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useIsFocused } from 'expo-router';
@@ -34,7 +35,7 @@ import { ActivityGlyph, AnimatedActivityFigure, type Glyph } from '@/components/
 import { Banner, Button, Field, IconButton, useReduceMotion, type IconName } from '@/components/ui';
 import { paceFromFields } from '@/lib/paceInput';
 import { styleOfSport } from '@/constants/activityColors';
-import { color, HIT, M, R, S, type } from '@/constants/theme';
+
 import {
   clampLevel,
   DISTANCE_LIMITS,
@@ -762,7 +763,7 @@ const BAR_AREA = 48;
 /** Titolo + due righe di descrizione: altezza fissa, così il cambio di livello non sposta nulla. */
 const LEVEL_TEXT_H = type.title2.lineHeight + 2 * type.footnote.lineHeight;
 /** Etichette sotto la barra (come nel mockup): i tre livelli di riferimento. */
-const BAR_LABELS: Array<{ level: UiLevel; align: 'left' | 'center' | 'right' }> = [
+const BAR_LABELS: { level: UiLevel; align: 'left' | 'center' | 'right' }[] = [
   { level: 0, align: 'left' },
   { level: 2, align: 'center' },
   { level: 4, align: 'right' },
@@ -928,7 +929,7 @@ export function LevelBar({ sport, level, auto, estimate, onChange, onReset }: { 
 
 /* ---------- stili ---------- */
 
-const st = StyleSheet.create({
+const st = themedStyles({
   readout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.xl, marginTop: S.md },
   valueBox: { width: 148, height: 92, borderRadius: R.card + 2, backgroundColor: color.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: S.sm },
   // Numeri "eroe" dei selettori: più grandi dei token tipografici, cifre tabellari per non ballare.

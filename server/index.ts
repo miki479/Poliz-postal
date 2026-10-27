@@ -148,11 +148,12 @@ function limited(key: string, max: number, windowMs: number): boolean {
   b.n += 1;
   return b.n > max;
 }
-setInterval(() => {
+const cleanupTimer: unknown = setInterval(() => {
   const now = Date.now();
   for (const [k, b] of buckets) if (b.reset < now) buckets.delete(k);
   for (const [k, s] of Object.entries(store.sessions)) if (s.expires < now) delete store.sessions[k];
-}, 600_000).unref();
+}, 600_000);
+if (cleanupTimer && typeof cleanupTimer === 'object' && 'unref' in cleanupTimer && typeof cleanupTimer.unref === 'function') cleanupTimer.unref();
 
 function clientIp(req: IncomingMessage): string {
   if (TRUST_PROXY) {

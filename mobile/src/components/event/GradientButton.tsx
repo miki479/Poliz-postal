@@ -1,9 +1,10 @@
+import { themedStyles , color, M, R, S, type } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { useReduceMotion } from '@/components/ui';
-import { color, M, R, S, type } from '@/constants/theme';
+
 
 /**
  * Pulsante principale largo in basso ("Avanti", "Pubblica l’uscita"): sfumatura dall'accento al viola del marchio,
@@ -30,7 +31,7 @@ export function GradientButton({ title, onPress, busy, disabled, accessibilityHi
   );
 }
 
-const st = StyleSheet.create({
+const st = themedStyles({
   wrap: { minHeight: 54, borderRadius: R.control + 2, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.sm, paddingHorizontal: S.xl },
   text: { color: color.onAccent, fontWeight: '700' },
 });

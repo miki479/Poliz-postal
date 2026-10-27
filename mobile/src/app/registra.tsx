@@ -1,3 +1,4 @@
+import { themeMode , color, GUTTER, R, S, type } from '@/constants/theme';
 import { GuidedRunCue } from '@/components/GuidedRunCue';
 import { guidedRunById } from '@shared/beginnerRunning.ts';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +13,7 @@ import MapView, { Polyline } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Banner, Button, Divider, Field, IconButton, LinkText, Pills, Row, Segmented, SwitchRow, Sheet, t, Panel } from '@/components/ui';
-import { color, GUTTER, R, S, type } from '@/constants/theme';
+
 import { call, ext } from '@/lib/api';
 import { deviceTimezone, fmtClock, fmtPace, KIND_LABEL, whenLabel } from '@/lib/format';
 import { activeSec, clearDraft, currentPace, loadDraft, saveDraft, type RecordingDraft } from '@/lib/recording';
@@ -539,7 +540,7 @@ export default function Registra() {
       </Row>
 
       {showMap && foreground && d.environment === 'outdoor' ? (
-        <MapView key={mapEpoch} ref={liveMap} style={{ height: activeGuide ? 130 : 180, marginHorizontal: GUTTER, borderRadius: R.card }} userInterfaceStyle="dark" mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'} showsUserLocation={perm === 'granted'} followsUserLocation={perm === 'granted'} pitchEnabled={false} onUserLocationChange={(e) => {
+        <MapView key={mapEpoch} ref={liveMap} style={{ height: activeGuide ? 130 : 180, marginHorizontal: GUTTER, borderRadius: R.card }} userInterfaceStyle={themeMode()} mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'} showsUserLocation={perm === 'granted'} followsUserLocation={perm === 'granted'} pitchEnabled={false} onUserLocationChange={(e) => {
           const c = e.nativeEvent.coordinate;
           if (c) liveMap.current?.animateToRegion({ latitude: c.latitude, longitude: c.longitude, latitudeDelta: 0.008, longitudeDelta: 0.008 }, 400);
         }}>

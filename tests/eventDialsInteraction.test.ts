@@ -1,3 +1,4 @@
+import { themedStyles, themeMode } from '../mobile/src/constants/theme.ts';
 import { readFileSync } from 'node:fs';
 import { expect, it, vi } from 'vitest';
 import ts from 'typescript';
@@ -28,7 +29,7 @@ function harness() {
     '@/components/SportIcon': { ActivityGlyph: 'Glyph', AnimatedActivityFigure: 'MovingFigure' },
     '@/components/ui': { Banner: 'Banner', Button: 'Button', Field: 'Field', IconButton: 'IconButton', useReduceMotion: () => false },
     '@/constants/activityColors': { styleOfSport: () => ({ solid: '#35C6CF', glyph: 'run' }) },
-    '@/constants/theme': { color: {}, HIT: 44, M: {}, R: {}, S: {}, type: { title2: textType, footnote: textType, subhead: textType } },
+    '@/constants/theme': {themedStyles,themeMode, color: {}, HIT: 44, M: {}, R: {}, S: {}, type: { title2: textType, footnote: textType, subhead: textType } },
     '@/lib/paceInput': { paceFromFields }, '@shared/eventLevel.ts': levels,
   };
   const exports: Record<string, any> = {};

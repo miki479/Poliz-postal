@@ -1,10 +1,11 @@
+import { themedStyles , color, S, type } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 
 import { useReduceMotion } from '@/components/ui';
-import { color, S, type } from '@/constants/theme';
+
 
 const DOT = 28;
 const HALO = 38;
@@ -95,7 +96,7 @@ export function Stepper({ labels, index, onPress }: { labels: readonly string[];
   );
 }
 
-const st = StyleSheet.create({
+const st = themedStyles({
   item: { flex: 1, alignItems: 'center', gap: S.xxs, minHeight: 56 },
   dotBox: { width: HALO, height: HALO, alignItems: 'center', justifyContent: 'center' },
   halo: { position: 'absolute', width: HALO, height: HALO, borderRadius: HALO / 2, backgroundColor: color.accentTint },

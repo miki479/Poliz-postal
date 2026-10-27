@@ -1,3 +1,4 @@
+import { themedStyles , color, HIT, S, type } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
@@ -5,7 +6,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, w
 
 import { alpha } from '@/components/event/colors';
 import { useReduceMotion, type IconName } from '@/components/ui';
-import { color, HIT, S, type } from '@/constants/theme';
+
 
 /**
  * Pillola di scelta della creazione uscita (distanze rapide 5 · 8 · 10…, posti): selezionata si riempie del colore
@@ -68,7 +69,7 @@ export function OptionChip({
   );
 }
 
-const st = StyleSheet.create({
+const st = themedStyles({
   chip: { minHeight: HIT, minWidth: HIT, paddingHorizontal: S.md, borderRadius: HIT / 2, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: S.xs },
   text: { fontWeight: '700', fontVariant: ['tabular-nums'] },
 });

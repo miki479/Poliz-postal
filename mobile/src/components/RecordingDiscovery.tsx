@@ -1,3 +1,4 @@
+import { themeMode , color, R, S, type } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -6,7 +7,7 @@ import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import MapView, { Circle, Polyline, type MapType } from 'react-native-maps';
 
 import { Button, IconButton, Panel, Pills, Row, Sheet, Skeleton, SwitchRow, t, useLoad } from '@/components/ui';
-import { color, R, S, type } from '@/constants/theme';
+
 import { call } from '@/lib/api';
 import { RouteTrace } from '@/components/RouteTrace';
 import { fmtDuration, fmtKm, KIND_LABEL } from '@/lib/format';
@@ -16,8 +17,8 @@ import type { GearView } from '@shared/gear.ts';
 
 type Base = 'night' | 'standard' | 'satellite' | 'hybrid';
 type Heat = 'off' | 'global' | 'week';
-const BASES: Array<{ value: Base; label: string }> = [{ value: 'night', label: 'Notturna' }, { value: 'standard', label: 'Standard' }, { value: 'satellite', label: 'Satellite' }, { value: 'hybrid', label: 'Ibrida' }];
-const HEAT: Array<{ value: Heat; label: string }> = [{ value: 'off', label: 'Spenta' }, { value: 'global', label: 'Globale' }, { value: 'week', label: 'Ultimi 7 giorni' }];
+const BASES: { value: Base; label: string }[] = [{ value: 'night', label: 'Notturna' }, { value: 'standard', label: 'Standard' }, { value: 'satellite', label: 'Satellite' }, { value: 'hybrid', label: 'Ibrida' }];
+const HEAT: { value: Heat; label: string }[] = [{ value: 'off', label: 'Spenta' }, { value: 'global', label: 'Globale' }, { value: 'week', label: 'Ultimi 7 giorni' }];
 
 /** Mappe native di Expo Go: gli strati di densità usano cerchi, disponibili anche con Apple Maps. */
 export function RecordingMap({ track = [], height = 250, fill = false, initialHeat = 'off', showLocation = false, center, suggested = [], onDestination }: { track?: TrackPoint[]; height?: number; fill?: boolean; initialHeat?: Heat; showLocation?: boolean; center?: LatLng | null; suggested?: LatLng[]; onDestination?: (point: LatLng) => void }) {
@@ -50,13 +51,13 @@ export function RecordingMap({ track = [], height = 250, fill = false, initialHe
   useEffect(() => { fit(); }, [fit]);
   return <View style={{ gap: S.sm, ...(fill ? { flex: 1, minHeight: 0 } : {}) }}>
     <View style={{ ...(fill ? { flex: 1, minHeight: 0 } : { height }), borderRadius: R.card, overflow: 'hidden', backgroundColor: color.surface }}>
-      <MapView ref={map} onLongPress={onDestination ? (e) => onDestination({ lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude }) : undefined} onMapReady={() => { ready.current = true; fit(); }} style={{ flex: 1 }} mapType={mapType} userInterfaceStyle="dark" showsUserLocation={showLocation} followsUserLocation={showLocation} pitchEnabled={false} initialRegion={first ? { latitude: first.lat, longitude: first.lng, latitudeDelta: 0.04, longitudeDelta: 0.04 } : undefined}>
+      <MapView ref={map} onLongPress={onDestination ? (e) => onDestination({ lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude }) : undefined} onMapReady={() => { ready.current = true; fit(); }} style={{ flex: 1 }} mapType={mapType} userInterfaceStyle={themeMode()} showsUserLocation={showLocation} followsUserLocation={showLocation} pitchEnabled={false} initialRegion={first ? { latitude: first.lat, longitude: first.lng, latitudeDelta: 0.04, longitudeDelta: 0.04 } : undefined}>
         {heat !== 'off' ? data?.heat.map((cell) => {
           const center = { latitude: cell.lat, longitude: cell.lng };
           return <Fragment key={`${cell.lat}:${cell.lng}`}>
             <Circle center={center} radius={230} strokeWidth={0} fillColor="rgba(130,104,245,0.10)" />
             <Circle center={center} radius={170} strokeWidth={0} fillColor="rgba(130,104,245,0.18)" />
-            <Circle center={center} radius={110} strokeWidth={0} fillColor={cell.weight > 5 ? 'rgba(255,161,87,0.35)' : 'rgba(53,198,207,0.30)'} />
+            <Circle center={center} radius={110} strokeWidth={0} fillColor={cell.weight > 5 ? 'rgba(255,161,87,0.35)' : 'rgba(112,167,255,0.30)'} />
           </Fragment>;
         }) : null}
         {popular ? data?.routes.filter((r) => r.favoriteCount > 0).map((r) => <Polyline key={r.id} coordinates={r.geometry.map((p) => ({ latitude: p.lat, longitude: p.lng }))} strokeColor={color.brandText} strokeWidth={4} />) : null}

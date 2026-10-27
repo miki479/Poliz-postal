@@ -8,17 +8,19 @@ await new Promise(r=>server.listen(8903,'127.0.0.1',r));
 const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
 try{
 const page=await browser.newPage({viewport:{width:375,height:812},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
-const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.message);});
 const today=new Date().toLocaleDateString('en-CA');
 const monday=new Date(today+'T12:00:00Z');monday.setUTCDate(monday.getUTCDate()-(monday.getUTCDay()+6)%7);
 const date=(offset)=>new Date(+monday+offset*86400000).toISOString().slice(0,10);
 const user={id:'local-only',displayName:'Verifica locale',username:'verifica',profileCompleted:true,sports:['running'],privacy:{},hue:1};
 const plan={id:'local-plan',name:'Piano per runner principianti',startDate:date(-7),weeks:10,archived:false};
-const sessions=Array.from({length:10},(_,w)=>[0,2,4].map((d,i)=>({id:`s-${w}-${i}`,planId:plan.id,date:date((w-1)*7+d),title:i===0?'Camminata e corsa':i===1?'Sessione di forza':'Allungamento e stabilità',kind:i===0?'run_walk':i===1?'strength':'mobility',durationMin:25+w*2,status:'planned'}))).flat();
+const sessions=Array.from({length:10},(_,w)=>[0,2,4].map((d,i)=>({id:`s-${w}-${i}`,planId:plan.id,date:date((w-1)*7+d),title:i===0?'Camminata e corsa':i===1?'Sessione di forza':'Allungamento e stabilità',kind:i===0?'run_walk':i===1?'strength':'mobility',durationMin:25+w*2,status:'planned',segments:[],exercises:[],description:'',notes:''}))).flat();
 await page.route('**/api/**',async route=>{let body={};try{body=route.request().postDataJSON()??{}}catch{}let result=[];
 if(body.method==='me')result=user;
 if(body.method==='getPlanState')result={mode:'active'};
 if(body.method==='planAdvice')result={tone:'info',basis:[],options:[],message:null};
+if(body.method==='getSession')result=sessions.find(s=>s.id===body.args[0]);
+if(body.method==='skipSession'){result=sessions.find(s=>s.id===body.args[0]);result.status=body.args[1]?'skipped':'planned';result.skipReason=body.args[1]?body.args[2]:null;}
 if(body.method==='listPlans')result=[plan];if(body.method==='listSessions')result=sessions;
 await route.fulfill({status:200,headers:{'access-control-allow-origin':'http://127.0.0.1:8903','access-control-allow-credentials':'true'},contentType:'application/json',body:JSON.stringify(route.request().url().endsWith('/api/call')?{result}:{connected:false})});});
 mkdirSync('test-results',{recursive:true});
@@ -40,6 +42,23 @@ if(await page.getByRole('button',{name:/Settimana \d+: .* minuti previsti/}).cou
 await page.locator('[dir=auto]').evaluateAll(nodes=>nodes.forEach(n=>{n.style.fontSize=parseFloat(getComputedStyle(n).fontSize)*1.35+'px'}));
 await page.screenshot({path:'test-results/plan-large-text-375.png'});
 if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Overflow orizzontale');
+await page.goto('http://127.0.0.1:8903/impostazioni',{waitUntil:'networkidle'});
+await page.getByRole('radio',{name:'Chiaro',exact:true}).click();
+await page.goto('http://127.0.0.1:8903/allenamento',{waitUntil:'networkidle'});
+await page.getByRole('button',{name:'Scegli settimana e piano'}).waitFor();
+await page.getByRole('button',{name:/Lun .*allenamenti/}).click();
+await page.screenshot({path:'test-results/plan-light-today-375.png'});
+await page.getByRole('button',{name:'Salta Camminata e corsa',exact:true}).click();
+await page.getByText('Perché salti l’allenamento?',{exact:true}).waitFor();
+await page.getByRole('button',{name:'Non ho tempo',exact:true}).click();
+await page.getByText(/Non ho tempo/).waitFor();
+if(sessions.find(s=>s.id==='s-1-0').skipReason!=='time')throw Error('Motivo non salvato');
+await page.getByRole('tab',{name:'Piano',exact:true}).click();
+await page.screenshot({path:'test-results/plan-light-overview-375.png'});
+await page.goto('http://127.0.0.1:8903/allenamento/sessione/s-1-1',{waitUntil:'networkidle'});
+await page.getByRole('button',{name:'Salta l’allenamento',exact:true}).waitFor();
+await page.screenshot({path:'test-results/workout-light-detail-375.png'});
+if(await page.getByText('Check-in',{exact:true}).count())throw Error('Check-in ancora visibile');
 if(errors.length)throw Error(errors.join('\n'));
 console.log('Piano: testata fissa, navigazione, 10 settimane, testo 135%, 375 px; nessun errore JavaScript.');
 }finally{await browser.close();await new Promise(r=>server.close(r));}

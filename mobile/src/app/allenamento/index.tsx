@@ -1,7 +1,6 @@
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, View } from 'react-native';
-import { CheckInSheet } from '@/components/CheckIn';
 import { PlanDashboard } from '@/components/PlanDashboard';
 import { PlanChangeSheet, UndoBanner, type ChangeRequest } from '@/components/PlanChange';
 import { Banner, Screen, Skeleton, useLoad } from '@/components/ui';
@@ -41,20 +40,17 @@ async function loadPlan(): Promise<PlanData> {
 
 export default function Piano() {
   const state = useLoad(loadPlan);
-  const [checkin, setCheckin] = useState(false);
   const [req, setReq] = useState<ChangeRequest | null>(null);
   const [applied, setApplied] = useState<PlanChange | null>(null);
   const today = todayIso();
   const d = state.data;
   function menu() {
-    const options = ['Sono in vacanza', 'Metti in pausa il piano', 'Crea un nuovo piano', 'Obiettivi e progressi', 'Chiudi'];
+    const options = [d?.state.mode === 'active' ? 'Metti in pausa il piano' : 'Riprendi il piano', 'Crea un nuovo piano', 'Chiudi'];
     const pick = (i: number) => {
-      if (i === 0) setCheckin(true);
-      if (i === 1) setReq({ action: 'pause', params: { from: today, until: null } });
-      if (i === 2) router.push('/allenamento/piano');
-      if (i === 3) router.push('/statistiche');
+      if (i === 0) setReq(d?.state.mode === 'active' ? { action: 'pause', params: { from: today, until: null } } : { action: 'resume', params: {date:today} });
+      if (i === 1) router.push('/allenamento/piano');
     };
-    if (Platform.OS === 'ios') ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: 4 }, pick);
+    if (Platform.OS === 'ios') ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: 2 }, pick);
     else
       Alert.alert(
         'Piano',
@@ -71,8 +67,6 @@ export default function Piano() {
           data={d}
           onRefresh={state.reload}
           onManage={menu}
-          onCheckIn={() => setCheckin(true)}
-          onChange={setReq}
           notice={
             applied ? (
               <UndoBanner
@@ -91,15 +85,6 @@ export default function Piano() {
           {state.loading ? <Skeleton height={180} /> : <Banner tone="error" text={state.error} action="Riprova" onAction={state.reload} />}
         </Screen>
       )}
-      <CheckInSheet
-        visible={checkin}
-        onClose={() => setCheckin(false)}
-        onSaved={() => {
-          setCheckin(false);
-          void state.reload();
-        }}
-        onChange={setReq}
-      />
       <PlanChangeSheet
         req={req}
         onClose={() => setReq(null)}

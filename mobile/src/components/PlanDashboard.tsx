@@ -4,6 +4,9 @@ import { useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
+import { SkipWorkoutSheet } from '@/components/SkipWorkout';
+import { SKIP_REASONS } from '@shared/skipReasons.ts';
+import { LiquidBar } from '@/components/LiquidBar';
 import { PlanCalendar } from '@/components/PlanCalendar';
 import { Avatar, Banner, Button, Divider, IconButton, Panel, Row, Screen, Sheet, t } from '@/components/ui';
 import { styleOfKind } from '@/constants/activityColors';
@@ -16,7 +19,6 @@ import { useSession } from '@/lib/session';
 import { planPresentation } from '@shared/planPresentation.ts';
 import type { PlanAdvice } from '@shared/adaptive.ts';
 import type { PlannedSession, PlanState, TrainingPlan, WorkoutLog } from '@shared/types.ts';
-import type { ChangeRequest } from '@/components/PlanChange';
 type Tab = 'today' | 'plan' | 'calendar' | 'progress' | 'support';
 const TABS: { id: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { id: 'today', label: 'Oggi', icon: 'sunny-outline' },
@@ -60,12 +62,14 @@ function Tile({
   onChanged,
   today,
   paused,
+  onSkip,
 }: {
   session: PlannedSession;
   sync: PlanDashboardData['sync'];
   onChanged(): void;
   today: string;
   paused: boolean;
+  onSkip(s:PlannedSession):void;
 }) {
   const st = styleOfKind(session.kind, session.title),
     outcome = sessionOutcome(session, today, sync);
@@ -83,16 +87,16 @@ function Tile({
     }
   };
   return (
-    <View style={{ borderRadius: 22, backgroundColor: st.tint, overflow: 'hidden', borderWidth: 1, borderColor: color.separator }}>
+    <View style={{ borderRadius: 22, backgroundColor: color.surface, overflow: 'hidden', borderWidth: 1, borderColor: color.separator }}>
       <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 12, backgroundColor: st.solid }} />
-      <View style={{ padding: S.xxl, paddingLeft: S.xxxl, gap: S.md }}>
+      <View style={{ padding: S.xxl, paddingLeft: S.xxxl, gap: S.lg }}>
         <Row style={{ alignItems: 'flex-start' }}>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push({ pathname: '/allenamento/sessione/[id]', params: { id: session.id } })}
             style={{ flex: 1, gap: S.xs }}
           >
-            <Text style={[type.title2, { color: color.text, fontWeight: '800' }]}>{session.title || KIND_LABEL[session.kind]}</Text>
+            <Text style={[type.title2, { color: color.text, fontWeight: '800', fontSize:22,lineHeight:29 }]}>{session.title || KIND_LABEL[session.kind]}</Text>
             <Text style={t.muted}>
               {fmtDate(session.date + 'T12:00:00Z')} · {fmtDuration(session.durationMin)}
             </Text>
@@ -119,11 +123,11 @@ function Tile({
             {session.status === 'completed' ? <Ionicons name="checkmark" size={24} color={color.success} /> : null}
           </Pressable>
         </Row>
-        <Text style={t.body}>{st.label}</Text>
+        <Row><Text style={[t.body,{flex:1}]}>{st.label}</Text>{session.status === 'planned' || session.status === 'rescheduled' ? <Pressable accessibilityRole="button" accessibilityLabel={`Salta ${session.title}`} onPress={()=>onSkip(session)} style={{padding:8}}><Text style={t.small}>Salta</Text></Pressable>:null}</Row>
         {session.status !== 'planned' || paused ? (
           <Text style={t.small}>
             {outcome.label}
-            {session.manualDone ? ' · dichiarata manualmente' : ''}
+            {session.skipReason ? ` · ${SKIP_REASONS[session.skipReason]}` : ''}
           </Text>
         ) : null}
       </View>
@@ -134,20 +138,17 @@ export function PlanDashboard({
   data,
   onRefresh,
   onManage,
-  onCheckIn,
-  onChange,
-  notice,
+    notice,
 }: {
   data: PlanDashboardData;
   onRefresh(): Promise<void> | void;
   onManage(): void;
-  onCheckIn(): void;
-  onChange(req: ChangeRequest): void;
   notice?: ReactNode;
 }) {
   const { me } = useSession();
   const insets = useSafeAreaInsets();
   const today = todayIso();
+  const [skip,setSkip]=useState<PlannedSession|null>(null);
   const [tab, setTab] = useState<Tab>('today'),
     [weekOpen, setWeekOpen] = useState(false),
     [selectedPlan, setSelectedPlan] = useState<string | null>(null),
@@ -177,7 +178,6 @@ export function PlanDashboard({
       {tab === 'today' || tab === 'calendar' ? (
         <Button
           title="Registra l’allenamento"
-          variant="brand"
           iconName="play"
           onPress={() =>
             pending
@@ -189,7 +189,7 @@ export function PlanDashboard({
           }
         />
       ) : null}
-      <Row gap={0}>
+      <LiquidBar>
         {TABS.map((item) => (
           <Pressable
             key={item.id}
@@ -197,7 +197,7 @@ export function PlanDashboard({
             accessibilityState={{ selected: tab === item.id }}
             accessibilityLabel={item.label}
             onPress={() => setTab(item.id)}
-            style={{ flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: S.xs }}
+            style={{ flex:1,minHeight:58,borderRadius:32,backgroundColor:tab===item.id?color.accentTint:'transparent',alignItems:'center',justifyContent:'center',gap:4 }}
           >
             <Ionicons name={item.icon} size={24} color={tab === item.id ? color.text : color.textSecondary} />
             <Text
@@ -210,7 +210,7 @@ export function PlanDashboard({
             </Text>
           </Pressable>
         ))}
-      </Row>
+      </LiquidBar>
     </View>
   );
   const header = (<View style={{ paddingTop: insets.top + S.sm, paddingHorizontal: S.lg, gap: S.lg, paddingBottom: S.md, backgroundColor: color.bg }}>      <Row>
@@ -291,17 +291,9 @@ export function PlanDashboard({
       ) : null}
 </View>);
   return (
-    <Screen onRefresh={onRefresh} bottomPad={148} footer={footer} header={header} style={{ gap: S.xxl }}>
+    <Screen onRefresh={onRefresh} bottomPad={148} footer={footer} floatingFooter header={header} style={{ gap: S.xxl }}>
       {notice}
       {data.state.mode !== 'active' ? <Banner text={data.advice.message ?? 'Il piano è in pausa.'} action="Gestisci" onAction={onManage} /> : null}
-      {data.advice.tone === 'urgent' ? (
-        <Banner
-          tone="warn"
-          text={data.advice.message ?? 'Controlla come ti senti prima di iniziare.'}
-          action="Come mi sento"
-          onAction={onCheckIn}
-        />
-      ) : null}
       {tab === 'today' ? (
         <>
           {daily.length ? (
@@ -313,6 +305,7 @@ export function PlanDashboard({
                 onChanged={() => void onRefresh()}
                 today={today}
                 paused={data.state.mode !== 'active'}
+                onSkip={setSkip}
               />
             ))
           ) : (
@@ -357,7 +350,7 @@ export function PlanDashboard({
             <Button variant="soft" title="Riorganizza gli allenamenti" onPress={() => setTab('calendar')} />
           </Panel>
           <Text style={t.h2}>I miei approfondimenti</Text>
-          <Panel style={{ padding: S.xl, gap: S.lg, maxWidth: 360 }}>
+          <Panel style={{ padding: S.xl, gap: S.lg, maxWidth: 245 }}>
             <Text style={t.small}>SETTIMANA {index + 1}</Text>
             <Text style={[type.display, { color: color.text, fontWeight: '800' }]}>
               {week.completed}/{week.total}
@@ -390,7 +383,7 @@ export function PlanDashboard({
                 </View>
               );
             })}
-            <Text style={t.small}>Allenamenti completati, compresi quelli dichiarati manualmente.</Text>
+
           </Panel>
         </>
       ) : null}
@@ -448,7 +441,7 @@ export function PlanDashboard({
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 6, alignItems: 'flex-end', minHeight: 170, ...(summary.weeks.length<=12?{flex:1}:{}) }}
+                  contentContainerStyle={{ gap: 6, alignItems: 'flex-end', minHeight: 210, ...(summary.weeks.length<=12?{flex:1}:{}) }}
                 >
                   {summary.weeks.map((w) => (
                     <Pressable
@@ -463,7 +456,7 @@ export function PlanDashboard({
                     >
                       <View
                         style={{
-                          height: Math.max(4, (130 * w.plannedMin) / max),
+                          height: Math.max(4, (170 * w.plannedMin) / max),
                           width: '85%',
                           maxWidth:26,
                           borderRadius: 6,
@@ -498,9 +491,7 @@ export function PlanDashboard({
                     </Text>
                   </View>
                 </Row>
-                <Text style={t.small}>
-                  Le barre mostrano minuti previsti. Il completamento usa gli allenamenti segnati come fatti, non una stima del tempo GPS.
-                </Text>
+
               </>
             ) : (
               <Text style={t.muted}>La panoramica comparirà quando avrai un piano con allenamenti reali.</Text>
@@ -513,9 +504,7 @@ export function PlanDashboard({
           <Text style={t.h2}>Settimana {index + 1}</Text>
           <PlanCalendar key={week.start} weekStart={week.start} sessions={week.sessions} />
           <Button variant="soft" title="Sposta o modifica un allenamento" onPress={() => setWeekOpen(true)} />
-          <Text style={t.small}>
-            Apri un allenamento del giorno per cambiarne data e dettagli.
-          </Text>
+
           {week.sessions.map((s) => (
             <Button
               key={s.id}
@@ -528,29 +517,15 @@ export function PlanDashboard({
       ) : null}
       {tab === 'support' ? (
         <>
-          <Text style={t.h2}>Un piano adatto alla tua giornata</Text>
-          <Text style={t.muted}>{data.advice.message ?? 'Puoi modificare gli allenamenti in base al tempo disponibile e a come ti senti.'}</Text>
-          <Button title="Come mi sento oggi" onPress={onCheckIn} />
-          {data.advice.options.map((o, i) => (
-            <Button
-              key={i}
-              variant="soft"
-              title={o.label}
-              onPress={() => onChange({ action: o.action, params: o.params, basis: data.advice.basis })}
-            />
-          ))}
           <Panel style={{ padding: S.xl, gap: S.md }}>
             <Text style={t.title}>Inizia a correre con una guida</Text>
             <Text style={t.muted}>Programma pubblico NHS: 9 settimane, tre uscite a settimana, corsa e camminata guidate da timer.</Text>
             <Button variant="soft" title="Apri gli allenamenti guidati" onPress={() => router.push('/allenamento/iniziare')} />
           </Panel>
-          {data.advice.basis.map((b) => (
-            <Text key={b} style={t.small}>
-              {b}
-            </Text>
-          ))}
+
         </>
       ) : null}
+      <SkipWorkoutSheet session={skip} onClose={()=>setSkip(null)} onSaved={()=>void onRefresh()}/>
       <Sheet visible={weekOpen} onClose={() => setWeekOpen(false)} title="Piani e settimane">
         {plans.map((p) => (
           <Button

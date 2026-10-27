@@ -1,12 +1,18 @@
+import { LinkWorkoutSheet } from '@/components/LinkWorkout';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
 import { Async, Banner, Button, Card, Chip, Field, Muted, Pills, Row, Screen, Section, SwitchRow, t, useLoad } from '@/components/ui';
 import { call } from '@/lib/api';
-import { deviceTimezone, fmtClock, fmtDuration, fmtPace, KIND_LABEL } from '@/lib/format';
+import { deviceTimezone, fmtDate, fmtClock, fmtDuration, fmtPace, KIND_LABEL } from '@/lib/format';
 import type { PlannedSession } from '@shared/types.ts';
 
+import { SkipWorkoutSheet } from '@/components/SkipWorkout';
+import { SKIP_REASONS } from '@shared/skipReasons.ts';
+import { color } from '@/constants/theme';
+import { styleOfKind } from '@/constants/activityColors';
+import { LinearGradient } from 'expo-linear-gradient';
 import { humanError } from '@/lib/errors';
 const SEG: Record<string, string> = { warmup: 'Riscaldamento', run: 'Corsa', walk: 'Camminata', work: 'Lavoro', recovery: 'Recupero', cooldown: 'Defaticamento' };
 
@@ -65,8 +71,8 @@ function Complete({ s, onDone }: { s: PlannedSession; onDone: () => void }) {
 
   return (
     <Card>
-      <Text style={t.title}>Completa la sessione</Text>
-      <Text style={{ color: '#f5f7f8', fontSize: 32, fontWeight: '700', textAlign: 'center', fontVariant: ['tabular-nums'] }}>{fmtClock(sec)}</Text>
+      <Text style={t.title}>Registra il risultato</Text>
+      <Text style={{ color: color.text, fontSize: 32, fontWeight: '700', textAlign: 'center', fontVariant: ['tabular-nums'] }}>{fmtClock(sec)}</Text>
       <Button variant="soft" title={running ? 'Ferma' : sec ? 'Riprendi' : 'Avvia cronometro'} onPress={toggle} />
       <Row>
         <View style={{ flex: 1 }}>
@@ -87,6 +93,8 @@ function Complete({ s, onDone }: { s: PlannedSession; onDone: () => void }) {
 
 export default function Sessione() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [link,setLink]=useState(false);
+  const [skip,setSkip]=useState<PlannedSession|null>(null);
   const [showComplete, setShowComplete] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const state = useLoad(() => call<PlannedSession>('getSession', id), [id]);
@@ -102,26 +110,26 @@ export default function Sessione() {
   }
 
   return (
-    <Screen onRefresh={state.reload}>
+    <Screen onRefresh={state.reload} footer={state.data&&(state.data.status==='planned'||state.data.status==='rescheduled')?<Button title="Registra l’allenamento" onPress={()=>router.push({pathname:'/registra',params:{session:state.data!.id}})}/>:undefined}>
       <Async state={state}>
         {(s) => (
           <>
-            <Stack.Screen options={{ title: s.title || KIND_LABEL[s.kind] }} />
-            <View style={{ gap: 6 }}>
-              <Text style={[t.h1, { fontSize: 22 }]}>{s.title || KIND_LABEL[s.kind]}</Text>
+            <Stack.Screen options={{ title: 'Allenamento' }} />
+            <LinearGradient colors={[styleOfKind(s.kind,s.title).tint,color.bg]} style={{padding:24,borderRadius:24,gap:16}}>
+              <Text style={t.small}>{fmtDate(s.date+'T12:00:00Z').toUpperCase()}</Text><Text style={[t.h1, { fontSize: 28,lineHeight:34 }]}>{s.title || KIND_LABEL[s.kind]}</Text>
               <Muted>
-                {s.date}
-                {s.time ? ` · ${s.time}` : ''} · {KIND_LABEL[s.kind]}
+                {KIND_LABEL[s.kind]}{s.time ? ` · ${s.time}` : ''}
               </Muted>
               <Row gap={6} style={{ flexWrap: 'wrap' }}>
                 {s.durationMin ? <Chip label={fmtDuration(s.durationMin)} tone="accent" /> : null}
                 {s.distanceKm ? <Chip label={`${s.distanceKm} km`} /> : null}
                 {s.paceSecPerKm ? <Chip label={fmtPace(s.paceSecPerKm)} /> : null}
                 {s.intensity ? <Chip label={{ low: 'Intensità bassa', moderate: 'Intensità media', high: 'Intensità alta' }[s.intensity]} /> : null}
-                <Chip label={({ planned: 'Da fare', completed: 'Fatta', skipped: 'Saltata', rescheduled: 'Spostata', paused: 'In pausa' } as const)[s.status]} tone={s.status === 'completed' ? 'success' : 'default'} />
+                <Chip label={({ planned: 'Da fare', completed: 'Completato', skipped: 'Saltato', rescheduled: 'Spostato', paused: 'In pausa' } as const)[s.status]} tone={s.status === 'completed' ? 'success' : 'default'} />
               </Row>
               {s.description ? <Text style={t.body}>{s.description}</Text> : null}
-            </View>
+              {s.skipReason?<Text style={t.muted}>{SKIP_REASONS[s.skipReason]}</Text>:null}
+            </LinearGradient>
 
             {s.segments.length ? (
               <Section title="Struttura">
@@ -155,21 +163,21 @@ export default function Sessione() {
 
             {s.status === 'planned' || s.status === 'rescheduled' ? (
               <>
-                <Button title="Inizia e registra" iconName="play" onPress={() => router.push({ pathname: '/registra', params: { session: s.id } })} />
-                <Button variant="soft" title="✓ Segna come fatta" onPress={() => act(() => call('markSessionDone', s.id, true))} />
-                <Text style={t.small}>La spunta è una tua dichiarazione: non aggiunge chilometri, tempi o record.</Text>
-                <Button variant="ghost" title={showComplete ? 'Chiudi inserimento' : 'Inserisci un’attività svolta'} onPress={() => setShowComplete(!showComplete)} />
+                <Button variant="soft" title="Collega attività" onPress={()=>setLink(true)}/>
+                <Button variant="soft" title="Salta l’allenamento" onPress={() => setSkip(s)} />
                 {showComplete ? <Complete s={s} onDone={() => router.back()} /> : null}
-                <Row>
-                  <Button style={{ flex: 1 }} variant="soft" title="Modifica" onPress={() => router.push({ pathname: '/allenamento/sessione-form', params: { id: s.id } })} />
-                  <Button style={{ flex: 1 }} variant="ghost" title="Salta" onPress={() => act(() => call('skipSession', s.id, true))} />
-                </Row>
               </>
             ) : s.status === 'skipped' ? (
-              <Button variant="soft" title="Annulla “saltata”" onPress={() => act(() => call('skipSession', s.id, false))} />
+              <Button variant="soft" title="Rimetti in programma" onPress={() => act(() => call('skipSession', s.id, false))} />
             ) : null}
-            <Button variant="ghost" title={showOptions ? "Chiudi opzioni" : "Altre opzioni"} onPress={() => setShowOptions(!showOptions)} />
-            {showOptions ? <Button variant="danger" title="Elimina sessione" onPress={() => Alert.alert('Eliminare la sessione?', undefined, [{ text: 'Annulla', style: 'cancel' }, { text: 'Elimina', style: 'destructive', onPress: () => act(() => call('deleteSession', s.id), true) }])} /> : null}
+            <Button small title="Altre opzioni" onPress={() => setShowOptions(!showOptions)} />
+            {showOptions ? <>
+              <Button variant="soft" title="Modifica allenamento" onPress={()=>router.push({pathname:'/allenamento/sessione-form',params:{id:s.id}})}/>
+              {s.status==='planned'||s.status==='rescheduled'?<Button variant="soft" title="Inserisci risultato manualmente" onPress={()=>{setShowComplete(true);setShowOptions(false);}}/>:null}
+              <Button variant="danger" title="Elimina allenamento" onPress={() => Alert.alert('Eliminare l’allenamento?', undefined, [{ text: 'Annulla', style: 'cancel' }, { text: 'Elimina', style: 'destructive', onPress: () => act(() => call('deleteSession', s.id), true) }])} />
+            </> : null}
+            <LinkWorkoutSheet sessionId={link?s.id:null} onClose={()=>setLink(false)} onSaved={()=>void state.reload()}/>
+            <SkipWorkoutSheet session={skip} onClose={()=>setSkip(null)} onSaved={()=>void state.reload()}/>
           </>
         )}
       </Async>

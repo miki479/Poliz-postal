@@ -7,3 +7,7 @@ data
 .DS_Store
 *.log
 test-results
+
+# Cache locali degli strumenti di anteprima web
+.vinext/
+.wrangler/

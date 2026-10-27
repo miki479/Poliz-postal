@@ -18,6 +18,10 @@ it('la barra Expo 58 usa emitter/navigateToTab e il comando Registra apre la rou
     '@/lib/useReduceMotion': { useReduceMotion: () => false },
     '@/constants/theme': { color: {}, R: {}, S: { xs: 4, sm: 8 }, type: {} },
   };
+  const recordExports: Record<string, any> = {};
+  const recordCode=ts.transpileModule(readFileSync('mobile/src/components/RecordTabBar.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+  new Function('require','exports',recordCode)((name:string)=>imports[name]??{},recordExports);
+  imports['@/components/RecordTabBar']=recordExports;
   const exports: Record<string, any> = {};
   const code = ts.transpileModule(readFileSync('mobile/src/app/(tabs)/_layout.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   new Function('require', 'exports', code)((name: string) => imports[name] ?? {}, exports);
@@ -34,6 +38,6 @@ it('la barra Expo 58 usa emitter/navigateToTab e il comando Registra apre la rou
   const record = entries[2].props.children[0];
   const button = record.type(record.props); button.props.onPress();
   expect(push).toHaveBeenCalledWith('/registra');
-  expect(entries.filter(Boolean)).toHaveLength(3);
+  expect(entries.filter(Boolean)).toHaveLength(4);
   expect(emit).toHaveBeenCalledWith({ type: 'tabPress', target: 'esplora-key', canPreventDefault: true });
 });

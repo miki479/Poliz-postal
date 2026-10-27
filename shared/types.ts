@@ -674,6 +674,7 @@ export interface PlannedExercise {
 }
 
 export interface PlannedSession {
+  skipReason?: import('./skipReasons.ts').SkipReason | null;
   guidedWorkoutId?: string | null;
   id: Id;
   userId: Id;

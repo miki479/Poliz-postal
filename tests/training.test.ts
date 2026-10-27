@@ -38,6 +38,17 @@ beforeEach(() => {
   for (const u of ['a', 'b']) addUser(u);
 });
 
+it('il salto salva un motivo privato, è annullabile e non modifica allenamenti altrui o completati',()=>{
+ const s=run<PlannedSession>('a','createSession',[session()]);
+ expect(code(()=>run('b','skipSession',[s.id,true,'injury']))).not.toBe('none');
+ expect(code(()=>run('a','skipSession',[s.id,true,'invalid']))).toBe('validation');
+ expect(run<PlannedSession>('a','skipSession',[s.id,true,'time'])).toMatchObject({status:'skipped',skipReason:'time'});
+ expect(db.checkins).toEqual({});
+ expect(run<PlannedSession>('a','skipSession',[s.id,false])).toMatchObject({status:'planned',skipReason:null});
+ db.sessions[s.id].status='completed';
+ expect(code(()=>run('a','skipSession',[s.id,true,'injury']))).toBe('conflict');
+});
+
 describe('generatore del piano', () => {
   it('principiante: corsa/camminata graduale entro la durata massima, con giorni liberi e scarico', () => {
     const { sessions } = generatePlan(wizard({ weeks: 6, weekdays: [1, 3, 5, 6, 7] }));

@@ -186,10 +186,13 @@ export function moveSession(ctx: Ctx, id: Id, date: string, time?: string | null
   return s;
 }
 
-export function skipSession(ctx: Ctx, id: Id, skipped = true): PlannedSession {
+export function skipSession(ctx: Ctx, id: Id, skipped = true, reason?: import('./skipReasons.ts').SkipReason): PlannedSession {
   const s = own(ctx, ctx.db.sessions[id], 'Sessione');
-  if (s.status === 'completed') throw new AppError('conflict', 'La sessione è già completata.');
+  if (typeof skipped !== 'boolean' || (reason !== undefined && !['time','injury','illness','tired','vacation','other'].includes(reason))) throw new AppError('validation', 'Scegli un motivo valido.');
+  if (s.status === 'completed' || s.logId || s.linkedActivityId) throw new AppError('conflict', 'L’allenamento ha già un’attività completata.');
+  if (s.status === 'paused') throw new AppError('conflict', 'Riprendi prima il piano.');
   s.status = skipped ? 'skipped' : s.rescheduledFrom ? 'rescheduled' : 'planned';
+  s.skipReason = skipped ? reason ?? 'other' : null;
   s.updatedAt = iso(ctx.now);
   return s;
 }

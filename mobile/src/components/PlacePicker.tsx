@@ -88,13 +88,13 @@ export function PlacePicker({ label, value, onChange, onUnavailable, placeholder
   const [results, setResults] = useState<GeoPlace[]>([]);
   const [state, setState] = useState<State>('idle');
   const [asked, setAsked] = useState('');
-  const pop = useRef(new Animated.Value(1)).current;
+  const [pop] = useState(() => new Animated.Value(1));
   const popAnim = useRef<Animated.CompositeAnimation | null>(null);
+  const seq = useRef(0);
   // Chiuso il foglio (o smontato il campo) durante il piccolo rimbalzo di conferma, l'animazione si ferma.
-  useEffect(() => () => popAnim.current?.stop(), []);
+  useEffect(() => () => {popAnim.current?.stop();seq.current++;}, []);
   const input = useRef<TextInputInstance>(null);
   // Una risposta arrivata dopo una nuova ricerca (o dopo aver svuotato il campo) non sovrascrive quella giusta.
-  const seq = useRef(0);
   const note =
     state === 'empty'
       ? `Nessun risultato per “${asked}”`
@@ -107,6 +107,7 @@ export function PlacePicker({ label, value, onChange, onUnavailable, placeholder
   const appear = useAppear(`${asked}|${results.length}|${note ?? ''}`);
 
   async function search() {
+    if(state==='busy')return;
     const term = q.trim();
     if (term.length < 3) return setState('short');
     const n = ++seq.current;
@@ -130,6 +131,7 @@ export function PlacePicker({ label, value, onChange, onUnavailable, placeholder
 
   function clear() {
     seq.current++;
+    setAsked('');
     setQ('');
     setResults([]);
     setState('idle');
@@ -185,11 +187,9 @@ export function PlacePicker({ label, value, onChange, onUnavailable, placeholder
           onChangeText={(v) => {
             seq.current++;
             setQ(v);
-            if (state === 'busy' || results.length) {
-              setResults([]);
-              setState('idle');
-            }
-            if (state === 'short' && v.trim().length >= 3) setState('idle');
+            setAsked('');
+            setResults([]);
+            setState('idle');
           }}
           onSubmitEditing={() => void search()}
           placeholder={placeholder}
@@ -205,12 +205,12 @@ export function PlacePicker({ label, value, onChange, onUnavailable, placeholder
             <ActivityIndicator color={color.accent} accessibilityLabel="Ricerca in corso" />
           ) : q ? (
             <Pressable onPress={clear} accessibilityRole="button" accessibilityLabel="Cancella la ricerca" hitSlop={4} style={({ pressed }) => ({ width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
-              <Ionicons name="close" size={20} color={color.textSecondary} />
+              <Ionicons name="close-circle" size={20} color={color.textSecondary} />
             </Pressable>
           ) : null}
         </View>
-      <Pressable onPress={() => void search()} disabled={!canSearch || state === 'busy'} accessibilityRole="button" accessibilityLabel="Cerca località" accessibilityState={{ disabled: !canSearch || state === 'busy', busy: state === 'busy' }} style={({ pressed }) => ({ flexShrink: 0, minHeight: HIT, alignItems: 'center', justifyContent: 'center', paddingHorizontal: S.md, borderRadius: R.pill, backgroundColor: canSearch ? color.accentTint : color.surface, opacity: !canSearch || state === 'busy' ? 0.55 : pressed ? 0.75 : 1 })}>
-        <Text style={[type.subhead, { color: canSearch ? color.accent : color.textSecondary, fontWeight: '700' }]}>{state === 'busy' ? 'Cerco…' : 'Cerca'}</Text>
+      <Pressable onPress={() => void search()} disabled={!canSearch || state === 'busy'} accessibilityRole="button" accessibilityLabel="Cerca località" accessibilityState={{ disabled: !canSearch || state === 'busy', busy: state === 'busy' }} style={({ pressed }) => ({ flexShrink: 0, minHeight: HIT, alignItems: 'center', justifyContent: 'center', paddingHorizontal: S.md, borderRadius: R.pill, backgroundColor: canSearch ? color.accent : color.surface, opacity: !canSearch || state === 'busy' ? 0.55 : pressed ? 0.75 : 1 })}>
+        <Text style={[type.subhead, { color: canSearch ? color.onAccent : color.textSecondary, fontWeight: '700' }]}>{state === 'busy' ? 'Cerco…' : 'Cerca'}</Text>
       </Pressable>
       </View>
       {state === 'short' ? <Text style={[type.footnote, { color: color.textSecondary }]}>Scrivi almeno 3 lettere.</Text> : null}

@@ -1,3 +1,4 @@
+import { VisibilitySwitch } from '@/components/event/VisibilitySwitch';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OutingProposals } from '@/components/event/OutingProposals';
@@ -967,41 +968,13 @@ function EventEditor({id,clubParam}:{id?:string;clubParam?:string}) {
             ) : null}
           </>
         ) : null}
-        {editKey === 'vis' ? (
-          <>
-            <ChoiceRow
-              title="Pubblica"
-              hint="Compare in Esplora"
-              icon="earth-outline"
-              on={visibility === 'public'}
-              onPress={() => {
-                setVisibility('public');
-                setClubId(null);
-              }}
-            />
-            <ChoiceRow
-              title="Solo con il link"
-              hint="La condividi tu"
-              icon="link-outline"
-              on={visibility === 'private'}
-              onPress={() => {
-                setVisibility('private');
-                setClubId(null);
-              }}
-            />
-            {clubs.map((c) => (
-              <ClubChoice
-                key={c.id}
-                club={c}
-                selected={visibility === 'club' && clubId === c.id}
-                onSelect={() => {
-                  setVisibility('club');
-                  setClubId(c.id);
-                }}
-              />
-            ))}
-          </>
-        ) : null}
+        {editKey === 'vis' ? <>
+          <VisibilitySwitch value={visibility} onChange={v=>{setVisibility(v);if(v!=='club')setClubId(null);else if(!clubId&&clubs.length===1)setClubId(clubs[0].id);}}/>
+          {visibility==='club'?<View style={{gap:S.sm}}>
+            {clubs.map(c=><ClubChoice key={c.id} club={c} selected={clubId===c.id} onSelect={()=>setClubId(c.id)}/>)}
+            {!clubs.length?<Text style={[type.footnote,{color:color.textSecondary}]}>Non fai ancora parte di un gruppo.</Text>:null}
+          </View>:null}
+        </>:null}
         {editKey === 'pact' ? (
           <>
             <PactTiles on={pactOn} onToggle={togglePact} />
@@ -1072,48 +1045,11 @@ function EventEditor({id,clubParam}:{id?:string;clubParam?:string}) {
           placeholder="Es. fontana di piazza Saffi"
           maxLength={90}
         />
-        <View style={{ gap: S.sm }} accessibilityRole="radiogroup" accessibilityLabel="Visibilità">
-          <SectionTitle title="Visibilità" />
-          <ChoiceRow
-            title="Uscita pubblica"
-            hint="Compare in Esplora: può partecipare chiunque"
-            icon="earth-outline"
-            on={visibility === 'public'}
-            onPress={() => {
-              setVisibility('public');
-              setClubId(null);
-              setErr({});
-            }}
-          />
-          <ChoiceRow
-            title="Solo chi ha il link"
-            hint="Non compare in Esplora: decidi tu con chi condividerla"
-            icon="link-outline"
-            on={visibility === 'private'}
-            onPress={() => {
-              setVisibility('private');
-              setClubId(null);
-              setErr({});
-            }}
-          />
-        </View>
-        <View style={{ gap: S.sm }} accessibilityRole="radiogroup" accessibilityLabel="Riservata a un club">
-          <SectionTitle title="Riservata a un club" />
-          <Text style={[type.footnote, { color: color.textSecondary }]}>Scegli un tuo club per riservare l’uscita ai suoi membri.</Text>
-          {clubs.map((c) => (
-            <ClubChoice
-              key={c.id}
-              club={c}
-              selected={visibility === 'club' && clubId === c.id}
-              onSelect={() => {
-                setVisibility('club');
-                setClubId(c.id);
-                setErr({});
-              }}
-            />
-          ))}
-          {!clubs.length ? <Text style={[type.footnote, { color: color.textSecondary }]}>Non fai ancora parte di un club.</Text> : null}
-        </View>
+        <VisibilitySwitch value={visibility} onChange={v=>{setVisibility(v);if(v!=='club')setClubId(null);else if(!clubId&&clubs.length===1)setClubId(clubs[0].id);setErr({});}}/>
+        {visibility==='club'?<View style={{gap:S.sm}} accessibilityRole="radiogroup" accessibilityLabel="Gruppo">
+          {clubs.map(c=><ClubChoice key={c.id} club={c} selected={clubId===c.id} onSelect={()=>{setClubId(c.id);setErr({});}}/>)}
+          {!clubs.length?<Text style={[type.footnote,{color:color.textSecondary}]}>Non fai ancora parte di un gruppo.</Text>:null}
+        </View>:null}
         {err.who ? <Banner tone="error" text={err.who} /> : null}
       </Sheet>
     </>

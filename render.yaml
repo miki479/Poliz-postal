@@ -1,11 +1,24 @@
+# Blueprint Render per PODISMO SOCIAL (server Node + client statico).
+# ATTENZIONE: i dati sono in un file JSON. Senza disco persistente (piano a pagamento) si perdono a ogni deploy.
+# Per provare senza costi puoi usare il piano free, sapendo che i dati sono temporanei.
 services:
   - type: web
-    name: turno-reale
+    name: podismo-social
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build:render
-    startCommand: npm run start:render
-    healthCheckPath: /
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
         value: 22.13.0
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: APP_URL
+        sync: false
+      - key: DATA_FILE
+        value: /var/data/db.json   # richiede un disco montato su /var/data (piano a pagamento)
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false

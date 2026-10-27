@@ -1,0 +1,9 @@
+rules_version = '2';
+// Nessun accesso diretto dai client: tutti i dati passano dal server (credenziali di servizio, che ignorano queste regole).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

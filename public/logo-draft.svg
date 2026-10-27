@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Runngo">
+  <rect width="512" height="512" rx="112" fill="#14181d"/>
+  <g fill="none" stroke="#f5f7f8" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
+    <!-- asta e pancia della R -->
+    <path d="M168 400V120h110a72 72 0 0 1 0 144H168"/>
+  </g>
+  <!-- gamba della R: scende in diagonale e finisce in una scarpa da corsa -->
+  <g fill="none" stroke="#f5f7f8" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M262 264l62 96"/>
+  </g>
+  <path d="M300 372c18-10 44-8 58 6l62 26c14 6 14 26 0 30H312c-14 0-26-12-26-26 0-14 4-28 14-36z" fill="#3cc8cd"/>
+  <path d="M296 424h132" stroke="#14181d" stroke-width="8" stroke-linecap="round"/>
+</svg>

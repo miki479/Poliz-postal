@@ -1,16 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Turno Reale">
-  <defs>
-    <linearGradient id="bg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0A2D67"/>
-      <stop offset="1" stop-color="#0A72D5"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="128" y1="112" x2="392" y2="400" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7DEBFF"/>
-      <stop offset="1" stop-color="#2AA8FF"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <rect x="116" y="103" width="280" height="306" rx="80" fill="#fff" fill-opacity=".08" stroke="#fff" stroke-opacity=".18" stroke-width="8"/>
-  <path d="M163 182h186M163 330h186" stroke="url(#accent)" stroke-width="24" stroke-linecap="round"/>
-  <path d="M191 237v38M256 218v76M321 198v116" stroke="#fff" stroke-width="28" stroke-linecap="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b0f12"/><rect x="40" y="40" width="432" height="432" rx="96" fill="#0f2a2d" stroke="#36e0e5" stroke-opacity=".5" stroke-width="6"/><path d="M110 340c64 0 75-64 130-64s64 54 118 54 54-86 54-150" fill="none" stroke="#36e0e5" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/><circle cx="412" cy="140" r="38" fill="#7cf5ed"/></svg>

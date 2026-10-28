@@ -300,7 +300,8 @@ describe('record: trail, corsa + camminata', () => {
     const trail = wlog('02', 30, 14400, { trail: true });
     const road2 = wlog('03', 8, 2600);
     const all = [road, trail, road2];
-    expect(codes(activityAwards(trail.id, all))).toEqual(['first_trail']);
+    expect(codes(activityAwards(trail.id, all))).toEqual(['distance_21km', 'first_trail']);
+    expect(activityAwards(trail.id, all).every(a => a.sport === 'trail' && !a.record)).toBe(true);
     // la corsa più lunga è la #3 (8 km): il trail da 30 km non conta come corsa
     expect(codes(activityAwards(road2.id, all))).toContain('run_longest_dist');
     expect(currentRecords(all).find((r) => r.code === 'run_longest_dist')?.logId).toBe(road2.id);

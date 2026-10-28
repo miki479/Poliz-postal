@@ -242,6 +242,7 @@ const NEEDS_HISTORY = 'Serve almeno un’attività precedente con cui confrontar
 export function catalogFor(s: AwardSport): CatalogEntry[] {
   const e = (key: string, category: AwardCategory, name: string, hint: string, extra: Partial<CatalogEntry> = {}): CatalogEntry => ({ key, sport: s, category, name, hint, ...extra });
   const out: CatalogEntry[] = [e(`first_${s}`, 'first_step', 'Primo passo', `Registra la tua prima attività di ${SPORT_NAME[s].toLowerCase()}.`)];
+  if(s!=='strength')out.push(e('distance_21km','beyond_limit','Traguardo 21 km','Raggiungi almeno 21 km in un unico allenamento.',{km:'21',unit:'km'}));
   if (s === 'running') {
     for (const k of [1, 5, 10]) out.push(e(`seg_${k}`, 'new_peak', `Miglior tempo sui ${k} km`, `Migliora il tuo tratto continuo più veloce di ${k} km, registrato con il GPS dell’app senza interruzioni. ${NEEDS_HISTORY}`, { km: String(k), unit: 'km' }));
     out.push(e('tot_5', 'new_peak', 'Miglior corsa da 5 km', `Migliora il tempo totale di una corsa da 5 km. ${NEEDS_HISTORY}`, { km: '5', unit: 'km' }));

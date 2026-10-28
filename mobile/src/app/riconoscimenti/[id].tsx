@@ -1,3 +1,4 @@
+import { PhysicalMedalBanner } from '@/components/PhysicalMedalBanner';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useId } from 'react';
@@ -134,6 +135,7 @@ export default function DettaglioRiconoscimento() {
                 </Pressable>
               </Panel>
 
+              <PhysicalMedalBanner awards={[a]}/>
               <Text style={[type.footnote, { color: color.textTertiary }]}>{a.description}</Text>
 
               <Pressable onPress={() => void Share.share({ message: awardShareText(a) })} accessibilityRole="button" style={({ pressed }) => ({ minHeight: 52, borderRadius: R.pill, backgroundColor: pressed ? color.surfacePressed : color.surfaceElevated, flexDirection: 'row', gap: S.sm, alignItems: 'center', justifyContent: 'center', minWidth: HIT })}>

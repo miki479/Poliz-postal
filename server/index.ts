@@ -1,4 +1,5 @@
 import { storyExportData } from '../shared/storyExport.ts';
+import { medalCatalog } from '../shared/medalShop.ts';
 import { renderStoryVideo } from './storyVideo.ts';
 let storyExportBusy = false;
 import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
@@ -329,6 +330,9 @@ async function stravaCallback(req: IncomingMessage, res: ServerResponse) {
 
 async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: string) {
   const ip = clientIp(req);
+  if (req.method === 'GET' && pathname === '/api/medals/catalog') {
+    return send(res, 200, { offers: medalCatalog(process.env.MEDAL_SHOP_CATALOG ?? '') });
+  }
   if (pathname === '/api/health') {
     return send(res, 200, {
       ok: true,

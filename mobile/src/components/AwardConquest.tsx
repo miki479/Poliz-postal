@@ -1,3 +1,4 @@
+import { PhysicalMedalBanner } from './PhysicalMedalBanner';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useId } from 'react';
@@ -214,6 +215,7 @@ export function AwardDetailSheet({ award, onClose, activity }: { award: Award | 
               <Text style={[type.headline, { color: tone.light }]}>{catLabel}</Text>
             </View>
           </View>
+          <PhysicalMedalBanner awards={[a]}/>
           <View>
             <InfoRow icon="flag-outline" label="Valore raggiunto" value={a.value} />
             {a.previous ? <InfoRow icon="time-outline" label="Precedente record" value={a.previous} /> : null}

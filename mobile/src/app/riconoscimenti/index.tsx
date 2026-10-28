@@ -1,3 +1,4 @@
+import { PhysicalMedalBanner } from '@/components/PhysicalMedalBanner';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -12,7 +13,7 @@ import { call } from '@/lib/api';
 import type { WorkoutLog } from '@shared/types.ts';
 
 type Tab = 'all' | 'record' | 'goal';
-const TABS: Array<{ value: Tab; label: string }> = [
+const TABS: { value: Tab; label: string }[] = [
   { value: 'all', label: 'Tutti' },
   { value: 'record', label: 'Record' },
   { value: 'goal', label: 'Traguardi' },
@@ -57,6 +58,7 @@ export default function Riconoscimenti() {
                 <Counter icon="trophy" value={goals.length} label="Traguardi" on={tab === 'goal'} />
               </View>
 
+              <PhysicalMedalBanner awards={awards}/>
               <View style={{ gap: S.md }}>
                 <SectionHead title={tab === 'record' ? 'Ultimi record' : 'Ultimi traguardi'} />
                 {shown.length ? (

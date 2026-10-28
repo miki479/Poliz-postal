@@ -332,6 +332,11 @@ export function awardsFor(log: WorkoutLog, history: WorkoutLog[]): Award[] {
   const sameSport = prior.filter((l) => groupOf(l) === g);
   const out: Award[] = [];
 
+  if (g !== 'strength' && comparable(log) && Number.isFinite(log.distanceKm) && log.distanceKm! >= 21
+    && !sameSport.some(l => comparable(l) && Number.isFinite(l.distanceKm) && l.distanceKm! >= 21)) {
+    out.push(mk(log,g,{code:'distance_21km',category:'beyond_limit',tone:'distance',name:'Traguardo 21 km',description:'Almeno 21 km in un unico allenamento, dalla distanza riportata nell’attività.',headline:'Hai raggiunto i 21 km in un unico allenamento!',mark:'21',unit:'km',record:false,value:`${num(log.distanceKm!,2)} km`,previous:null,improvement:null}));
+  }
+
   if (!sameSport.length) {
     out.push(mk(log, g, { code: `first_${g}`, category: 'first_step', tone: 'first', name: 'Primo passo', description: `La tua prima attività di ${SPORT_NAME[g].toLowerCase()} registrata.`, headline: `La tua prima attività di ${SPORT_NAME[g].toLowerCase()}!`, mark: '1', unit: '', record: false, value: '1ª', previous: null, improvement: null }));
   }

@@ -328,6 +328,7 @@ function SummaryRow({ lead, label, value, order, onPress }: { lead: ReactNode; l
 }
 
 /** Creazione del piano passo per passo: una domanda per schermata; "Avanti" solo dove serve. */
+import { HomeExit } from '@/components/HomeExit';
 export default function Piano() {
   const insets = useSafeAreaInsets();
   const reduce = useReduceMotion();
@@ -536,7 +537,7 @@ export default function Piano() {
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
-      <Stack.Screen options={{ headerShown: true, title: 'Nuovo piano', headerBackVisible: true, headerBackButtonDisplayMode: 'default' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Nuovo piano', headerBackVisible: false, headerLeft: () => <HomeExit /> }} />
       <View style={{ paddingTop: S.md, paddingHorizontal: GUTTER }}>
         <PlanSteps steps={STEPS} index={Math.min(i, STEPS.length - 1)} onJump={setI} />
       </View>

@@ -38,6 +38,7 @@ async function loadPlan(): Promise<PlanData> {
   };
 }
 
+import { HomeExit } from '@/components/HomeExit';
 export default function Piano() {
   const state = useLoad(loadPlan);
   const [req, setReq] = useState<ChangeRequest | null>(null);
@@ -61,7 +62,7 @@ export default function Piano() {
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
-      <Stack.Screen options={{ headerShown: true, title: 'Il tuo piano', headerTransparent: false, headerBackVisible: true, headerBackButtonDisplayMode: 'default' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Il tuo piano', headerTransparent: false, headerBackVisible: false, headerLeft: () => <HomeExit /> }} />
       {d ? (
         <PlanDashboard
           data={d}

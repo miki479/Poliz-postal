@@ -455,7 +455,7 @@ export function AvatarStack({ people, total, size = 26 }: { people: UserPublic[]
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center' }} accessible accessibilityLabel={`${total ?? people.length} partecipanti: ${people.slice(0, 3).map((p) => p.displayName).join(', ')}`}>
       {shown.map((p, i) => (
-        <View key={p.id} style={{ marginLeft: i ? -size * 0.28 : 0, borderRadius: size * 0.3, borderWidth: 2, borderColor: color.surface }}>
+        <View key={p.id} style={{ marginLeft: i ? -size * 0.28 : 0, width: size + 4, height: size + 4, borderRadius: (size + 4) / 2, borderWidth: 2, borderColor: color.surface, overflow: 'hidden' }}>
           <Avatar name={p.displayName} hue={p.hue} uri={p.avatar} size={size} />
         </View>
       ))}

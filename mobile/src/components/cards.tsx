@@ -304,7 +304,7 @@ export function EventScene({ sport, image, style, children }: { sport: SportId; 
             <Path d={st.glyph === 'trail' ? HORIZON.ridge : HORIZON.flat} fill={mix(c1, NIGHT, 0.16)} />
           </Svg>
           {FIGURE_IMAGE[sport] ? (
-            <Image source={FIGURE_IMAGE[sport]!.src} resizeMode="contain" tintColor="#FFFFFF" style={{ position: 'absolute', left: '50%', bottom: '38%', height: 104, width: Math.round(104 * FIGURE_IMAGE[sport]!.ratio), opacity: 0.85 }} accessibilityIgnoresInvertColors />
+            <Image source={FIGURE_IMAGE[sport]!.src} resizeMode="contain" tintColor="#FFFFFF" style={{ position: 'absolute', right: 10, top: 56, height: 104, width: Math.round(104 * FIGURE_IMAGE[sport]!.ratio), opacity: 0.5 }} accessibilityIgnoresInvertColors />
           ) : fig ? (
             <View style={{ position: 'absolute', left: '56%', bottom: '40%', marginBottom: -14 }}>
               <SportGlyph glyph={fig} size={112} color="#05080B" />

@@ -6,7 +6,7 @@ export default function TabsLayout() {
     <Tabs.Screen name="index" options={{title:'Home'}}/>
     <Tabs.Screen name="esplora" options={{title:'Esplora'}}/>
     <Tabs.Screen name="club" options={{title:'Community'}}/>
-    <Tabs.Screen name="profilo" options={{title:'Profilo'}}/>
+    <Tabs.Screen name="profilo" options={{title:'Profilo',href:null}}/>
     <Tabs.Screen name="social" options={{href:null}}/>
   </Tabs>;
 }

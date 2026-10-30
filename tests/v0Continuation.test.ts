@@ -49,14 +49,14 @@ it('il selettore di visibilità mantiene le tre scelte e le dispone in verticale
  expect(options[2].props.accessibilityState.selected).toBe(true);
  options[1].props.onPress();expect(change).toHaveBeenCalledWith('club');
 });
-it('la barra v0 conserva il vetro, espone il profilo e usa gli eventi di navigazione SDK 58',()=>{
+it('la barra v0 conserva il vetro, usa gli eventi di navigazione SDK 58',()=>{
  const push=vi.fn(),navigateToTab=vi.fn(),emit=vi.fn(()=>({defaultPrevented:false}));
  const mod=moduleOf('mobile/src/components/RecordTabBar.tsx',{'react/jsx-runtime':{jsx:node,jsxs:node},react:{Fragment:'Fragment'},'expo-router':{router:{push}},'react-native':{View:'View',Text:'Text',Pressable:'Pressable'},'react-native-safe-area-context':{useSafeAreaInsets:()=>({bottom:34})},'@expo/vector-icons':{Ionicons:'Icon'},'./LiquidBar':{LiquidBar:'LiquidBar'},'@/constants/theme':theme});
  const tree=mod.RecordTabBar({state:{index:0,routes:['index','esplora','club','profilo','social'].map(name=>({key:name,name}))},emitter:{emit},navigateToTab});
  expect(all(tree).some(n=>n.type==='LiquidBar')).toBe(true);
  const tabs=all(tree).filter(n=>n.props.accessibilityRole==='tab');
- expect(tabs.map(n=>n.props.accessibilityLabel)).toEqual(['Home','Esplora','Community','Profilo']);
- tabs[3].props.onPress();expect(navigateToTab).toHaveBeenCalledWith('profilo');
+ expect(tabs.map(n=>n.props.accessibilityLabel)).toEqual(['Home','Esplora','Community']);
+ tabs[2].props.onPress();expect(navigateToTab).toHaveBeenCalledWith('club');
  tabs[0].props.onPress();expect(navigateToTab).toHaveBeenCalledTimes(1);
  const record=all(tree).find(n=>typeof n.type==='function')!;
  const button=(record.type as Function)();button.props.onPress();expect(push).toHaveBeenCalledWith('/registra');

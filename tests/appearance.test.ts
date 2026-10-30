@@ -8,7 +8,7 @@ it('ha due aspetti neutri e aggiorna anche gli stili dichiarati prima del cambio
  setThemeMode('light');
  expect(themeMode()).toBe('light');expect(styles.card.backgroundColor).toBe('#FFFFFF');
  expect(styles.card.color).toBe('#171A20');expect(styles.input.color).toBe('#505B68');
- expect(color.accent).toBe('#171A20');
+ expect(color.accent).toBe('#5B3FE0');
  setThemeMode('dark');expect(styles.card.backgroundColor).toBe('#191F25');
 });
 it('notifica soltanto i cambiamenti reali e rimuove le sottoscrizioni',()=>{

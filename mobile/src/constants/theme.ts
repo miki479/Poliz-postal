@@ -16,10 +16,11 @@ const dark = {
   separator: '#2A313A',
   /** Bordo dei campi: ≥3:1 su tutte le superfici. */
   controlBorder: '#7A8693',
-  accent: '#F4F7FA',
-  accentPressed: '#DDE2E8',
-  onAccent: '#111318',
-  accentTint: 'rgba(244,247,250,0.12)',
+  /** Azione primaria e stato attivo: viola elettrico acceso. Il testo bianco ha contrasto ≥3:1 (testo grande e in grassetto), come su un pulsante. */
+  accent: '#8E75FF',
+  accentPressed: '#7A5FF0',
+  onAccent: '#FFFFFF',
+  accentTint: 'rgba(142,117,255,0.18)',
   /** Viola del logo: solo riempimenti e icone grandi; per il testo usare brandText. */
   brand: '#8268F5',
   brandStrong: '#6B4FE0',
@@ -41,7 +42,7 @@ const dark = {
 } as const;
 
 export type ThemeMode='dark'|'light';
-const light:Record<keyof typeof dark,string>={...dark,bg:'#F4F5F7',surface:'#FFFFFF',surfaceElevated:'#E8EBF0',surfacePressed:'#DEE2E8',text:'#171A20',textSecondary:'#505B68',textTertiary:'#647080',separator:'#D7DCE3',controlBorder:'#788493',accent:'#171A20',accentPressed:'#323943',onAccent:'#FFFFFF',accentTint:'rgba(23,26,32,0.07)',brand:'#7053D4',brandText:'#6543C6',brandTint:'rgba(112,83,212,0.10)',success:'#187849',successTint:'rgba(24,120,73,0.12)',warning:'#906000',warningTint:'rgba(144,96,0,0.10)',danger:'#BE343E',dangerTint:'rgba(190,52,62,0.10)'};
+const light:Record<keyof typeof dark,string>={...dark,bg:'#F4F5F7',surface:'#FFFFFF',surfaceElevated:'#E8EBF0',surfacePressed:'#DEE2E8',text:'#171A20',textSecondary:'#505B68',textTertiary:'#647080',separator:'#D7DCE3',controlBorder:'#788493',accent:'#5B3FE0',accentPressed:'#4A2FC8',onAccent:'#FFFFFF',accentTint:'rgba(91,63,224,0.10)',brand:'#7053D4',brandText:'#6543C6',brandTint:'rgba(112,83,212,0.10)',success:'#187849',successTint:'rgba(24,120,73,0.12)',warning:'#906000',warningTint:'rgba(144,96,0,0.10)',danger:'#BE343E',dangerTint:'rgba(190,52,62,0.10)'};
 let mode:ThemeMode='dark';
 const listeners=new Set<()=>void>();
 export const themeMode=()=>mode;

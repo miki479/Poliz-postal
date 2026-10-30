@@ -10,7 +10,6 @@ import { color, S, type } from '@/constants/theme';
 const ITEMS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; selected: keyof typeof Ionicons.glyphMap }> = {
   index: { label: 'Home', icon: 'home-outline', selected: 'home' },
   esplora: { label: 'Esplora', icon: 'map-outline', selected: 'map' },
-  profilo: { label: 'Profilo', icon: 'person-circle-outline', selected: 'person-circle' },
   club: { label: 'Community', icon: 'people-outline', selected: 'people' },
 };
 

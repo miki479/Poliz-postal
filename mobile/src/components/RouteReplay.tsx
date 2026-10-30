@@ -29,24 +29,19 @@ function NativeReplay({track,style,loop=false,seconds=10,paused=false,marks=[],t
  const visible=filtered;
  const timeline=useMemo(()=>replayTimeline(visible.points),[visible.points]);
  const chunks=useMemo(()=>replayChunks(visible.points),[visible.points]);
- const lines=useRef<(ComponentRef<typeof Polyline>|null)[]>([]);
- const sent=useRef<number[]>([]);
+ const [at,setAt]=useState(0); const lastPaint=useRef(0);
+ const fullCoords=useMemo(()=>chunks.map(c=>c.points.map(coord)),[chunks]);
  const map=useRef<MapView>(null), head=useRef<ComponentRef<typeof Marker>>(null);const clock=useRef(0);
  const endpoints=replayEndpoints(visible.points,finished,reduce);
  const rate=timeline.timed?Math.max(1,timeline.total/Math.max(1,seconds)):timeline.total/Math.max(1,seconds);
  const fit=()=>{if(map.current&&visible.points.length)map.current.fitToCoordinates(visible.points.map(coord),{edgePadding:{top:(expanded?insets.top+42:insetTop)+48,bottom:32,left:32,right:chrome?64:32},animated:false});};
  useEffect(()=>{
   if(!ready)return;
-  sent.current=[];
   const draw=(at:number,still=false)=>{
-   chunks.forEach((chunk,i)=>{
-    const complete=still||(at>0&&at>=timeline.axis[chunk.to]);
-    if(complete&&sent.current[i]===2)return;
-    const points=still?chunk.points:replayChunkPoints(chunk,timeline,at);
-    if(!points.length&&sent.current[i]===0)return;
-    lines.current[i]?.setNativeProps({coordinates:points.map(coord)});
-    sent.current[i]=complete?2:points.length?1:0;
-   });
+   // La polilinea si aggiorna da React (non con setNativeProps, che sulla mappa non ridisegna): al massimo ~20 volte al secondo,
+   // e solo il blocco in corso cambia; i blocchi completati hanno array stabili e non vengono rimandati alla mappa.
+   const now=Date.now();
+   if(still||at<=0||at>=timeline.total||now-lastPaint.current>=50){lastPaint.current=now;setAt(still?timeline.total:at);}
    const sample=replayPosition(timeline,at);
    if(sample)head.current?.setCoordinates(coord(sample.point));
   };
@@ -58,7 +53,7 @@ function NativeReplay({track,style,loop=false,seconds=10,paused=false,marks=[],t
    if(hold>0)hold=Math.max(0,hold-dt);
    else if(ended){
     if(!loop)return;
-    clock.current=0;sent.current=[];ended=false;hold=1100;
+    clock.current=0;ended=false;hold=1100;
     setFinished(false);setCycle(c=>c+1);draw(0);
    }else{
     clock.current=nextReplayValue(clock.current,dt,rate,timeline.total);
@@ -75,7 +70,11 @@ function NativeReplay({track,style,loop=false,seconds=10,paused=false,marks=[],t
  const surface=()=> <View style={{flex:1,backgroundColor:color.surface}}>
   <MapView ref={map} style={{flex:1}} userInterfaceStyle={themeMode()} mapType={mapType==='satellite'?'hybrid':Platform.OS==='ios'?'mutedStandard':'standard'} pitchEnabled={false} rotateEnabled scrollEnabled zoomEnabled moveOnMarkerPress={false}
    initialRegion={visible.points[0]?{...coord(visible.points[0]),latitudeDelta:.015,longitudeDelta:.015}:undefined} onMapReady={()=>{setReady(true);fit();}} onLayout={()=>{if(ready)fit();}} accessibilityLabel="Percorso GPS registrato. Trascina, ingrandisci o ruota la mappa">
-   {chunks.map((_,i)=><Polyline key={i} ref={line=>{lines.current[i]=line;}} coordinates={EMPTY_COORDS} strokeColor={tint} strokeWidth={5} lineCap="round" lineJoin="round"/>)}
+   {chunks.map((chunk,i)=>{
+    const done=reduce||finished||(at>0&&at>=timeline.axis[chunk.to]);
+    const coords=done?fullCoords[i]:replayChunkPoints(chunk,timeline,at).map(coord);
+    return coords.length>1?<Polyline key={i} coordinates={coords} strokeColor={tint} strokeWidth={5} lineCap="round" lineJoin="round"/>:null;
+   })}
    {endpoints.start&&visible.points[0]?<Endpoint point={visible.points[0]} label="Partenza" tint={color.success} active={ready&&!paused&&!finished} pulse={cycle} reduce={reduce}/>:null}
    {endpoints.finish&&visible.points.length>1?<Endpoint point={visible.points[visible.points.length-1]} label={endpoints.close&&reduce?'Partenza e arrivo':'Arrivo'} tint={color.danger} active={ready&&finished} pulse={cycle} reduce={reduce}/>:null}
    {!reduce&&!finished&&visible.points.length>1?<Marker ref={head} coordinate={coord(visible.points[0])} anchor={{x:.5,y:.5}} tracksViewChanges={false} title="Direzione del percorso"><View style={{width:16,height:16,borderRadius:8,backgroundColor:tint,borderWidth:3,borderColor:color.text}}/></Marker>:null}

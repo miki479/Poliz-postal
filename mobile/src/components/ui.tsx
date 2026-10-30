@@ -251,6 +251,14 @@ export function Metric({ value, unit, label, size = 'md', align = 'left' }: { va
  *  - danger   → riga rossa
  *  - small    → link testuale
  */
+/** Miscela due colori #RRGGBB (t=0 → a, t=1 → b): serve per le sfumature dei pulsanti. */
+function mixHex(a: string, b: string, t: number): string {
+  const n = (h: string) => { const x = h.replace('#', ''); const v = parseInt(x.length === 3 ? x.split('').map((c) => c + c).join('') : x.slice(0, 6), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
+  if (!/^#[0-9a-f]{3,8}$/i.test(a) || !/^#[0-9a-f]{3,8}$/i.test(b)) return a;
+  const p = n(a), q = n(b);
+  return `#${p.map((c, i) => Math.round(c + (q[i] - c) * t).toString(16).padStart(2, '0')).join('')}`;
+}
+
 export function Button({ title, onPress, busy, variant = 'primary', small, disabled, style, iconName, accessibilityHint }: { title: string; onPress: () => void; busy?: boolean; variant?: 'primary' | 'ghost' | 'danger' | 'soft' | 'brand'; small?: boolean; disabled?: boolean; style?: StyleProp<ViewStyle>; icon?: ReactNode; iconName?: IconName; accessibilityHint?: string }) {
   if (small) return <LinkText title={title} onPress={onPress} danger={variant === 'danger'} disabled={busy || disabled} style={style} />;
   const off = busy || disabled;
@@ -258,9 +266,11 @@ export function Button({ title, onPress, busy, variant = 'primary', small, disab
     const bg = variant === 'brand' ? color.brandStrong : color.accent;
     const fg = variant === 'brand' ? color.storyInk : color.onAccent;
     return (
-      <PressableScale onPress={onPress} disabled={off} accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: !!off, busy: !!busy }} accessibilityHint={accessibilityHint} style={[st.primary, { backgroundColor: bg }, off && { opacity: 0.55 }, style]}>
-        {busy ? <ActivityIndicator color={fg} /> : iconName ? <Ionicons name={iconName} size={20} color={fg} /> : null}
-        <Text style={[type.headline, { color: fg }]}>{title}</Text>
+      <PressableScale onPress={onPress} disabled={off} accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: !!off, busy: !!busy }} accessibilityHint={accessibilityHint} style={[{ borderRadius: R.pill, shadowColor: bg, shadowOpacity: off ? 0 : 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: off ? 0 : 6 }, off && { opacity: 0.55 }, style]}>
+        <LinearGradient colors={[mixHex(bg, '#FFFFFF', 0.14), bg, mixHex(bg, '#000000', 0.18)]} locations={[0, 0.5, 1]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={st.primary}>
+          {busy ? <ActivityIndicator color={fg} /> : iconName ? <Ionicons name={iconName} size={20} color={fg} /> : null}
+          <Text style={[type.headline, { color: fg, fontWeight: '800' }]}>{title}</Text>
+        </LinearGradient>
       </PressableScale>
     );
   }

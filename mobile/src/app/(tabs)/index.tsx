@@ -1,5 +1,6 @@
 import { useStravaImportNotice } from '@/lib/stravaSync';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -106,18 +107,25 @@ function HeroEvent({ e, label, clubImage, onChange }: { e: EventView; label: str
 }
 
 function HeroSession({ s }: { s: PlannedSession }) {
+  const today = s.date === todayIso();
   return (
-    <Panel style={{ padding: S.lg, gap: S.sm }}>
-      <Eyebrow text={s.date===todayIso()?'OGGI NEL TUO PIANO':`PROSSIMO ALLENAMENTO · ${s.date.slice(8)}/${s.date.slice(5,7)}`} />
-      <Text style={t.title1}>{s.title || KIND_LABEL[s.kind]}</Text>
-      <Text style={t.muted}>{[KIND_LABEL[s.kind], fmtDuration(s.durationMin), s.distanceKm ? fmtKm(s.distanceKm) : null].filter(Boolean).join(' · ')}</Text>
-      {s.description ? (
-        <Text style={t.muted} numberOfLines={3}>
-          {s.description}
-        </Text>
-      ) : null}
-      <Button title="Inizia e registra" iconName="play" onPress={() => router.push({ pathname: '/registra', params: { session: s.id } })} style={{ marginTop: S.sm }} />
-      <Button small title="Vedi i dettagli della sessione" onPress={() => router.push({ pathname: '/allenamento/sessione/[id]', params: { id: s.id } })} />
+    <Panel style={{ padding: S.lg, gap: S.md, overflow: 'hidden' }}>
+      <LinearGradient pointerEvents="none" colors={[color.accentTint, 'transparent']} start={{ x: 1, y: 1 }} end={{ x: 0.3, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+      <Pressable onPress={() => router.push({ pathname: '/allenamento/sessione/[id]', params: { id: s.id } })} accessibilityRole="button" accessibilityLabel={`Dettagli di ${s.title || KIND_LABEL[s.kind]}`} style={{ gap: S.xs }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: S.md }}>
+          <View style={{ flex: 1, gap: 6 }}>
+            <View style={{ alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: R.sm, backgroundColor: color.accentTint }}>
+              <Text style={[type.caption, { color: color.accent, fontWeight: '800', letterSpacing: 0.6 }]}>{today ? 'PROGRAMMA DI OGGI' : `PROGRAMMA · ${s.date.slice(8)}/${s.date.slice(5, 7)}`}</Text>
+            </View>
+            <Text style={[type.title1, { color: color.text, fontWeight: '900' }]}>{s.title || KIND_LABEL[s.kind]}</Text>
+          </View>
+          <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: R.pill, backgroundColor: color.surface, borderWidth: 1, borderColor: color.controlBorder }}>
+            <Text style={[type.caption, { color: color.textSecondary, fontWeight: '700' }]}>{fmtDuration(s.durationMin)}</Text>
+          </View>
+        </View>
+        <Text style={t.muted} numberOfLines={2}>{[KIND_LABEL[s.kind], s.distanceKm ? fmtKm(s.distanceKm) : null].filter(Boolean).join(' · ')}{s.notes ? ` · ${s.notes}` : ''}</Text>
+      </Pressable>
+      <Button title="INIZIA E REGISTRA SUBITO" iconName="play" onPress={() => router.push({ pathname: '/registra', params: { session: s.id } })} />
     </Panel>
   );
 }
@@ -273,14 +281,25 @@ export default function Home() {
           {hero?.kind === 'findGroup' ? <HeroInvite first={false} /> : null}
           {hero?.kind === 'firstStep' ? <HeroInvite first /> : null}
 
-          {imports.count > 0 ? <Panel style={{ padding: S.lg, gap: S.sm }}><Row><Text style={[t.title, { flex: 1 }]}>{imports.count} {imports.count === 1 ? 'allenamento sincronizzato e salvato' : 'allenamenti sincronizzati e salvati'}</Text><IconButton name="close" label="Chiudi avviso Strava" onPress={imports.dismiss} /></Row><Text style={t.small}>Importati da Strava nel tuo archivio privato.</Text><Button variant="soft" title="Controlla gli allenamenti" onPress={() => { imports.dismiss(); router.push('/integrazioni'); }} /></Panel> : null}
+          {imports.count > 0 ? (
+            <Pressable onPress={() => { imports.dismiss(); router.push('/integrazioni'); }} accessibilityRole="button" accessibilityLabel="Controlla gli allenamenti importati da Strava" style={{ borderRadius: R.lg, borderWidth: 1, borderColor: 'rgba(252,76,2,0.35)', overflow: 'hidden' }}>
+              <LinearGradient colors={['rgba(252,76,2,0.18)', 'rgba(142,117,255,0.08)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, padding: S.md }}>
+                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#FC4C02', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="sync" size={20} color="#fff" /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[type.caption, { color: '#FC7A3C', fontWeight: '800', letterSpacing: 0.4 }]}>{imports.count === 1 ? 'NUOVO ALLENAMENTO DA STRAVA' : `${imports.count} NUOVI ALLENAMENTI DA STRAVA`}</Text>
+                  <Text style={[type.subhead, { color: color.text, fontWeight: '600' }]}>Salvati nel tuo archivio privato</Text>
+                </View>
+                <IconButton name="close" label="Chiudi avviso Strava" onPress={imports.dismiss} />
+              </LinearGradient>
+            </Pressable>
+          ) : null}
           {unread > 0 ? <Banner text={`${unread} aggiornamenti da leggere: inviti, richieste e attività dei gruppi.`} action="Apri notifiche" onAction={() => router.push('/notifiche')} /> : null}
           <Suggestion d={d} onChanged={() => void state.reload()} />
 
           {pool.length ? (
             <View style={{ gap: S.md }}>
               <GroupHeader filter={filter} onOpen={() => setFilterOpen(true)} />
-              <Row><Button small title={listView ? 'Vista orizzontale' : 'Vista elenco'} onPress={() => setListView(!listView)} /><Button small title="Organizza un’uscita" onPress={() => router.push('/evento/form')} /></Row>
+              <Row gap={S.sm}><IconButton name={listView ? 'albums-outline' : 'list-outline'} label={listView ? 'Vista a schede' : 'Vista elenco'} onPress={() => setListView(!listView)} /><IconButton name="add-circle-outline" label="Organizza un’uscita" onPress={() => router.push('/evento/form')} /></Row>
               {big.length ? (
                 listView ? big.map((e, i) => <EventCard key={e.id} e={e} index={i} clubImage={imageOf(e, images)} />) : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: S.md }}>{big.map((e, i) => <View key={e.id} style={{ width: 300 }}><GroupRunCard e={e} index={i} clubImage={imageOf(e, images)} /></View>)}</ScrollView>
               ) : (

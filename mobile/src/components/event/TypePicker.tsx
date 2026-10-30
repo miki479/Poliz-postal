@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
@@ -148,7 +148,15 @@ function TypeCard({ sport, on, onPress }: { sport: SportId; on: boolean; onPress
 }
 
 const ITEM_W = 150;
-const FIG = 104;
+const FIG = 112;
+
+/** Disegni a contorno (bianco su trasparente, colorati dal tema): corsa con le linee di vento, camminata/trail con lo zaino. */
+const FIGURE_IMAGE: Partial<Record<SportId, { src: number; w: number }>> = {
+  running: { src: require('../../../assets/images/fig-run.png'), w: 144 },
+  run_walk: { src: require('../../../assets/images/fig-run.png'), w: 144 },
+  walking: { src: require('../../../assets/images/fig-hike.png'), w: 74 },
+  trail: { src: require('../../../assets/images/fig-hike.png'), w: 74 },
+};
 
 /** Linee di vento tratteggiate e semitrasparenti dietro la figura: scorrono solo per lo sport al centro. */
 function WindLines({ active, tint }: { active: boolean; tint: string }) {
@@ -182,15 +190,9 @@ function CarouselItem({ sport, index, x, selected, onPress }: { sport: SportId; 
   return (
     <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={label} style={{ width: ITEM_W, alignItems: 'center', justifyContent: 'center' }}>
       <Animated.View style={[{ alignItems: 'center', gap: S.sm }, motion]}>
-        <View style={{ width: FIG, height: FIG, alignItems: 'center', justifyContent: 'center' }}>
-          <WindLines active={selected && focused} tint={st.solid} />
-          {st.glyph ? (
-            // Un'uscita è sempre di gruppo: tre figure, quella al centro in primo piano e le altre dietro, più piccole e con un ritmo leggermente diverso.
-            <>
-              <View style={{ position: 'absolute', left: -30, bottom: 6, opacity: 0.55 }}><AnimatedActivityFigure glyph={st.glyph} size={FIG * 0.68} color={st.solid} level={1} active={selected && focused} /></View>
-              <View style={{ position: 'absolute', right: -30, bottom: 6, opacity: 0.55 }}><AnimatedActivityFigure glyph={st.glyph} size={FIG * 0.68} color={st.solid} level={3} active={selected && focused} /></View>
-              <AnimatedActivityFigure glyph={st.glyph} size={FIG} color={st.solid} active={selected && focused} />
-            </>
+        <View style={{ width: ITEM_W, height: FIG, alignItems: 'center', justifyContent: 'center' }}>
+          {FIGURE_IMAGE[sport] ? (
+            <Image source={FIGURE_IMAGE[sport].src} resizeMode="contain" style={{ width: FIGURE_IMAGE[sport].w, height: FIG }} tintColor={color.text} accessibilityIgnoresInvertColors />
           ) : <ActivityGlyph style={st} size={FIG * 0.62} color={st.solid} />}
           <TapBurst sport={sport} on={selected} />
         </View>

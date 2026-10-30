@@ -721,7 +721,7 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
             </View>
           ))}
         </Row>
-      ) : <Text style={t.muted}>{typeStyle && item.kind !== 'event_joined' ? `${typeStyle.label} · ${detail}` : detail}</Text>}
+      ) : item.kind === 'event_joined' ? null : <Text style={t.muted}>{typeStyle ? `${typeStyle.label} · ${detail}` : detail}</Text>}
     </View>
   );
   const main = onPress ? (

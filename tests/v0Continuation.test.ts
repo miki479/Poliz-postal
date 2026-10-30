@@ -55,8 +55,8 @@ it('la barra v0 conserva il vetro, usa gli eventi di navigazione SDK 58',()=>{
  const tree=mod.RecordTabBar({state:{index:0,routes:['index','esplora','club','profilo','social'].map(name=>({key:name,name}))},emitter:{emit},navigateToTab});
  expect(all(tree).some(n=>n.type==='LiquidBar')).toBe(true);
  const tabs=all(tree).filter(n=>n.props.accessibilityRole==='tab');
- expect(tabs.map(n=>n.props.accessibilityLabel)).toEqual(['Home','Esplora','Community']);
- tabs[2].props.onPress();expect(navigateToTab).toHaveBeenCalledWith('club');
+ expect(tabs.map(n=>n.props.accessibilityLabel)).toEqual(['Home','Esplora','Profilo']);
+ tabs[2].props.onPress();expect(navigateToTab).toHaveBeenCalledWith('profilo');
  tabs[0].props.onPress();expect(navigateToTab).toHaveBeenCalledTimes(1);
  const record=all(tree).find(n=>typeof n.type==='function')!;
  const button=(record.type as Function)();button.props.onPress();expect(push).toHaveBeenCalledWith('/registra');

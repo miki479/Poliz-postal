@@ -1,6 +1,7 @@
 import { ExploreMap } from '@/components/ExploreMap';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { GroupsPanel } from '@/components/GroupsPanel';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
@@ -43,7 +44,7 @@ const countRun = (f: RunFilters) => [f.day !== 'all', f.sport !== 'any', f.level
 type Pos = { lat: number; lng: number } | null;
 
 export default function Esplora() {
-  const [mode, setMode] = useState<'runs' | 'routes'>('runs');
+  const [mode, setMode] = useState<'runs' | 'routes' | 'groups'>('runs');
   const [mapView, setMapView] = useState(false);
   const [text, setText] = useState('');
   const [runF, setRunF] = useState<RunFilters>(NO_RUN_FILTERS);
@@ -58,7 +59,7 @@ export default function Esplora() {
 
   // "Vedi tutte" dalla Home: le uscite dei miei club (scope=clubs) o tutte (scope=all). `at` rende ogni tocco un nuovo invito.
   const { scope, at, tab } = useLocalSearchParams<{ scope?: string; at?: string; tab?: string }>();
-  useEffect(() => { if (tab === 'routes') setMode('routes'); }, [tab]);
+  useEffect(() => { if (tab === 'routes') setMode('routes'); if (tab === 'groups') setMode('groups'); }, [tab]);
   useEffect(() => {
     if (scope !== 'clubs' && scope !== 'all') return;
     const clubsOnly = scope === 'clubs';
@@ -125,10 +126,10 @@ export default function Esplora() {
   const reset = () => (mode === 'runs' ? (setRunF(NO_RUN_FILTERS), setDraft(NO_RUN_FILTERS)) : (setRouteScope('explore'), setRouteLen('all')));
 
   return (
-    <TabScreen title="Esplora" onRefresh={mode === 'runs' ? runs.reload : routes.reload} right={<IconButton name="add" label={mode === 'runs' ? 'Organizza un’uscita' : 'Salva un percorso'} onPress={() => router.push(mode === 'runs' ? '/evento/form' : '/percorsi/form')} />}>
+    <TabScreen title="Esplora" onRefresh={mode === 'runs' ? runs.reload : routes.reload} right={<IconButton name="add" label={mode === 'runs' ? 'Organizza un’uscita' : mode === 'groups' ? 'Crea un gruppo' : 'Salva un percorso'} onPress={() => router.push(mode === 'runs' ? '/evento/form' : mode === 'groups' ? '/club/form' : '/percorsi/form')} />}>
       <View style={{ gap: S.md }}>
-        <Segmented value={mode} onChange={setMode} options={[{ value: 'runs', label: 'Uscite' }, { value: 'routes', label: 'Percorsi' }]} />
-        <Row gap={S.sm}>
+        <Segmented value={mode} onChange={setMode} options={[{ value: 'runs', label: 'Uscite' }, { value: 'routes', label: 'Percorsi' }, { value: 'groups', label: 'Gruppi' }]} />
+        {mode !== 'groups' ? <><Row gap={S.sm}>
           <Pressable onPress={() => setMapView(!mapView)} accessibilityRole="button" accessibilityState={{ selected: mapView }} accessibilityLabel={mapView ? 'Mostra elenco' : 'Mostra mappa'} style={[chip, mapView && chipOn]}>
             <Ionicons name={mapView ? 'list' : 'map-outline'} size={15} color={mapView ? color.accent : color.textSecondary} />
             <Text style={[type.subhead, { color: mapView ? color.accent : color.textSecondary, fontWeight: '600' }]}>{mapView ? 'Elenco' : 'Mappa'}</Text>
@@ -160,11 +161,12 @@ export default function Esplora() {
           </Pressable>
           {active > 0 ? <LinkText title="Azzera" onPress={reset} /> : null}
         </Row>
+        </>: null}
         {geo === 'denied' ? <Banner tone="warn" text="Posizione non consentita. Puoi cercare per città qui sopra, oppure attivarla nelle impostazioni." action="Apri impostazioni" onAction={() => void Linking.openSettings()} /> : null}
         {geo === 'failed' ? <Banner tone="warn" text="Non riesco a trovare la tua posizione adesso. Cerca per città oppure riprova all’aperto." action="Riprova" onAction={() => void nearMe()} /> : null}
       </View>
 
-      {mode === 'runs' ? (
+      {mode === 'groups' ? <GroupsPanel /> : mode === 'runs' ? (
         <Async state={runs} skeleton={<View style={{ gap: S.sm }}><Skeleton height={112} /><Skeleton height={112} /></View>}>
           {(list) => {
             const items = nearby ? nearby.list.map((x) => x.e) : list;

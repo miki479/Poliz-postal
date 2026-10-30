@@ -243,9 +243,6 @@ export default function Home() {
   const counts = Object.fromEntries(FILTERS.map((f) => [f.value, pool.filter((e) => matches(e, f.value)).length])) as Record<RunFilter, number>;
   const big = pool.filter((e) => matches(e, filter)).slice(0, BIG_CARDS);
   const bigIds = new Set(big.map((e) => e.id));
-  // Le righe compatte mostrano solo ciò che non è già una card grande.
-  const clubRows = pool.filter((e) => fromMyClub(e) && !bigIds.has(e.id)).slice(0, ROWS);
-  const publicRows = pool.filter((e) => e.visibility === 'public' && !fromMyClub(e) && !bigIds.has(e.id)).slice(0, ROWS);
   const week = d?.stats?.week;
 
   return (
@@ -254,7 +251,7 @@ export default function Home() {
       onRefresh={state.reload}
       right={
         <>
-          <IconButton name="person-circle-outline" label="Il tuo profilo" onPress={() => router.navigate('/profilo')} />
+          <IconButton name="trophy-outline" label="Le tue medaglie" onPress={() => router.push('/traguardi')} />
           <IconButton name="notifications-outline" label="Notifiche" badge={unread} onPress={() => router.push('/notifiche')} />
 
         </>
@@ -301,29 +298,12 @@ export default function Home() {
               <GroupHeader filter={filter} onOpen={() => setFilterOpen(true)} />
               <Row gap={S.sm}><IconButton name={listView ? 'albums-outline' : 'list-outline'} label={listView ? 'Vista a schede' : 'Vista elenco'} onPress={() => setListView(!listView)} /><IconButton name="add-circle-outline" label="Organizza un’uscita" onPress={() => router.push('/evento/form')} /></Row>
               {big.length ? (
-                listView ? big.map((e, i) => <EventCard key={e.id} e={e} index={i} clubImage={imageOf(e, images)} />) : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: S.md }}>{big.map((e, i) => <View key={e.id} style={{ width: 300 }}><GroupRunCard e={e} index={i} clubImage={imageOf(e, images)} /></View>)}</ScrollView>
+                listView ? big.map((e, i) => <EventCard key={e.id} e={e} index={i} clubImage={imageOf(e, images)} />) : <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.xl }} contentContainerStyle={{ gap: S.md, paddingHorizontal: S.xl }}>{big.map((e, i) => <View key={e.id} style={{ width: 300 }}><GroupRunCard e={e} index={i} clubImage={imageOf(e, images)} /></View>)}</ScrollView>
               ) : (
                 <Text style={t.muted}>Nessuna uscita in programma per questo filtro.</Text>
               )}
             </View>
           ) : null}
-
-          {clubRows.length ? (
-            <Section title="I miei club" action="Vedi tutte" onAction={() => router.navigate({ pathname: '/esplora', params: { scope: 'clubs', at: String(Date.now()) } })} gap={S.sm}>
-              {clubRows.map((e, i) => (
-                <EventCard key={e.id} e={e} index={i} clubImage={imageOf(e, images)} />
-              ))}
-            </Section>
-          ) : null}
-
-          {publicRows.length ? (
-            <Section title="Uscite pubbliche" action="Vedi tutte" onAction={() => router.navigate({ pathname: '/esplora', params: { scope: 'all', at: String(Date.now()) } })} gap={S.sm}>
-              {publicRows.map((e, i) => (
-                <EventCard key={e.id} e={e} index={i} />
-              ))}
-            </Section>
-          ) : null}
-
 
           <CommunityStream />
           <Button variant="soft" title="Inizia a correre: allenamenti guidati" onPress={()=>router.push('/allenamento/iniziare')} />

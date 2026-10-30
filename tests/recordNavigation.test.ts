@@ -27,7 +27,7 @@ it('la barra Expo 58 usa emitter/navigateToTab e il comando Registra apre la rou
   new Function('require', 'exports', code)((name: string) => imports[name] ?? {}, exports);
   const layout = exports.default();
   const navigateToTab = vi.fn(); const emit = vi.fn(() => ({ defaultPrevented: false }));
-  const state = { index: 0, routes: ['index', 'esplora', 'club', 'social', 'profilo'].map((name) => ({ name, key: `${name}-key` })) };
+  const state = { index: 0, routes: ['index', 'esplora', 'profilo'].map((name) => ({ name, key: `${name}-key` })) };
   const element = layout.props.tabBar({ state, emitter: { emit }, navigateToTab });
   const bar = element.type(element.props);
   const entries = bar.props.children.props.children;

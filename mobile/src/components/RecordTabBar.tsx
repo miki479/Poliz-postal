@@ -10,7 +10,7 @@ import { color, S, type } from '@/constants/theme';
 const ITEMS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; selected: keyof typeof Ionicons.glyphMap }> = {
   index: { label: 'Home', icon: 'home-outline', selected: 'home' },
   esplora: { label: 'Esplora', icon: 'map-outline', selected: 'map' },
-  club: { label: 'Community', icon: 'people-outline', selected: 'people' },
+  profilo: { label: 'Profilo', icon: 'person-circle-outline', selected: 'person-circle' },
 };
 
 function RecordButton() {
@@ -28,7 +28,7 @@ export function RecordTabBar({ state, emitter, navigateToTab }: BottomTabBarProp
         const item = ITEMS[route.name]; if (!item) return null;
         const selected = state.index === index;
         return <Fragment key={route.key}>
-          {route.name === 'club' ? <RecordButton /> : null}
+          {route.name === 'profilo' ? <RecordButton /> : null}
           <Pressable accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={item.label} style={({ pressed }) => [{ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: S.xs, gap: S.xs, borderRadius:32, backgroundColor:selected?color.accentTint:'transparent' }, pressed && { opacity: 0.65 }]} onPress={() => {
             const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
             if (!selected && !event.defaultPrevented) navigateToTab(route.key);

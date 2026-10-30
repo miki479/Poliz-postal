@@ -47,7 +47,7 @@ export function RunnerSuggestions() {
 export function CommunityStream() {
   const feed = useLoad(() => call<Array<FeedItem & { social: SocialCounts }>>('getSocialFeed', 20));
   return <Section title="Dalla community"><Async state={feed} skeleton={<Skeleton height={80} />}>
-    {(items) => items.length ? <View>{items.map((f, i) => <View key={f.id}>{i ? <Divider /> : null}<FeedRow item={f} /></View>)}</View> : <View style={{ gap: S.sm }}><Text style={t.muted}>Le attività condivise dai compagni e dai tuoi gruppi compariranno qui.</Text><Button small title="Trova compagni" onPress={() => router.navigate('/club')} /></View>}
+    {(items) => items.length ? <View>{items.map((f, i) => <View key={f.id}>{i ? <Divider /> : null}<FeedRow item={f} /></View>)}</View> : <View style={{ gap: S.sm }}><Text style={t.muted}>Le attività condivise dai compagni e dai tuoi gruppi compariranno qui.</Text><Button small title="Trova compagni" onPress={() => router.navigate({ pathname: '/esplora', params: { tab: 'groups' } })} /></View>}
   </Async></Section>;
 }
 

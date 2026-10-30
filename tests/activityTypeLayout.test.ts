@@ -1,37 +1,23 @@
-import { themedStyles, themeMode } from '../mobile/src/constants/theme.ts';
 import { readFileSync } from 'node:fs';
-import { expect, it, vi } from 'vitest';
-import ts from 'typescript';
+import { expect, it } from 'vitest';
 
-type Element = { type: unknown; props: Record<string, any> };
-const sports = ['running', 'walking', 'trail', 'run_walk', 'other'];
-function renderChoices(width: number, fontScale: number) {
-  const node = (type: unknown, props: Element['props']) => ({ type, props });
-  const imports: Record<string, unknown> = {
-    'react/jsx-runtime': { jsx: node, jsxs: node },
-    'react-native': { View: 'View', StyleSheet: { create: (value: unknown) => value }, useWindowDimensions: () => ({ width, fontScale }) },
-    '@/constants/eventStyle': { EVENT_SPORTS: sports },
-    '@/constants/theme': {themedStyles,themeMode, color: {}, S: { sm: 8, xl: 20 }, R: { card: 16 } },
-  };
-  const exports: Record<string, any> = {};
-  const code = ts.transpileModule(readFileSync('mobile/src/components/event/TypePicker.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  new Function('require', 'exports', code)((name: string) => imports[name] ?? {}, exports);
-  const onChange = vi.fn();
-  const tree = exports.TypeCards({ value: 'run_walk', onChange }) as Element;
-  const rows = tree.props.children as Element[];
-  const choices = rows.map((row) => [row.props.children].flat(Infinity).filter((item) => item?.props?.sport) as Element[]);
-  return { choices, onChange };
-}
+import { EVENT_SPORTS } from '../mobile/src/constants/eventStyle.ts';
 
-it('a 375 px mantiene cinque opzioni e passa a due colonne con testo ingrandito', () => {
-  expect(renderChoices(375, 1).choices.map((row) => row.length)).toEqual([3, 2]);
-  const { choices, onChange } = renderChoices(375, 1.4);
-  expect(choices.map((row) => row.length)).toEqual([2, 2, 1]);
-  expect(choices.flat().map((item) => item.props.sport)).toEqual(sports);
-  const mixed = choices.flat().find((item) => item.props.sport === 'run_walk')!;
-  expect(mixed.props.on).toBe(true);
-  mixed.props.onPress();
-  expect(onChange).toHaveBeenCalledWith('run_walk');
-  expect(renderChoices(320, 1).choices.map((row) => row.length)).toEqual([2, 2, 1]);
-  expect(renderChoices(375, 2).choices.map((row) => row.length)).toEqual([1, 1, 1, 1, 1]);
+const source = readFileSync('mobile/src/components/event/TypePicker.tsx', 'utf8');
+
+it('il selettore del tipo è un carosello orizzontale con tutti e cinque gli sport', () => {
+  expect([...EVENT_SPORTS]).toEqual(['running', 'walking', 'trail', 'run_walk', 'other']);
+  // scorrimento orizzontale con aggancio: lo sport scelto sta al centro, gli altri più piccoli e sbiaditi
+  expect(source).toContain('snapToInterval={ITEM_W}');
+  expect(source).toContain('horizontal');
+  expect(source).toMatch(/opacity: 1 - d \* 0\.62/);
+  expect(source).toMatch(/scale: 1\.12 - d \* 0\.42/);
+  // ogni sport è un elemento radio con nome accessibile, senza riquadri pieni dietro la figura
+  expect(source).toContain('accessibilityRole="radio"');
+  expect(source).not.toMatch(/CarouselItem[\s\S]*LinearGradient[\s\S]*StyleSheet\.absoluteFill[\s\S]*function TypeCards/);
+});
+
+it('la scelta cambia solo a fine scorrimento o con un tocco', () => {
+  expect(source).toContain('onMomentumEnd');
+  expect(source).toContain('onPress={() => choose(i)}');
 });

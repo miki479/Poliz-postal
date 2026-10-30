@@ -3,14 +3,15 @@ import { RouteThumbnail } from '@/components/RouteThumbnail';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, Share, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RecordRow, SectionHead } from '@/components/BadgeParts';
 import { ProfileHeader } from '@/components/ProfileHeader';
 import { Rise } from '@/components/Results';
 import { StoryCard } from '@/components/StoryCard';
-import { Async, Button, Divider, IconButton, Screen, Sheet, Skeleton, t, useLoad, type IconName } from '@/components/ui';
+import { AreaChart } from '@/components/Motion';
+import { Async, Button, Divider, IconButton, Panel, Screen, Sheet, Skeleton, t, useLoad, type IconName } from '@/components/ui';
 import { styleOfSport } from '@/constants/activityColors';
 import { awardsOf, BADGE_KINDS, kindOf, mainRecords } from '@/constants/achievements';
 import { color, GUTTER, HIT, R, S, type } from '@/constants/theme';
@@ -58,6 +59,16 @@ function fameHint(f: FameView | null): string {
   return parts.length ? parts.join(' · ') : 'Ancora nessun riconoscimento: arrivano dopo le uscite di gruppo';
 }
 
+/** Settimane consecutive (lunedì-domenica) con almeno un'attività, contate fino a questa settimana o all'ultima. */
+function weekStreak(logs: WorkoutLog[]): number {
+  const weeks = new Set(logs.map((l) => mondayOf(new Date(l.startedAt))));
+  let w = mondayOf(new Date());
+  if (!weeks.has(w)) w -= WEEK_MS;
+  let n = 0;
+  while (weeks.has(w)) { n++; w -= WEEK_MS; }
+  return n;
+}
+
 /** "Oggi", "Domani" o "gio 14 nov" per un giorno di calendario locale "YYYY-MM-DD". */
 function NavRow({ icon, title, hint, onPress }: { icon: IconName; title: string; hint?: string; onPress: () => void }) {
   return (
@@ -78,11 +89,11 @@ function NavRow({ icon, title, hint, onPress }: { icon: IconName; title: string;
 
 /* ---------- schede ---------- */
 
-type Tab = 'attivita' | 'progressi' | 'reputazione';
-const TABS: Array<{ value: Tab; label: string }> = [
-  { value: 'attivita', label: 'Attività' },
-  { value: 'progressi', label: 'Progressi' },
-  { value: 'reputazione', label: 'Reputazione' },
+type Tab = 'attivita' | 'progressi' | 'altro';
+const TABS: Array<{ value: Tab; label: string; icon: IconName }> = [
+  { value: 'progressi', label: 'Progressi', icon: 'stats-chart' },
+  { value: 'attivita', label: 'Attività', icon: 'pulse' },
+  { value: 'altro', label: 'Altro', icon: 'menu' },
 ];
 
 function Tabs({ value, onChange }: { value: Tab; onChange: (v: Tab) => void }) {
@@ -91,9 +102,10 @@ function Tabs({ value, onChange }: { value: Tab; onChange: (v: Tab) => void }) {
       {TABS.map((o) => {
         const on = o.value === value;
         return (
-          <Pressable key={o.value} onPress={() => onChange(o.value)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={{ flex: 1, minHeight: HIT, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={[type.subhead, { color: on ? color.text : color.textSecondary, fontWeight: on ? '700' : '500' }]}>{o.label}</Text>
-            <View style={{ position: 'absolute', bottom: -1, height: 2, width: 56, borderRadius: 1, backgroundColor: on ? color.accent : 'transparent' }} />
+          <Pressable key={o.value} onPress={() => onChange(o.value)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={{ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            <Ionicons name={on ? o.icon : (`${o.icon}-outline` as IconName)} size={26} color={on ? color.accent : color.textSecondary} />
+            <Text style={[type.footnote, { color: on ? color.accent : color.textSecondary, fontWeight: on ? '800' : '500' }]}>{o.label}</Text>
+            <View style={{ position: 'absolute', bottom: -1, height: 3, left: S.md, right: S.md, borderRadius: 2, backgroundColor: on ? color.accent : 'transparent' }} />
           </Pressable>
         );
       })}
@@ -181,19 +193,67 @@ function StoriesTab({ logs, seen }: { logs: WorkoutLog[]; seen: Set<string> }) {
   );
 }
 
-function ProgressTab({ d }: { d: ProfileData }) {
-  const recs = mainRecords(d.records).slice(0, 3);
-  const sport = d.fame?.tracks?.sport;
-  return <View style={{ gap: S.lg }}>
-    {sport ? <Text style={t.muted}>{sport.activities} attività · {fmtKm(sport.km)}{sport.bestStreakWeeks ? ` · ${sport.bestStreakWeeks} settimane consecutive` : ''}</Text> : null}
-    {recs.length ? <View><SectionHead title="Record personali" action="Tutti" onAction={() => router.push('/record')} />{recs.map((r) => <RecordRow key={r.code} r={r} awards={d.awards} />)}</View> : <Text style={t.muted}>I record e i miglioramenti compariranno con le tue attività.</Text>}
-    <NavRow icon="walk-outline" title="Inizia a correre: allenamenti guidati" hint="Programma pubblico NHS, 9 settimane" onPress={()=>router.push('/allenamento/iniziare')} />
-    <NavRow icon="calendar-outline" title="Il tuo piano" onPress={() => router.push('/allenamento')} />
-    <NavRow icon="stats-chart-outline" title="Volume e costanza" onPress={() => router.push('/statistiche')} />
-    <NavRow icon="flag-outline" title="Obiettivi" onPress={() => router.push('/obiettivi')} />
-  </View>;
+const WEEK_MS = 7 * 86_400_000;
+function mondayOf(d: Date): number {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x.getTime();
 }
-function ReputationTab({ d }: { d: ProfileData }) {
+
+/** Progressi reali: filtro per tipo, riepilogo della settimana e distanza delle ultime 12 settimane (solo attività registrate). */
+function ProgressTab({ d }: { d: ProfileData }) {
+  const [sport, setSport] = useState<string | null>(null);
+  const types = [...new Set(d.logs.map((l) => styleOfLog(l).label))];
+  const logs = d.logs.filter((l) => !sport || styleOfLog(l).label === sport);
+  const now = mondayOf(new Date());
+  const weeks = Array.from({ length: 12 }, (_, i) => now - (11 - i) * WEEK_MS);
+  const km = weeks.map((w) => logs.filter((l) => mondayOf(new Date(l.startedAt)) === w).reduce((n, l) => n + (l.distanceKm ?? 0), 0));
+  const thisWeek = logs.filter((l) => mondayOf(new Date(l.startedAt)) === now);
+  const sec = thisWeek.reduce((n, l) => n + l.durationSec, 0);
+  const elev = thisWeek.reduce((n, l) => n + (l.metrics?.elevGainM ?? 0), 0);
+  const recs = mainRecords(d.records).slice(0, 3);
+  return (
+    <View style={{ gap: S.lg }}>
+      <Panel style={{ padding: S.lg, gap: S.lg }}>
+        {types.length > 1 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.lg }} contentContainerStyle={{ paddingHorizontal: S.lg, gap: S.sm }}>
+            {[null, ...types].map((k) => {
+              const on = sport === k;
+              return (
+                <Pressable key={k ?? 'all'} onPress={() => setSport(k)} accessibilityRole="button" accessibilityState={{ selected: on }} style={{ minHeight: 40, paddingHorizontal: S.lg, borderRadius: R.pill, justifyContent: 'center', borderWidth: 1.5, borderColor: on ? color.accent : color.controlBorder, backgroundColor: on ? color.accentTint : 'transparent' }}>
+                  <Text style={[type.subhead, { color: on ? color.accent : color.textSecondary, fontWeight: '700' }]}>{k ?? 'Tutti gli sport'}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+        <Text style={t.h2}>Questa settimana</Text>
+        <View style={{ flexDirection: 'row', gap: S.xl }}>
+          <Stat label="Distanza" value={`${(km[11] || 0).toFixed(km[11] >= 10 ? 0 : 1).replace('.', ',')} km`} />
+          <Stat label="Tempo" value={sec >= 3600 ? `${Math.floor(sec / 3600)}h ${Math.round((sec % 3600) / 60)}m` : `${Math.round(sec / 60)}m`} />
+          {elev > 0 ? <Stat label="Dislivello" value={`${Math.round(elev)} m`} /> : null}
+        </View>
+        <View style={{ gap: S.xs }}>
+          <Text style={t.small}>Ultime 12 settimane</Text>
+          {km.some((v) => v > 0) ? <AreaChart values={km} height={150} tint={color.accent} label={`Distanza settimanale delle ultime 12 settimane, massimo ${Math.max(...km).toFixed(1).replace('.', ',')} chilometri`} /> : <Text style={t.muted}>Il grafico compare dopo la prima attività con distanza.</Text>}
+        </View>
+        <Pressable onPress={() => router.push('/statistiche')} accessibilityRole="button" style={({ pressed }) => [{ minHeight: 50, borderRadius: R.pill, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: color.controlBorder }, pressed && { opacity: 0.6 }]}>
+          <Text style={[type.headline, { color: color.text }]}>Scopri di più sui tuoi progressi</Text>
+        </Pressable>
+      </Panel>
+      {recs.length ? <View><SectionHead title="Record personali" action="Tutti" onAction={() => router.push('/record')} />{recs.map((r) => <RecordRow key={r.code} r={r} awards={d.awards} />)}</View> : null}
+      <NavRow icon="walk-outline" title="Inizia a correre: allenamenti guidati" hint="Programma pubblico NHS, 9 settimane" onPress={() => router.push('/allenamento/iniziare')} />
+      <NavRow icon="calendar-outline" title="Il tuo piano" onPress={() => router.push('/allenamento')} />
+      <NavRow icon="flag-outline" title="Obiettivi" onPress={() => router.push('/obiettivi')} />
+    </View>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return <View style={{ gap: 2 }}><Text style={t.small}>{label}</Text><Text style={[type.title1, { color: color.text }]}>{value}</Text></View>;
+}
+
+function OtherTab({ d }: { d: ProfileData }) {
   const contribution = d.fame?.tracks?.contribution;
   return <View style={{ gap: S.md }}>
     <Text style={t.muted}>{fameHint(d.fame)}</Text>
@@ -214,33 +274,48 @@ export default function Profilo() {
   const [archive, setArchive] = useState(false);
   const insets = useSafeAreaInsets();
   const state = useLoad(load);
-  const [tab, setTab] = useState<Tab>('attivita');
+  const [tab, setTab] = useState<Tab>('progressi');
 
   return (
     <Screen onRefresh={state.reload} bottomPad={96} glow="brand" style={{ paddingTop: insets.top + S.sm, gap: S.xl }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: HIT }}>
-        <Text style={[t.h2, { flex: 1 }]} accessibilityRole="header">
-          Profilo
-        </Text>
-        <IconButton name="settings-outline" label="Impostazioni" onPress={() => router.push('/impostazioni')} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm, minHeight: 56 }}>
+        <IconButton name="add" label="Organizza un'uscita" filled onPress={() => router.push('/evento/form')} />
+        <View style={{ flex: 1 }} />
+        <IconButton name="search" label="Trova persone" filled onPress={() => router.navigate('/esplora')} />
+        <IconButton name="settings-outline" label="Impostazioni" filled onPress={() => router.push('/impostazioni')} />
       </View>
       <Async state={state} skeleton={<><Skeleton height={150} /><Skeleton height={64} /><Skeleton height={200} /></>}>
-        {(d) => (
+        {(d) => {
+          const streak = weekStreak(d.logs);
+          return (
           <>
             <ProfileHeader p={d.p} onIdentity={() => router.push('/profilo-modifica')} />
             {d.follows ? <Connections followers={d.follows.followers} following={d.follows.following} onChanged={()=>void state.reload()} /> : null}
-            <Button variant="soft" title="Modifica profilo" onPress={() => router.push('/profilo-modifica')} />
+            {streak > 1 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm }}>
+                <Ionicons name="flame" size={24} color={color.achievement} />
+                <Text style={type.title2}><Text style={{ fontWeight: '800' }}>{streak}</Text> settimane di fila con un'attività</Text>
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: S.md }}>
+              <Pressable onPress={() => router.push('/profilo-modifica')} accessibilityRole="button" style={({ pressed }) => [{ flex: 1, minHeight: 50, borderRadius: R.pill, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: color.controlBorder }, pressed && { opacity: 0.6 }]}>
+                <Text style={[type.headline, { color: color.text }]}>Modifica profilo</Text>
+              </Pressable>
+              <Pressable onPress={() => void Share.share({ message: `Seguimi su RUNNGO: ${d.p.user.displayName}` })} accessibilityRole="button" style={({ pressed }) => [{ flex: 1, minHeight: 50, borderRadius: R.pill, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: color.controlBorder }, pressed && { opacity: 0.6 }]}>
+                <Text style={[type.headline, { color: color.text }]}>Condividi profilo</Text>
+              </Pressable>
+            </View>
             <View style={{ gap: S.lg }}>
               <Tabs value={tab} onChange={setTab} />
               <Rise key={tab} dy={6} duration={280}>
-                {tab === 'attivita' ? <ActivitiesTab activities={d.p.activities ?? []} logs={d.logs} awards={d.awards} /> : tab === 'progressi' ? <ProgressTab d={d} /> : <ReputationTab d={d} />}
+                {tab === 'attivita' ? <ActivitiesTab activities={d.p.activities ?? []} logs={d.logs} awards={d.awards} /> : tab === 'progressi' ? <ProgressTab d={d} /> : <OtherTab d={d} />}
               </Rise>
             </View>
             <NavRow icon="albums-outline" title="Racconti salvati" onPress={() => setArchive(true)} />
             <NavRow icon="ribbon-outline" title="Collezione di traguardi" onPress={() => router.push('/traguardi')} />
             <Sheet visible={archive} onClose={() => setArchive(false)} title="Racconti salvati"><StoriesTab logs={d.logs} seen={d.seen} /></Sheet>
           </>
-        )}
+        );}}
       </Async>
     </Screen>
   );

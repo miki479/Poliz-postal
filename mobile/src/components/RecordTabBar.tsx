@@ -14,9 +14,9 @@ const ITEMS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMa
 };
 
 function RecordButton() {
-  return <Pressable onPress={()=>router.push('/registra')} accessibilityRole="button" accessibilityLabel="Registra una corsa o camminata" style={({pressed})=>({flex:1,minHeight:64,alignItems:'center',justifyContent:'center',gap:3,opacity:pressed?.7:1})}>
-    <View style={{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:color.accent}}><Ionicons name="radio-button-on" size={26} color={color.onAccent}/></View>
-    <Text style={[type.caption,{color:color.text,fontSize:10,fontWeight:'700'}]}>Registra</Text>
+  return <Pressable onPress={()=>router.push('/registra')} accessibilityRole="button" accessibilityLabel="Registra una corsa o camminata" style={({pressed})=>({flex:1,minHeight:64,alignItems:'center',justifyContent:'flex-end',paddingBottom:S.xs,gap:S.xs,opacity:pressed?.7:1})}>
+    <Ionicons name="radio-button-on-outline" size={25} color={color.textSecondary}/>
+    <Text style={[type.caption,{fontSize:11,color:color.textSecondary,fontWeight:'500',textAlign:'center'}]}>Registra</Text>
   </Pressable>;
 }
 

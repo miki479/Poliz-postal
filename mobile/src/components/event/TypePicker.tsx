@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { alpha, shade } from '@/components/event/colors';
@@ -147,25 +147,100 @@ function TypeCard({ sport, on, onPress }: { sport: SportId; on: boolean; onPress
   );
 }
 
-/** Tre colonne standard; meno colonne con testo grande per conservare tutte le etichette. */
-export function TypeCards({ value, onChange }: { value: SportId; onChange: (s: SportId) => void }) {
-  const { width, fontScale } = useWindowDimensions();
-  const columns = Math.max(1, Math.min(3, Math.floor((width - S.xl * 2 + S.sm) / (100 * Math.max(1, fontScale) + S.sm))));
-  const rows: SportId[][] = [];
-  for (let i = 0; i < EVENT_SPORTS.length; i += columns) rows.push(EVENT_SPORTS.slice(i, i + columns));
+const ITEM_W = 150;
+const FIG = 104;
+
+/** Linee di vento tratteggiate e semitrasparenti dietro la figura: scorrono solo per lo sport al centro. */
+function WindLines({ active, tint }: { active: boolean; tint: string }) {
+  const reduce = useReduceMotion();
+  const drift = useSharedValue(0);
+  useEffect(() => {
+    if (reduce || !active) { cancelAnimation(drift); drift.value = 0; return; }
+    drift.value = withRepeat(withTiming(1, { duration: 1500, easing: Easing.linear }), -1, false);
+    return () => cancelAnimation(drift);
+  }, [active, reduce, drift]);
+  const st = useAnimatedStyle(() => ({ opacity: active ? 0.55 - drift.value * 0.35 : 0.15, transform: [{ translateX: -drift.value * 22 }] }));
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel="Tipo di attività" style={{ gap: S.sm }}>
-      {rows.map((row) => (
-        <View key={row.join('-')} style={{ flexDirection: 'row', gap: S.sm }}>
-          {row.map((sp) => (
-            <TypeCard key={sp} sport={sp} on={value === sp} onPress={() => onChange(sp)} />
-          ))}
-          {/* Le tessere dell'ultima riga restano larghe come le altre. */}
-          {Array.from({ length: columns - row.length }, (_, k) => (
-            <View key={`gap-${k}`} style={{ flex: 1 }} />
-          ))}
+    <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: -34, top: FIG * 0.2, width: 70, height: FIG * 0.6 }, st]}>
+      <Svg width="100%" height="100%" viewBox="0 0 70 60">
+        <Path d="M4 12 H52" stroke={tint} strokeWidth={1.6} strokeLinecap="round" strokeDasharray="10 7" />
+        <Path d="M0 30 H62" stroke={tint} strokeWidth={1.6} strokeLinecap="round" strokeDasharray="14 8" />
+        <Path d="M8 48 H46" stroke={tint} strokeWidth={1.6} strokeLinecap="round" strokeDasharray="8 7" />
+      </Svg>
+    </Animated.View>
+  );
+}
+
+function CarouselItem({ sport, index, x, selected, onPress }: { sport: SportId; index: number; x: SharedValue<number>; selected: boolean; onPress: () => void }) {
+  const focused = useIsFocused();
+  const st = eventSportStyle(sport);
+  const label = SPORT_LABEL[sport];
+  const motion = useAnimatedStyle(() => {
+    const d = Math.min(1.6, Math.abs(x.value - index * ITEM_W) / ITEM_W);
+    return { opacity: 1 - d * 0.62, transform: [{ scale: 1.12 - d * 0.42 }] };
+  });
+  return (
+    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={label} style={{ width: ITEM_W, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={[{ alignItems: 'center', gap: S.sm }, motion]}>
+        <View style={{ width: FIG, height: FIG, alignItems: 'center', justifyContent: 'center' }}>
+          <WindLines active={selected && focused} tint={st.solid} />
+          {st.glyph ? (
+            // Un'uscita è sempre di gruppo: tre figure, quella al centro in primo piano e le altre dietro, più piccole e con un ritmo leggermente diverso.
+            <>
+              <View style={{ position: 'absolute', left: -30, bottom: 6, opacity: 0.55 }}><AnimatedActivityFigure glyph={st.glyph} size={FIG * 0.68} color={st.solid} level={1} active={selected && focused} /></View>
+              <View style={{ position: 'absolute', right: -30, bottom: 6, opacity: 0.55 }}><AnimatedActivityFigure glyph={st.glyph} size={FIG * 0.68} color={st.solid} level={3} active={selected && focused} /></View>
+              <AnimatedActivityFigure glyph={st.glyph} size={FIG} color={st.solid} active={selected && focused} />
+            </>
+          ) : <ActivityGlyph style={st} size={FIG * 0.62} color={st.solid} />}
+          <TapBurst sport={sport} on={selected} />
         </View>
-      ))}
+        <Text style={[type.title2, { color: selected ? st.solid : color.textSecondary, fontWeight: '800', letterSpacing: 0.4 }]}>{label}</Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+/**
+ * Carosello orizzontale degli sport: quello scelto sta al centro in primo piano, gli altri si intravedono ai lati più piccoli e
+ * sbiaditi. Nessun riquadro: figure in tinta con il loro colore e linee di vento. Si scorre (con aggancio) o si tocca; la scelta
+ * cambia quando lo scorrimento si ferma. Le frecce e i puntini mostrano dove si è.
+ */
+export function TypeCards({ value, onChange }: { value: SportId; onChange: (s: SportId) => void }) {
+  const [w, setW] = useState(0);
+  const x = useSharedValue(0);
+  const ref = useAnimatedRef<Animated.ScrollView>();
+  const idx = Math.max(0, EVENT_SPORTS.indexOf(value));
+  const last = useRef(idx);
+  const side = Math.max(0, (w - ITEM_W) / 2);
+  const choose = (i: number) => {
+    const next = EVENT_SPORTS[Math.max(0, Math.min(EVENT_SPORTS.length - 1, i))];
+    if (next !== value) onChange(next);
+  };
+  const handler = useAnimatedScrollHandler({
+    onScroll: (e) => { x.value = e.contentOffset.x; },
+    onMomentumEnd: (e) => runOnJS(choose)(Math.round(e.contentOffset.x / ITEM_W)),
+    onEndDrag: (e) => { if (Math.abs(e.velocity?.x ?? 0) < 0.05) runOnJS(choose)(Math.round(e.contentOffset.x / ITEM_W)); },
+  });
+  // Se la scelta cambia da fuori (o per un tocco) il carosello scorre fino allo sport scelto.
+  useEffect(() => {
+    if (!w) return;
+    if (last.current !== idx || Math.abs(x.value - idx * ITEM_W) > 2) ref.current?.scrollTo({ x: idx * ITEM_W, animated: last.current !== idx || x.value > 0 });
+    last.current = idx;
+  }, [idx, w, ref, x]);
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel="Tipo di attività" onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ marginHorizontal: -S.xl, gap: S.sm }}>
+      <Animated.ScrollView ref={ref} horizontal showsHorizontalScrollIndicator={false} snapToInterval={ITEM_W} decelerationRate="fast" scrollEventThrottle={16} onScroll={handler} contentContainerStyle={{ paddingHorizontal: side + S.xl, paddingVertical: S.lg }} contentOffset={{ x: idx * ITEM_W, y: 0 }}>
+        {EVENT_SPORTS.map((sp, i) => (
+          <CarouselItem key={sp} sport={sp} index={i} x={x} selected={value === sp} onPress={() => choose(i)} />
+        ))}
+      </Animated.ScrollView>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.md }}>
+        <Ionicons name="chevron-back" size={18} color={idx === 0 ? color.separator : color.textSecondary} />
+        {EVENT_SPORTS.map((sp, i) => (
+          <View key={sp} style={{ width: i === idx ? 20 : 7, height: 7, borderRadius: 4, backgroundColor: i === idx ? color.accent : color.controlBorder }} />
+        ))}
+        <Ionicons name="chevron-forward" size={18} color={idx === EVENT_SPORTS.length - 1 ? color.separator : color.textSecondary} />
+      </View>
     </View>
   );
 }

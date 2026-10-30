@@ -2,15 +2,15 @@ import { useStravaImportNotice } from '@/lib/stravaSync';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Image, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 
 import { EventCard, GroupRunCard } from '@/components/cards';
 import { CommunityStream } from '@/components/CommunityStream';
 import { FriendStories } from '@/components/FriendStories';
 import { Banner, Button, IconButton, Metric, Row, Section, Sheet, Skeleton, TabScreen, t, useLoad, Panel } from '@/components/ui';
 import { SESSION_FIGURE } from '@/constants/figureImages';
-import { color, HIT, R, S, type } from '@/constants/theme';
+import { color, GUTTER, HIT, R, S, type } from '@/constants/theme';
 import { call } from '@/lib/api';
 import { deviceTimezone, fmtDuration, fmtKm, hoursUntil, kmParts, KIND_LABEL, startOfWeekIso, toISODate } from '@/lib/format';
 import { useSession } from '@/lib/session';
@@ -110,7 +110,26 @@ function HeroEvent({ e, label, clubImage, onChange }: { e: EventView; label: str
 const KIND_FIGURE: Record<string, string> = { run_easy: 'easy', run_free: 'run', run_continuous: 'tempo', run_progressive: 'tempo', run_intervals: 'intervals', run_long: 'long', run_walk: 'fastwalk', aerobic: 'training', strength: 'strength', mobility: 'stretch', recovery_active: 'stretch' };
 
 /** Sette giorni della settimana: oggi evidenziato, un punto sui giorni in cui hai registrato un allenamento (solo dati veri). */
-function WeekStrip({ logs }: { logs: WorkoutLog[] }) {
+/** Disposizioni delle uscite di gruppo: lo stesso tasto le scorre in ordine e l'icona mostra quella attiva. */
+const LAYOUTS = {
+  cards: { icon: 'albums-outline', label: 'schede grandi', next: 'small' },
+  small: { icon: 'grid-outline', label: 'schede piccole', next: 'list' },
+  list: { icon: 'list-outline', label: 'elenco', next: 'cards' },
+} as const;
+
+/** La stessa card, identica ma rimpicciolita (scala 0,62) per vederne di più insieme. */
+function SmallCard({ children }: { children: ReactNode }) {
+  const { width } = useWindowDimensions();
+  const S_ = 0.62;
+  const h = Math.min(320, Math.max(252, Math.round((width - 2 * GUTTER) * 0.75)));
+  return (
+    <View style={{ width: 300 * S_, height: h * S_ }}>
+      <View style={{ position: 'absolute', left: 0, top: 0, width: 300, height: h, transform: [{ translateX: -(300 * (1 - S_)) / 2 }, { translateY: -(h * (1 - S_)) / 2 }, { scale: S_ }] }}>{children}</View>
+    </View>
+  );
+}
+
+function WeekStrip({ logs, planned }: { logs: WorkoutLog[]; planned: Set<string> }) {
   const start = new Date(); start.setHours(12, 0, 0, 0);
   start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
   const done = new Set(logs.map((l) => toISODate(new Date(l.startedAt))));
@@ -120,15 +139,15 @@ function WeekStrip({ logs }: { logs: WorkoutLog[] }) {
       {Array.from({ length: 7 }, (_, i) => {
         const d = new Date(start); d.setDate(start.getDate() + i);
         const iso = toISODate(d);
-        const isToday = iso === todayStr, has = done.has(iso);
+        const isToday = iso === todayStr, has = done.has(iso), plan = planned.has(iso);
         return (
-          <View key={iso} accessible accessibilityLabel={`${d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric' })}${has ? ', allenamento registrato' : ''}`} style={{ alignItems: 'center', gap: 6, width: 42 }}>
+          <Pressable key={iso} onPress={() => router.push('/allenamento/piano')} accessibilityRole="button" accessibilityLabel={`${d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric' })}${has ? ', allenamento registrato' : plan ? ', allenamento in programma' : ''}. Apre il calendario del piano`} style={{ alignItems: 'center', gap: 6, width: 42 }}>
             <Text style={[type.caption, { color: color.textSecondary, fontWeight: '700' }]}>{d.toLocaleDateString('it-IT', { weekday: 'short' }).slice(0, 3).toUpperCase()}</Text>
             <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: isToday ? color.accent : has ? color.accentTint : color.surface, borderWidth: isToday ? 0 : 1, borderColor: color.controlBorder }}>
               <Text style={[type.subhead, { color: isToday ? color.onAccent : color.text, fontWeight: '800' }]}>{d.getDate()}</Text>
             </View>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: has ? color.accent : 'transparent' }} />
-          </View>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: has ? color.accent : 'transparent', borderWidth: !has && plan ? 1.5 : 0, borderColor: color.accent }} />
+          </Pressable>
         );
       })}
     </View>
@@ -250,7 +269,7 @@ export default function Home() {
   const [applied, setApplied] = useState<PlanChange | null>(null);
   const [filter, setFilter] = useState<RunFilter>('all');
   const [filterOpen, setFilterOpen] = useState(false);
-  const [listView, setListView] = useState(false);
+  const [layout, setLayout] = useState<'cards' | 'small' | 'list'>('cards');
   const d = state.data;
   const hero = d ? pickHero(d) : null;
   const unread = d?.home.unreadNotifications ?? 0;
@@ -297,7 +316,7 @@ export default function Home() {
         )
       ) : (
         <>
-          <WeekStrip logs={d.logs} />
+          <WeekStrip logs={d.logs} planned={new Set(d.today.map((s) => s.date))} />
           <FriendStories meId={me?.id} />
           {me && !me.profileCompleted ? <Banner text="Scegli nome e username: i compagni ti riconosceranno nelle uscite." action="Completa il profilo" onAction={() => router.push('/profilo-modifica')} /> : null}
 
@@ -327,9 +346,9 @@ export default function Home() {
           {pool.length ? (
             <View style={{ gap: S.md }}>
               <GroupHeader filter={filter} onOpen={() => setFilterOpen(true)} />
-              <Row gap={S.sm}><IconButton name={listView ? 'albums-outline' : 'list-outline'} label={listView ? 'Vista a schede' : 'Vista elenco'} onPress={() => setListView(!listView)} /><IconButton name="add-circle-outline" label="Organizza un’uscita" onPress={() => router.push('/evento/form')} /></Row>
+              <Row gap={S.sm}><IconButton name={LAYOUTS[layout].icon} label={`Disposizione: ${LAYOUTS[layout].label}. Tocca per cambiare`} onPress={() => setLayout(LAYOUTS[layout].next)} /><IconButton name="add-circle-outline" label="Organizza un’uscita" onPress={() => router.push('/evento/form')} /></Row>
               {big.length ? (
-                listView ? big.map((e, i) => <EventCard key={e.id} e={e} index={i} clubImage={imageOf(e, images)} />) : <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.xl }} contentContainerStyle={{ gap: S.md, paddingHorizontal: S.xl }}>{big.map((e, i) => <View key={e.id} style={{ width: 300 }}><GroupRunCard e={e} index={i} clubImage={imageOf(e, images)} /></View>)}</ScrollView>
+                layout === 'list' ? big.map((e, i) => <EventCard key={e.id} e={e} index={i} clubImage={imageOf(e, images)} />) : <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.xl }} contentContainerStyle={{ gap: S.md, paddingHorizontal: S.xl }}>{big.map((e, i) => layout === 'small' ? <SmallCard key={e.id}><GroupRunCard e={e} index={i} clubImage={imageOf(e, images)} /></SmallCard> : <View key={e.id} style={{ width: 300 }}><GroupRunCard e={e} index={i} clubImage={imageOf(e, images)} /></View>)}</ScrollView>
               ) : (
                 <Text style={t.muted}>Nessuna uscita in programma per questo filtro.</Text>
               )}

@@ -404,7 +404,7 @@ export function GroupRunCard({ e, index = 0, clubImage }: { e: EventView; index?
                     <View />
                   )}
                   <Row gap={6}>
-                    <Text style={[type.footnote, { color: color.storyInk, fontWeight: '600' }]}>{people}</Text>
+                    <Text style={[type.footnote, { color: color.storyInk, fontWeight: '600' }]}>{n}</Text>
                     <Ionicons name="people-outline" size={15} color={color.storyInk} />
                   </Row>
                 </Row>

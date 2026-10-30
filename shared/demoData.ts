@@ -49,7 +49,7 @@ export function loadDemoData(ctx: Ctx): { people: number; events: number; storie
     { id: 'demo_club_trail', name: 'Trail Romagna (demo)', desc: 'Sentieri e colline tra Forlì e Faenza, uscite lente nel fine settimana.', sport: 'trail', code: 'DEMO-TRL4', owner: 'demo_elena', members: ['demo_elena', 'demo_luca'], joinMe: false, days: 40, area: 'Faenza', rules: 'Scarpe da trail e acqua. Si aspetta l’ultimo ai bivi.' },
   ];
   for (const c of clubs) {
-    db.clubs[c.id] = { id: c.id, name: c.name, description: c.desc, sport: c.sport, area: c.area ?? 'Forlì', imageDataUrl: null, inviteCode: c.code, ownerId: c.owner, createdAt: iso(ago(24 * (c.days ?? 20))), rules: c.rules, discoverable: c.joinMe === false };
+    db.clubs[c.id] = { id: c.id, name: c.name, description: c.desc, sport: c.sport, area: c.area ?? 'Forlì', imageDataUrl: null, inviteCode: c.code, ownerId: c.owner, createdAt: iso(ago(24 * (c.days ?? 20))), ...(c.rules ? { rules: c.rules } : {}), discoverable: c.joinMe === false };
     for (const uid of c.joinMe === false ? c.members : [...c.members, me.id]) db.memberships[`${c.id}__${uid}`] = { id: `demo_mem_${c.id}_${uid}`, clubId: c.id, userId: uid, role: uid === c.owner ? 'owner' : 'member', joinedAt: iso(ago(24 * 10)) };
   }
 
@@ -98,20 +98,34 @@ export function loadDemoData(ctx: Ctx): { people: number; events: number; storie
   return { people: PEOPLE.length, events: events.length, stories: stories.length };
 }
 
-/** Toglie tutto ciò che è di esempio e ciò che lo collega all'utente. */
-export function clearDemoData(ctx: Ctx): { removed: number } {
-  if (!ctx.actorId || !ctx.db.users[ctx.actorId]) throw new AppError('unauthenticated', 'Accedi per continuare.');
+/**
+ * Toglie la demo a chi la rimuove. Persone, gruppi e uscite di esempio sono condivisi tra gli account che li hanno caricati:
+ * se qualcun altro li sta ancora usando, vengono tolte solo le relazioni di chi rimuove (segui, gruppi, iscrizioni, scintille).
+ */
+export function clearDemoData(ctx: Ctx): { removed: number; shared: boolean } {
+  const uid = ctx.actorId;
+  if (!uid || !ctx.db.users[uid]) throw new AppError('unauthenticated', 'Accedi per continuare.');
+  const { db } = ctx;
   const demo = (id: Id) => id.startsWith(P);
   let removed = 0;
+  const mine = (k: string) => k.startsWith(`${uid}__`) || k.endsWith(`__${uid}`);
+  for (const key of ['memberships', 'participations', 'follows', 'sparks'] as const) {
+    const t = db[key] as Record<string, { id: string }>;
+    for (const k of Object.keys(t)) if (k.includes(P) && mine(k)) { delete t[k]; removed++; }
+  }
+  // Qualcun altro usa ancora la demo? (segue persone di esempio o è in un gruppo di esempio)
+  const othersUse = Object.values(db.follows).some((f) => demo(f.toId) && f.fromId !== uid)
+    || Object.values(db.memberships).some((m) => demo(m.clubId) && !demo(m.userId) && m.userId !== uid);
+  if (othersUse) return { removed, shared: true };
   for (const key of ['users', 'clubs', 'events', 'workoutLogs', 'comments', 'notifications'] as const) {
-    const t = ctx.db[key] as Record<string, { id: string }>;
+    const t = db[key] as Record<string, { id: string }>;
     for (const id of Object.keys(t)) if (demo(id)) { delete t[id]; removed++; }
   }
   for (const key of ['memberships', 'participations', 'follows', 'sparks'] as const) {
-    const t = ctx.db[key] as Record<string, { id: string }>;
+    const t = db[key] as Record<string, { id: string }>;
     for (const k of Object.keys(t)) if (k.includes(P) || demo(t[k].id)) { delete t[k]; removed++; }
   }
-  return { removed };
+  return { removed, shared: false };
 }
 
 export const demoMethods = { loadDemoData, clearDemoData } as const;

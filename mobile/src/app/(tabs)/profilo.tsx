@@ -114,6 +114,23 @@ function Tabs({ value, onChange }: { value: Tab; onChange: (v: Tab) => void }) {
 }
 
 /** Attività recenti con il numero dei riconoscimenti conquistati e un filtro per tipo. */
+/** Filtri come tab di solo testo: la voce attiva è in grassetto con una sottile linea luminosa, niente capsule né sfondi. */
+function TextTabs({ items, value, onChange, bleed = GUTTER }: { items: Array<string | null>; value: string | null; onChange: (v: string | null) => void; bleed?: number }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -bleed }} contentContainerStyle={{ paddingHorizontal: bleed, gap: S.xl }} accessibilityRole="tablist">
+      {items.map((k) => {
+        const on = value === k;
+        return (
+          <Pressable key={k ?? 'all'} onPress={() => onChange(k)} accessibilityRole="tab" accessibilityState={{ selected: on }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} style={{ minHeight: 40, justifyContent: 'center' }}>
+            <Text style={[type.subhead, { color: on ? color.text : color.textSecondary, fontWeight: on ? '800' : '500' }]}>{k ?? 'Tutti'}</Text>
+            <View style={{ height: 2, borderRadius: 1, marginTop: 4, backgroundColor: on ? color.accent : 'transparent' }} />
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; logs: WorkoutLog[]; awards: Award[] }) {
   const [filter, setFilter] = useState<string | null>(null);
   const [limit,setLimit]=useState(20);
@@ -128,18 +145,7 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
   if (!activities.length) return <Text style={t.muted}>Ancora nessuna attività: registra una corsa o collega Strava.</Text>;
   return (
     <View style={{ gap: S.md }}>
-      {types.length > 1 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -GUTTER }} contentContainerStyle={{ paddingHorizontal: GUTTER, gap: S.sm }}>
-          {[null, ...types].map((k) => {
-            const on = filter === k;
-            return (
-              <Pressable key={k ?? 'all'} onPress={() => setFilter(k)} accessibilityRole="button" accessibilityState={{ selected: on }} style={({ pressed }) => [{ minHeight: 36, paddingHorizontal: S.md, borderRadius: R.pill, justifyContent: 'center', backgroundColor: on ? color.accent : color.surface }, pressed && !on && { backgroundColor: color.surfacePressed }]}>
-                <Text style={[type.subhead, { color: on ? color.onAccent : color.textSecondary, fontWeight: '700' }]}>{k ?? 'Tutte'}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      ) : null}
+      {types.length > 1 ? <TextTabs items={[null, ...types]} value={filter} onChange={setFilter} /> : null}
       <View>
         {shown.map((a, i) => {
           const log = byActivity.get(a.id);
@@ -215,30 +221,16 @@ function ProgressTab({ d }: { d: ProfileData }) {
   return (
     <View style={{ gap: S.lg }}>
       <Panel style={{ padding: S.lg, gap: S.lg }}>
-        {types.length > 1 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -S.lg }} contentContainerStyle={{ paddingHorizontal: S.lg, gap: S.sm }}>
-            {[null, ...types].map((k) => {
-              const on = sport === k;
-              return (
-                <Pressable key={k ?? 'all'} onPress={() => setSport(k)} accessibilityRole="button" accessibilityState={{ selected: on }} style={{ minHeight: 40, paddingHorizontal: S.lg, borderRadius: R.pill, justifyContent: 'center', borderWidth: 1.5, borderColor: on ? color.accent : color.controlBorder, backgroundColor: on ? color.accentTint : 'transparent' }}>
-                  <Text style={[type.subhead, { color: on ? color.accent : color.textSecondary, fontWeight: '700' }]}>{k ?? 'Tutti gli sport'}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : null}
+        {types.length > 1 ? <TextTabs items={[null, ...types]} value={sport} onChange={setSport} bleed={S.lg} /> : null}
         <Text style={t.h2}>Questa settimana</Text>
         <View style={{ flexDirection: 'row', gap: S.xl }}>
           <Stat label="Distanza" value={`${(km[11] || 0).toFixed(km[11] >= 10 ? 0 : 1).replace('.', ',')} km`} />
           <Stat label="Tempo" value={sec >= 3600 ? `${Math.floor(sec / 3600)}h ${Math.round((sec % 3600) / 60)}m` : `${Math.round(sec / 60)}m`} />
           {elev > 0 ? <Stat label="Dislivello" value={`${Math.round(elev)} m`} /> : null}
         </View>
-        <View style={{ gap: S.xs }}>
-          <Text style={t.small}>Ultime 12 settimane</Text>
+        <Pressable onPress={() => router.push('/statistiche')} accessibilityRole="button" accessibilityLabel="Apri le statistiche complete" style={{ gap: S.xs }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={t.small}>Ultime 12 settimane</Text><Text style={[t.small, { color: color.accent, fontWeight: '700' }]}>Statistiche ›</Text></View>
           {km.some((v) => v > 0) ? <AreaChart values={km} height={150} tint={color.accent} label={`Distanza settimanale delle ultime 12 settimane, massimo ${Math.max(...km).toFixed(1).replace('.', ',')} chilometri`} /> : <Text style={t.muted}>Il grafico compare dopo la prima attività con distanza.</Text>}
-        </View>
-        <Pressable onPress={() => router.push('/statistiche')} accessibilityRole="button" style={({ pressed }) => [{ minHeight: 50, borderRadius: R.pill, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: color.controlBorder }, pressed && { opacity: 0.6 }]}>
-          <Text style={[type.headline, { color: color.text }]}>Scopri di più sui tuoi progressi</Text>
         </Pressable>
       </Panel>
       {recs.length ? <View><SectionHead title="Record personali" action="Tutti" onAction={() => router.push('/record')} />{recs.map((r) => <RecordRow key={r.code} r={r} awards={d.awards} />)}</View> : null}
@@ -304,6 +296,7 @@ export default function Profilo() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm, minHeight: 56 }}>
         <IconButton name="add" label="Organizza un'uscita" filled onPress={() => router.push('/evento/form')} />
         <View style={{ flex: 1 }} />
+        <IconButton name="share-outline" label="Condividi il tuo profilo" filled onPress={() => void Share.share({ message: 'Seguimi su RUNNGO' })} />
         <IconButton name="search" label="Trova persone" filled onPress={() => router.navigate('/esplora')} />
         <IconButton name="settings-outline" label="Impostazioni" filled onPress={() => router.push('/impostazioni')} />
       </View>
@@ -312,7 +305,7 @@ export default function Profilo() {
           const streak = weekStreak(d.logs);
           return (
           <>
-            <ProfileHeader p={d.p} onIdentity={() => router.push('/profilo-modifica')} />
+            <ProfileHeader p={d.p} onIdentity={() => router.push('/profilo-modifica')} onGroups={() => router.navigate({ pathname: '/esplora', params: { tab: 'groups' } })} />
             {d.follows ? <Connections followers={d.follows.followers} following={d.follows.following} onChanged={()=>void state.reload()} /> : null}
             {streak > 1 ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm }}>
@@ -320,14 +313,6 @@ export default function Profilo() {
                 <Text style={type.title2}><Text style={{ fontWeight: '800' }}>{streak}</Text> settimane di fila con un'attività</Text>
               </View>
             ) : null}
-            <View style={{ flexDirection: 'row', gap: S.md }}>
-              <Pressable onPress={() => router.push('/profilo-modifica')} accessibilityRole="button" style={({ pressed }) => [{ flex: 1, minHeight: 50, borderRadius: R.pill, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: color.controlBorder }, pressed && { opacity: 0.6 }]}>
-                <Text style={[type.headline, { color: color.text }]}>Modifica profilo</Text>
-              </Pressable>
-              <Pressable onPress={() => void Share.share({ message: `Seguimi su RUNNGO: ${d.p.user.displayName}` })} accessibilityRole="button" style={({ pressed }) => [{ flex: 1, minHeight: 50, borderRadius: R.pill, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: color.controlBorder }, pressed && { opacity: 0.6 }]}>
-                <Text style={[type.headline, { color: color.text }]}>Condividi profilo</Text>
-              </Pressable>
-            </View>
             <View style={{ gap: S.lg }}>
               <Tabs value={tab} onChange={setTab} />
               <Rise key={tab} dy={6} duration={280}>

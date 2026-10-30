@@ -27,3 +27,16 @@ it('i dati di esempio riempiono feed, gruppi e uscite, con almeno una storia col
   expect(Object.keys(db.clubs).length + Object.keys(db.events).length + Object.keys(db.workoutLogs).length + Object.keys(db.follows).length + Object.keys(db.memberships).length + Object.keys(db.participations).length).toBe(0);
   expect(JSON.stringify(db.users.me)).toBe(before);
 });
+
+it('se due account usano la demo, rimuoverla da uno non toglie le relazioni dell’altro', () => {
+  const db = emptyDb();
+  for (const id of ['a', 'b']) db.users[id] = { id, username: id, avatar: null, profileCompleted: true, displayName: id, bio: '', hue: 1, sports: ['running'], area: 'Forlì', privacy: { ...DEFAULT_PRIVACY }, createdAt: NOW.toISOString() };
+  const as = (id: string): Ctx => ({ db, now: NOW, actorId: id });
+  call(as('a'), 'loadDemoData', []);
+  call(as('b'), 'loadDemoData', []);
+  call(as('a'), 'clearDemoData', []);
+  expect((call(as('b'), 'getSocialFeed', [40]) as unknown[]).length).toBeGreaterThan(0);
+  expect((call(as('a'), 'getSocialFeed', [40]) as unknown[]).length).toBe(0);
+  call(as('b'), 'clearDemoData', []);
+  expect(Object.keys(db.users).sort()).toEqual(['a', 'b']);
+});

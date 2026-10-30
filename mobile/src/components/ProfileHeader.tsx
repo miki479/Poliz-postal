@@ -16,7 +16,7 @@ export const BASE_STYLE: ProfileStyle = { accent: 'teal', frame: 'none', feature
  * Attività · Racconti · Club (senza il numero dei racconti, per i profili altrui: Km totali).
  * `onBadges`: mostra anche i distintivi in evidenza (profili altrui). L'accento personale resta confinato qui.
  */
-export function ProfileHeader({ p, style, right, onBadges, stories, onIdentity }: { p: ProfileView; style?: ProfileStyle; right?: React.ReactNode; onBadges?: () => void; stories?: number; onIdentity?: () => void }) {
+export function ProfileHeader({ p, style, right, onBadges, stories, onIdentity, onGroups }: { onGroups?: () => void; p: ProfileView; style?: ProfileStyle; right?: React.ReactNode; onBadges?: () => void; stories?: number; onIdentity?: () => void }) {
   // Stile assente (utente creato prima della personalizzazione o server non aggiornato): si usa lo stile base.
   const st: ProfileStyle = { ...BASE_STYLE, ...(style ?? p.user.style ?? {}) };
   const acc = PROFILE_ACCENTS[st.accent] ?? PROFILE_ACCENTS.teal;
@@ -48,7 +48,12 @@ export function ProfileHeader({ p, style, right, onBadges, stories, onIdentity }
 
       {u.bio ? <Text style={t.body}>{u.bio}</Text> : null}
 
-      {p.clubs?.length ? (
+      {p.clubs?.length && onGroups ? (
+        <Pressable onPress={onGroups} accessibilityRole="button" accessibilityLabel={`Gruppi: ${p.clubs.map((c) => c.name).join(', ')}`} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8 }, pressed && { opacity: 0.6 }]}>
+          <Ionicons name="people-outline" size={16} color={color.textSecondary} />
+          <Text style={[t.muted, { flexShrink: 1 }]} numberOfLines={1}>{p.clubs.map((c) => c.name).join(' · ')}</Text>
+        </Pressable>
+      ) : p.clubs?.length ? (
         <Row gap={S.sm} style={{ flexWrap: 'wrap' }}>
           {p.clubs.map((c) => (
             <Pressable key={c.id} onPress={() => router.push({ pathname: '/club/[id]', params: { id: c.id } })} accessibilityRole="button" accessibilityLabel={`Club ${c.name}`} style={({ pressed }) => [{ minHeight: 36, paddingHorizontal: S.md, borderRadius: R.chip, backgroundColor: color.surface, justifyContent: 'center' }, pressed && { opacity: 0.6 }]}>

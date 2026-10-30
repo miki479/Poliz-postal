@@ -4,12 +4,15 @@ import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Fragment } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Avatar } from '@/components/ui';
+import { useSession } from '@/lib/session';
 import { LiquidBar } from './LiquidBar';
 import { color, S, type } from '@/constants/theme';
 
 const ITEMS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; selected: keyof typeof Ionicons.glyphMap }> = {
   index: { label: 'Home', icon: 'home-outline', selected: 'home' },
   esplora: { label: 'Esplora', icon: 'map-outline', selected: 'map' },
+  medaglie: { label: 'Medaglie', icon: 'ribbon-outline', selected: 'ribbon' },
   profilo: { label: 'Profilo', icon: 'person-circle-outline', selected: 'person-circle' },
 };
 
@@ -22,18 +25,19 @@ function RecordButton() {
 
 export function RecordTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const me = useSession().me;
   return <View style={{ position:'absolute',left:0,right:0,bottom:0,paddingBottom:Math.max(insets.bottom,8),paddingHorizontal:16 }}>
     <LiquidBar>
       {state.routes.map((route, index) => {
         const item = ITEMS[route.name]; if (!item) return null;
         const selected = state.index === index;
         return <Fragment key={route.key}>
-          {route.name === 'profilo' ? <RecordButton /> : null}
+          {route.name === 'medaglie' ? <RecordButton /> : null}
           <Pressable accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={item.label} style={({ pressed }) => [{ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: S.xs, gap: S.xs, borderRadius:32, backgroundColor:selected?color.accentTint:'transparent' }, pressed && { opacity: 0.65 }]} onPress={() => {
             const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
             if (!selected && !event.defaultPrevented) navigateToTab(route.key);
           }} onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}>
-            <Ionicons name={selected ? item.selected : item.icon} size={25} color={selected ? color.accent : color.textSecondary} />
+            {route.name === 'profilo' && me ? <Avatar name={me.displayName} hue={me.hue} uri={me.avatar} size={27} frame={selected ? 'ring' : 'none'} /> : <Ionicons name={selected ? item.selected : item.icon} size={25} color={selected ? color.accent : color.textSecondary} />}
             <Text style={[type.caption, { fontSize: 11, color: selected ? color.accent : color.textSecondary, fontWeight: selected ? '700' : '500', textAlign: 'center' }]}>{item.label}</Text>
           </Pressable>
         </Fragment>;

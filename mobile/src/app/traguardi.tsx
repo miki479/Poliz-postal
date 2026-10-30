@@ -22,14 +22,13 @@ function Grid({ list, onOpen }: { list: BadgeView[]; onOpen: (b: BadgeView) => v
   );
 }
 
-export default function Traguardi() {
-  const { user } = useLocalSearchParams<{ user?: string }>();
+/** Elenco delle medaglie (ottenute e prossime) con la scheda di dettaglio: usato dalla schermata e dalla scheda Medaglie. */
+export function BadgesView({ user }: { user?: string }) {
   const state = useLoad(() => call<BadgeView[] | null>('listBadges', user ?? null), [user]);
   const [open, setOpen] = useState<BadgeView | null>(null);
 
   return (
-    <Screen onRefresh={state.reload}>
-      <Stack.Screen options={{ title: 'Traguardi' }} />
+    <>
       <Async state={state} skeleton={<Skeleton height={200} />}>
         {(all) => {
           if (!all) return <Text style={t.muted}>Questa persona non mostra i propri traguardi.</Text>;
@@ -74,6 +73,16 @@ export default function Traguardi() {
           </>
         ) : null}
       </Sheet>
+    </>
+  );
+}
+
+export default function Traguardi() {
+  const { user } = useLocalSearchParams<{ user?: string }>();
+  return (
+    <Screen>
+      <Stack.Screen options={{ title: 'Traguardi' }} />
+      <BadgesView user={user} />
     </Screen>
   );
 }

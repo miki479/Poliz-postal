@@ -251,7 +251,6 @@ export default function Home() {
       onRefresh={state.reload}
       right={
         <>
-          <IconButton name="trophy-outline" label="Le tue medaglie" onPress={() => router.push('/traguardi')} />
           <IconButton name="notifications-outline" label="Notifiche" badge={unread} onPress={() => router.push('/notifiche')} />
 
         </>

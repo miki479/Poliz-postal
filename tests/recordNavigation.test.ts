@@ -15,6 +15,8 @@ it('la barra Expo 58 usa emitter/navigateToTab e il comando Registra apre la rou
     'expo-router': { Tabs, router: { push } },
     '@expo/vector-icons': { Ionicons: 'Icon' },
     'expo-linear-gradient': { LinearGradient: 'Gradient' },
+    '@/lib/session': { useSession: () => ({ me: null }) },
+    '@/components/ui': { Avatar: 'Avatar' },
     '@/lib/useReduceMotion': { useReduceMotion: () => false },
     '@/constants/theme': { color: {}, R: {}, S: { xs: 4, sm: 8 }, type: {} },
   };
@@ -27,7 +29,7 @@ it('la barra Expo 58 usa emitter/navigateToTab e il comando Registra apre la rou
   new Function('require', 'exports', code)((name: string) => imports[name] ?? {}, exports);
   const layout = exports.default();
   const navigateToTab = vi.fn(); const emit = vi.fn(() => ({ defaultPrevented: false }));
-  const state = { index: 0, routes: ['index', 'esplora', 'profilo'].map((name) => ({ name, key: `${name}-key` })) };
+  const state = { index: 0, routes: ['index', 'esplora', 'medaglie', 'profilo'].map((name) => ({ name, key: `${name}-key` })) };
   const element = layout.props.tabBar({ state, emitter: { emit }, navigateToTab });
   const bar = element.type(element.props);
   const entries = bar.props.children.props.children;
@@ -38,6 +40,6 @@ it('la barra Expo 58 usa emitter/navigateToTab e il comando Registra apre la rou
   const record = entries[2].props.children[0];
   const button = record.type(record.props); button.props.onPress();
   expect(push).toHaveBeenCalledWith('/registra');
-  expect(entries.filter(Boolean)).toHaveLength(3);
+  expect(entries.filter(Boolean)).toHaveLength(4);
   expect(emit).toHaveBeenCalledWith({ type: 'tabPress', target: 'esplora-key', canPreventDefault: true });
 });

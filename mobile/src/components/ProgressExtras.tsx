@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
@@ -15,7 +15,14 @@ const DAYS = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
 
 /** Riflesso di colore dietro una sezione: porta l'occhio su ciò che conta. */
 export function Glow({ tint = color.accent, size = 220 }: { tint?: string; size?: number }) {
-  return <LinearGradient pointerEvents="none" colors={[tint + '55', 'transparent']} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={{ position: 'absolute', top: -size / 3, left: -size / 4, width: size * 1.6, height: size }} />;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: -size / 2, left: -size / 2, width: size * 1.6, height: size * 1.2 }}>
+      <Svg width="100%" height="100%">
+        <Defs><RadialGradient id="g" cx="50%" cy="50%" r="50%"><Stop offset="0" stopColor={tint} stopOpacity={0.4} /><Stop offset="1" stopColor={tint} stopOpacity={0} /></RadialGradient></Defs>
+        <Rect width="100%" height="100%" fill="url(#g)" />
+      </Svg>
+    </View>
+  );
 }
 
 /** Registro della settimana: una bolla per giorno, grande quanto i km fatti (solo dati veri). */

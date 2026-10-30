@@ -7,6 +7,7 @@ import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { ActivityGlyph, SportGlyph, type Glyph } from '@/components/SportIcon';
 import { RouteThumb } from '@/components/RouteThumb';
+import { FIGURE_IMAGE } from '@/constants/figureImages';
 import { ACTIVITY_STYLES, styleOfKind, styleOfSport, type ActivityStyle } from '@/constants/activityColors';
 import { Avatar, AvatarStack, Chip, Panel, PressableScale, Row, t, useReduceMotion, type IconName } from '@/components/ui';
 import { clubTint, eventContext, eventSportStyle, FEATURE_ICONS, PACT_ICONS, pactModes, VISIBILITY_ICONS } from '@/constants/eventStyle';
@@ -302,7 +303,9 @@ export function EventScene({ sport, image, style, children }: { sport: SportId; 
             <Rect x={0} y={0} width={400} height={300} fill={`url(#${gid})`} />
             <Path d={st.glyph === 'trail' ? HORIZON.ridge : HORIZON.flat} fill={mix(c1, NIGHT, 0.16)} />
           </Svg>
-          {fig ? (
+          {FIGURE_IMAGE[sport] ? (
+            <Image source={FIGURE_IMAGE[sport]!.src} resizeMode="contain" tintColor="#FFFFFF" style={{ position: 'absolute', left: '50%', bottom: '38%', height: 104, width: Math.round(104 * FIGURE_IMAGE[sport]!.ratio), opacity: 0.85 }} accessibilityIgnoresInvertColors />
+          ) : fig ? (
             <View style={{ position: 'absolute', left: '56%', bottom: '40%', marginBottom: -14 }}>
               <SportGlyph glyph={fig} size={112} color="#05080B" />
             </View>

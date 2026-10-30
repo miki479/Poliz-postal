@@ -11,6 +11,7 @@ import { alpha, shade } from '@/components/event/colors';
 import { ActivityGlyph, AnimatedActivityFigure } from '@/components/SportIcon';
 import { useReduceMotion } from '@/components/ui';
 import { EVENT_SPORTS, eventSportStyle } from '@/constants/eventStyle';
+import { FIGURE_IMAGE } from '@/constants/figureImages';
 
 import { SPORT_LABEL } from '@/lib/format';
 import type { SportId } from '@shared/types.ts';
@@ -150,13 +151,7 @@ function TypeCard({ sport, on, onPress }: { sport: SportId; on: boolean; onPress
 const ITEM_W = 150;
 const FIG = 112;
 
-/** Disegni a contorno (bianco su trasparente, colorati dal tema): corsa con le linee di vento, camminata/trail con lo zaino. */
-const FIGURE_IMAGE: Partial<Record<SportId, { src: number; w: number }>> = {
-  running: { src: require('../../../assets/images/fig-run.png'), w: 144 },
-  run_walk: { src: require('../../../assets/images/fig-run.png'), w: 144 },
-  walking: { src: require('../../../assets/images/fig-hike.png'), w: 74 },
-  trail: { src: require('../../../assets/images/fig-hike.png'), w: 74 },
-};
+const FIG_W = (sport: SportId) => Math.round(FIG * (FIGURE_IMAGE[sport]?.ratio ?? 1));
 
 /** Linee di vento tratteggiate e semitrasparenti dietro la figura: scorrono solo per lo sport al centro. */
 function WindLines({ active, tint }: { active: boolean; tint: string }) {
@@ -192,7 +187,7 @@ function CarouselItem({ sport, index, x, selected, onPress }: { sport: SportId; 
       <Animated.View style={[{ alignItems: 'center', gap: S.sm }, motion]}>
         <View style={{ width: ITEM_W, height: FIG, alignItems: 'center', justifyContent: 'center' }}>
           {FIGURE_IMAGE[sport] ? (
-            <Image source={FIGURE_IMAGE[sport].src} resizeMode="contain" style={{ width: FIGURE_IMAGE[sport].w, height: FIG }} tintColor={color.text} accessibilityIgnoresInvertColors />
+            <Image source={FIGURE_IMAGE[sport]!.src} resizeMode="contain" style={{ width: FIG_W(sport), height: FIG }} tintColor={color.text} accessibilityIgnoresInvertColors />
           ) : <ActivityGlyph style={st} size={FIG * 0.62} color={st.solid} />}
           <TapBurst sport={sport} on={selected} />
         </View>

@@ -107,7 +107,7 @@ function HeroEvent({ e, label, clubImage, onChange }: { e: EventView; label: str
   );
 }
 
-const KIND_FIGURE: Record<string, string> = { run_easy: 'run', run_free: 'run', run_continuous: 'run', run_progressive: 'run', run_intervals: 'run', run_long: 'run', run_walk: 'fastwalk', aerobic: 'training', strength: 'strength', mobility: 'stretch', recovery_active: 'stretch' };
+const KIND_FIGURE: Record<string, string> = { run_easy: 'easy', run_free: 'run', run_continuous: 'tempo', run_progressive: 'tempo', run_intervals: 'intervals', run_long: 'long', run_walk: 'fastwalk', aerobic: 'training', strength: 'strength', mobility: 'stretch', recovery_active: 'stretch' };
 
 /** Sette giorni della settimana: oggi evidenziato, un punto sui giorni in cui hai registrato un allenamento (solo dati veri). */
 function WeekStrip({ logs }: { logs: WorkoutLog[] }) {
@@ -149,7 +149,7 @@ function HeroSession({ s }: { s: PlannedSession }) {
             </View>
             <Text style={[type.title1, { color: color.text, fontWeight: '900' }]}>{s.title || KIND_LABEL[s.kind]}</Text>
           </View>
-          {fig ? <Image source={fig.src} resizeMode="contain" style={{ width: Math.round(84 * fig.ratio), height: 84 }} accessibilityIgnoresInvertColors /> : null}
+          {fig ? <Image source={fig.src} resizeMode="contain" tintColor={color.text} style={{ width: Math.round(84 * fig.ratio), height: 84 }} accessibilityIgnoresInvertColors /> : null}
           <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: R.pill, backgroundColor: color.surface, borderWidth: 1, borderColor: color.controlBorder }}>
             <Text style={[type.caption, { color: color.textSecondary, fontWeight: '700' }]}>{fmtDuration(s.durationMin)}</Text>
           </View>

@@ -71,8 +71,8 @@ function SingleAnimated({ glyph, color, pace, level, active }: { glyph: Glyph; c
   return <MovingFigure run={run} phase={phase} intensity={intensity} color={color} />;
 }
 
-export function SportGlyph({ glyph, size = 20 }: { glyph: Glyph; size?: number; color?: string; pose?: Pose }) {
-  return <Image source={SESSION_FIGURE[GLYPH_ICON[glyph]].src} resizeMode="contain" style={{ width: size, height: size }} accessibilityIgnoresInvertColors />;
+export function SportGlyph({ glyph, size = 20, color }: { glyph: Glyph; size?: number; color: string; pose?: Pose }) {
+  return <Image source={SESSION_FIGURE[GLYPH_ICON[glyph]].src} resizeMode="contain" tintColor={color} style={{ width: size, height: size }} accessibilityIgnoresInvertColors />;
 }
 
 const GLYPH_ICON = { run: 'run', walk: 'walk', trail: 'trail', run_walk: 'fastwalk' } as const;
@@ -101,7 +101,7 @@ export function AnimatedActivityFigure({ glyph, size = 72, color, level = 2, act
   if (!fig) return <Svg width={size} height={size} viewBox="0 0 24 24" />;
   return (
     <Animated.View style={[{ width: size * fig.ratio, height: size }, st]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Image source={fig.src} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
+      <Image source={fig.src} resizeMode="contain" tintColor={color} style={{ width: '100%', height: '100%' }} />
     </Animated.View>
   );
 }

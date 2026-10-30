@@ -19,16 +19,25 @@ export const SCENE_FIGURE: Partial<Record<SportId, { src: number; ratio: number 
   run_walk: { src: GROUP, ratio: 672 / 507 },
 };
 
-/** Icone colorate (set Runngo, 256 px, sfondo trasparente) per i tipi di allenamento e di attività. */
+/** Icone Runngo minimali (bianco semitrasparente, 256 px): si colorano con tintColor secondo il tema. */
 export const SESSION_FIGURE: Record<string, { src: number; ratio: number }> = {
-  fastwalk: { src: require('../../assets/images/icons/fastwalk.png') as number, ratio: 1 },
-  group: { src: require('../../assets/images/icons/group.png') as number, ratio: 1 },
-  hills: { src: require('../../assets/images/icons/hills.png') as number, ratio: 1 },
-  other: { src: require('../../assets/images/icons/other.png') as number, ratio: 1 },
   run: { src: require('../../assets/images/icons/run.png') as number, ratio: 1 },
+  easy: { src: require('../../assets/images/icons/easy.png') as number, ratio: 1 },
+  tempo: { src: require('../../assets/images/icons/tempo.png') as number, ratio: 1 },
+  short: { src: require('../../assets/images/icons/short.png') as number, ratio: 1 },
+  repeats: { src: require('../../assets/images/icons/repeats.png') as number, ratio: 1 },
+  intervals: { src: require('../../assets/images/icons/intervals.png') as number, ratio: 1 },
+  hills: { src: require('../../assets/images/icons/hills.png') as number, ratio: 1 },
+  trail: { src: require('../../assets/images/icons/trail.png') as number, ratio: 1 },
+  long: { src: require('../../assets/images/icons/long.png') as number, ratio: 1 },
+  fartlek: { src: require('../../assets/images/icons/fartlek.png') as number, ratio: 1 },
+  fartlekvar: { src: require('../../assets/images/icons/fartlekvar.png') as number, ratio: 1 },
+  race: { src: require('../../assets/images/icons/race.png') as number, ratio: 1 },
   strength: { src: require('../../assets/images/icons/strength.png') as number, ratio: 1 },
   stretch: { src: require('../../assets/images/icons/stretch.png') as number, ratio: 1 },
-  trail: { src: require('../../assets/images/icons/trail.png') as number, ratio: 1 },
   training: { src: require('../../assets/images/icons/training.png') as number, ratio: 1 },
+  other: { src: require('../../assets/images/icons/other.png') as number, ratio: 1 },
   walk: { src: require('../../assets/images/icons/walk.png') as number, ratio: 1 },
+  fastwalk: { src: require('../../assets/images/icons/fastwalk.png') as number, ratio: 1 },
+  group: { src: require('../../assets/images/icons/group.png') as number, ratio: 1 },
 };

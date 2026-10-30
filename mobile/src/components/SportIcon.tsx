@@ -5,8 +5,7 @@ import Animated, { cancelAnimation, Easing, useAnimatedProps, useAnimatedStyle, 
 import Svg, { Circle, G, Path } from 'react-native-svg';
 
 import type { ActivityStyle } from '@/constants/activityColors';
-import { Image as ExpoImage } from 'expo-image';
-import { ANIMATED_FIGURE, SESSION_FIGURE } from '@/constants/figureImages';
+import { SESSION_FIGURE } from '@/constants/figureImages';
 import { figureGeometry, figureMotion, FIGURE_REST_PHASE, type FigureGeometry, type FigureGlyph } from '@/lib/activityFigure';
 import { useReduceMotion } from '@/lib/useReduceMotion';
 
@@ -78,10 +77,30 @@ export function SportGlyph({ glyph, size = 20, color }: { glyph: Glyph; size?: n
 
 const GLYPH_ICON = { run: 'run', walk: 'walk', trail: 'trail', run_walk: 'fastwalk' } as const;
 
-/** Figura articolata animata (braccia e gambe in movimento, ciclo continuo). Ferma, sul primo fotogramma, se non attiva o con "Riduci movimento". */
-export function AnimatedActivityFigure({ glyph, size = 72, active = true }: { glyph: Glyph; size?: number; color?: string; pace?: number | null; level?: number; active?: boolean }) {
+/**
+ * Icona bianca Runngo con un movimento morbido e continuo: leggero rimbalzo del passo, piccola inclinazione e oscillazione laterale.
+ * Il ritmo segue il livello (più impegno, passo più rapido). Ferma con "Riduci movimento" o quando non è attiva.
+ */
+export function AnimatedActivityFigure({ glyph, size = 72, color, level = 2, active = true }: { glyph: Glyph; size?: number; color: string; pace?: number | null; level?: number; active?: boolean }) {
   const reduce = useReduceMotion();
-  return <ExpoImage source={ANIMATED_FIGURE[GLYPH_ICON[glyph]]} contentFit="contain" autoplay={active && !reduce} style={{ width: size, height: size }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
+  const p = useSharedValue(0);
+  const running = glyph === 'run' || glyph === 'run_walk';
+  const period = Math.round((running ? 760 : 1150) * (1.18 - Math.min(4, Math.max(0, level)) * 0.07));
+  useEffect(() => {
+    if (reduce || !active) { cancelAnimation(p); p.value = withTiming(0, { duration: 300 }); return; }
+    p.value = 0;
+    p.value = withRepeat(withTiming(1, { duration: period, easing: Easing.linear }), -1, false);
+    return () => cancelAnimation(p);
+  }, [reduce, active, period, p]);
+  const st = useAnimatedStyle(() => {
+    const w = p.value * Math.PI * 2;
+    return { transform: [{ translateY: -Math.abs(Math.sin(w / 2)) * size * (running ? 0.05 : 0.03) }, { translateX: Math.sin(w) * size * 0.015 }, { rotate: `${Math.sin(w) * (running ? 1.6 : 0.9)}deg` }] };
+  });
+  return (
+    <Animated.View style={[{ width: size, height: size }, st]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Image source={SESSION_FIGURE[GLYPH_ICON[glyph]].src} resizeMode="contain" tintColor={color} style={{ width: '100%', height: '100%' }} />
+    </Animated.View>
+  );
 }
 
 export function ActivityGlyph({ style, size = 20, color }: { style: ActivityStyle; size?: number; color: string }) {

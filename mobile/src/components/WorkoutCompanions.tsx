@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, Text, View } from 'react-native';
 import { Avatar, Banner, Button, Row, Sheet, t, useLoad } from '@/components/ui';
-import { color, S } from '@/constants/theme';
+import { color, S, type } from '@/constants/theme';
 import { call } from '@/lib/api';
 import { humanError } from '@/lib/errors';
 import type { CompanionCandidate, CompanionRequestView } from '@shared/workoutCompanions.ts';
@@ -34,17 +35,16 @@ export function WorkoutCompanions({ logId }: { logId: string }) {
   };
   return (
     <View style={{ gap: S.sm }}>
-      {state.data ? (
-        confirmed.length ? (
-          <View style={{ gap: S.sm }}>
-            <Text style={t.body}>Con {confirmed.map((c) => c.user.displayName).join(', ')}</Text>
-            <Text style={t.small}>Compagni confermati da entrambe le persone.</Text>
-          </View>
-        ) : (
-          <Text style={t.muted}>Nessun compagno confermato: attività individuale.</Text>
-        )
-      ) : null}
-      <Button small title="Aggiungi o correggi compagni" onPress={() => setOpen(true)} />
+      <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel="Compagni di questa attività: aggiungi o correggi" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 56, opacity: pressed ? 0.6 : 1 })}>
+        {confirmed.length ? (
+          <View style={{ flexDirection: 'row' }}>{confirmed.slice(0, 3).map((c, i) => <View key={c.user.id} style={{ marginLeft: i ? -8 : 0 }}><Avatar name={c.user.displayName} hue={c.user.hue} uri={c.user.avatar} size={28} frame="ring" ring={color.bg} /></View>)}</View>
+        ) : <Ionicons name="person-add-outline" size={22} color={color.accent} />}
+        <View style={{ flex: 1, gap: 1 }}>
+          <Text style={[type.headline, { color: color.text }]} numberOfLines={1}>{confirmed.length ? `Con ${confirmed.map((c) => c.user.displayName).join(', ')}` : 'Aggiungi compagni'}</Text>
+          <Text style={t.small} numberOfLines={1}>{confirmed.length ? 'Confermati da entrambe le persone' : 'Attività individuale finché nessuno conferma'}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
+      </Pressable>
       <Sheet visible={open} onClose={() => setOpen(false)} title="Con chi hai corso">
         <Text style={t.muted}>
           Scegli tra le persone che segui. Compariranno nella corsa solo dopo la loro conferma. Gli abbinamenti GPS sono suggerimenti, non

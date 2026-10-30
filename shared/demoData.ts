@@ -22,7 +22,7 @@ function loop(lat: number, lng: number, radius: number, startMs: number, seconds
   for (let i = 0; i <= n; i++) {
     const a = (i / n) * Math.PI * 2;
     const wobble = 1 + 0.18 * Math.sin(a * 3);
-    pts.push({ lat: lat + Math.sin(a) * radius * wobble, lng: lng + (Math.cos(a) - 1) * radius * 1.35 * wobble, t: startMs + Math.round((i / n) * seconds * 1000) });
+    pts.push({ lat: lat + Math.sin(a) * radius * wobble, lng: lng + (Math.cos(a) - 1) * radius * 1.35 * wobble, t: Math.round(startMs / 1000) + Math.round((i / n) * seconds) });
   }
   return pts;
 }

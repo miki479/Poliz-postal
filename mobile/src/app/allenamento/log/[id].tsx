@@ -1,7 +1,7 @@
 import { displayTrack } from '@shared/routeDisplay.ts';
 import { StoryExportSheet } from '@/components/StoryExport';
 import { WorkoutCompanions } from '@/components/WorkoutCompanions';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -147,11 +147,15 @@ function Companions({ log }: { log: WorkoutLog }) {
   useEffect(() => { let active = true; if (eventId) call<EventView>('getEvent', eventId, null).then((value) => { if (active) setEvent(value); }, () => {}); return () => { active = false; }; }, [eventId]);
   const choose = async () => { setOpen(true); setBusy(true); setError(''); try { const items = await call<EventView[]>('listEvents', { scope: 'mine', includePast: true }); setChoices(items.filter((e) => e.viewer.isParticipant && e.status === 'active' && Math.abs(Date.parse(e.startsAt) - Date.parse(log.startedAt)) <= 6 * 3_600_000)); } catch (e) { setError(humanError(e, 'Non riesco a caricare le uscite. Riprova.')); } finally { setBusy(false); } };
   const link = async (id: string | null) => { setBusy(true); setError(''); try { await call('linkWorkoutEvent', log.id, id); setEventId(id); if (!id) setEvent(null); setOpen(false); } catch (e) { setError(humanError(e, 'Collegamento non riuscito. Riprova.')); } finally { setBusy(false); } };
-  return <View style={{ gap: S.sm }}><Text style={t.title}>Con chi hai corso</Text>
-    <Text style={t.body}>{event ? `${event.club ? event.club.name + ' · ' : ''}${event.title}` : eventId ? 'Uscita di gruppo collegata' : log.origin === 'strava' ? 'Attività importata da Strava' : 'Nessuna uscita di gruppo collegata'}</Text>
-    <Text style={t.small}>{event ? `${event.participantCount} iscritti · organizza ${event.organizer.displayName}${event.paceSecPerKm ? ` · Passo ${fmtPace(event.paceSecPerKm)}` : ''}` : 'Puoi collegare un’uscita e chiedere conferma ai compagni qui sotto.'}</Text>
-    {event?.pact?.noDrop ? <Text style={t.small}>Patto: nessuno resta indietro.</Text> : null}
-    {eventId ? <LinkText title="Apri gruppo e partecipanti" onPress={() => router.push({ pathname: '/evento/[id]', params: { id: eventId } })} /> : <LinkText title="Collega a un’uscita" onPress={() => void choose()} />}
+  return <Panel style={{ padding: S.lg, gap: S.xs }}><Text style={t.title}>Con chi hai corso</Text>
+    <Pressable onPress={() => (eventId ? router.push({ pathname: '/evento/[id]', params: { id: eventId } }) : void choose())} accessibilityRole="button" accessibilityLabel={eventId ? 'Apri gruppo e partecipanti' : 'Collega a un’uscita di gruppo'} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 56, opacity: pressed ? 0.6 : 1 })}>
+      <Ionicons name={eventId ? 'people' : 'link-outline'} size={22} color={color.accent} />
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text style={[type.headline, { color: color.text }]} numberOfLines={1}>{event ? `${event.club ? event.club.name + ' · ' : ''}${event.title}` : eventId ? 'Uscita di gruppo collegata' : 'Collega a un’uscita'}</Text>
+        <Text style={t.small} numberOfLines={2}>{event ? `${event.participantCount} iscritti · organizza ${event.organizer.displayName}${event.paceSecPerKm ? ` · Passo ${fmtPace(event.paceSecPerKm)}` : ''}${event.pact?.noDrop ? ' · nessuno resta indietro' : ''}` : 'Scegli un’uscita a cui eri iscritto'}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
+    </Pressable>
     <WorkoutCompanions logId={log.id} />
     <Sheet visible={open} onClose={() => setOpen(false)} title="Collega all’uscita">
       <Text style={t.muted}>Solo uscite a cui sei iscritto, entro sei ore dall’attività. Il collegamento non conferma presenze e mantiene la privacy dell’allenamento.</Text>
@@ -159,7 +163,7 @@ function Companions({ log }: { log: WorkoutLog }) {
       {error ? <Banner tone="error" text={error} action="Riprova" onAction={() => void choose()} /> : null}
       <Button small title="Organizza la prossima uscita" onPress={() => { setOpen(false); router.push('/evento/form'); }} />
     </Sheet>
-  </View>;
+  </Panel>;
 }
 
 /** Scintille e commenti ricevuti sulla propria corsa condivisa. */
@@ -262,10 +266,10 @@ function Identity({ log, s }: { log: WorkoutLog; s: ActivityStyle }) {
         <Text style={[type.title1, { color: color.text }]} numberOfLines={2} accessibilityRole="header">
           {log.title}
         </Text>
-        <Text style={[type.subhead, { color: color.textSecondary }]} numberOfLines={1}>
-          {sameAsType ? when : `${s.label} · ${when}`}
-        </Text>
-        {log.origin === 'strava' || log.origin === 'file' ? <Text style={t.small}>{log.origin === 'strava' ? 'Importata da Strava · titolo originale' : 'Importata da file · titolo originale'}</Text> : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {log.origin === 'strava' ? <FontAwesome5 name="strava" size={13} color="#FC4C02" accessibilityLabel="Importata da Strava" /> : log.origin === 'file' ? <Ionicons name="document-outline" size={14} color={color.textSecondary} accessibilityLabel="Importata da file" /> : null}
+          <Text style={[type.subhead, { color: color.textSecondary, flexShrink: 1 }]} numberOfLines={1}>{sameAsType ? when : `${s.label} · ${when}`}</Text>
+        </View>
       </View>
     </View>
   );
@@ -544,6 +548,7 @@ export default function LogDettaglio() {
                 {track ? (
                   <View style={{ height: MAP_H }}>
                     <RouteReplay track={track} marks={marks} tint={typeStyle.solid} chrome insetTop={0} onOpenMark={openMark} style={{ flex: 1 }} />
+                    <LinearGradient pointerEvents="none" colors={['transparent', color.bg]} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 56 }} />
 
                   </View>
                 ) : (

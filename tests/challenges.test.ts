@@ -100,6 +100,8 @@ describe('sfide: creazione, invito, iscrizione', () => {
     expect(code(() => run('b', 'cancelChallenge', [v.id]))).toBe('forbidden');
     expect(run<ChallengeView>('a', 'cancelChallenge', [v.id]).phase).toBe('cancelled');
     expect(code(() => run('c', 'joinChallenge', [v.id, v.inviteCode]))).toBe('cancelled');
+    // da una sfida annullata si esce sempre, anche da creatore
+    expect(run('a', 'leaveChallenge', [v.id])).toEqual({ left: true });
     expect(Object.values(db.notifications).some((n) => n.userId === 'b')).toBe(true);
   });
 });

@@ -236,6 +236,7 @@ export function joinChallenge(ctx: Ctx, id: Id, code?: string | null, goalKm?: n
 export function leaveChallenge(ctx: Ctx, id: Id): { left: true } {
   const uid = actor(ctx);
   const c = getOrThrow(ctx, id);
+  if (phaseOf(ctx, c) === 'cancelled') { delete ctx.db.challengeParticipants[pKey(c.id, uid)]; return { left: true }; }
   if (c.creatorId === uid) throw new AppError('forbidden', 'Sei il creatore: per uscire devi annullare la sfida.');
   if (!ctx.db.challengeParticipants[pKey(c.id, uid)]) return { left: true };
   if (phaseOf(ctx, c) === 'closing' || phaseOf(ctx, c) === 'ended') throw new AppError('past', 'La sfida è conclusa: il risultato resta nello storico.');

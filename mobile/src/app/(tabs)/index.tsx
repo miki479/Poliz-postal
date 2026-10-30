@@ -199,7 +199,8 @@ function Suggestion({ d, onChanged }: { d: HomeData; onChanged: () => void }) {
     return (
       <Banner text={`Chi ha reso speciale “${rec.eventTitle}”? Puoi lasciare un riconoscimento fino al ${new Date(rec.deadline).toLocaleDateString('it-IT', { weekday: 'long' })}.`} action="Lascia un riconoscimento" onAction={() => router.push({ pathname: '/evento/[id]', params: { id: rec.eventId, recognize: '1' } })} />
     );
-  const link = d.links[0];
+  // Se l'app non è sicura (più allenamenti compatibili) non chiede nulla all'utente: niente proposta.
+  const link = d.links.find((l) => l.matches.length === 1);
   if (link) {
     const m = link.matches[0];
     return (

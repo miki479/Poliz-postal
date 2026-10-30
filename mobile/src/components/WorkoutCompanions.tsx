@@ -18,7 +18,9 @@ export function WorkoutCompanions({ logId }: { logId: string }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const confirmed = (state.data ?? []).filter((c) => c.status === 'accepted');
+  // Solo ciò di cui l'app è certa: i compagni confermati e le persone che segui. Gli abbinamenti per percorso simile non si mostrano.
+  const candidates = (state.data ?? []).filter((c) => !c.suggested || c.status === 'accepted' || c.status === 'pending');
+  const confirmed = candidates.filter((c) => c.status === 'accepted');
   const change = async (c: CompanionCandidate, remove: boolean) => {
     if (busy) return;
     setBusy(true);
@@ -35,12 +37,12 @@ export function WorkoutCompanions({ logId }: { logId: string }) {
   };
   return (
     <View style={{ gap: S.sm }}>
-      <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel="Compagni di questa attività: aggiungi o correggi" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 56, opacity: pressed ? 0.6 : 1 })}>
+      <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel="Compagni di questa attività" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 56, opacity: pressed ? 0.6 : 1 })}>
         {confirmed.length ? (
           <View style={{ flexDirection: 'row' }}>{confirmed.slice(0, 3).map((c, i) => <View key={c.user.id} style={{ marginLeft: i ? -8 : 0 }}><Avatar name={c.user.displayName} hue={c.user.hue} uri={c.user.avatar} size={28} frame="ring" ring={color.bg} /></View>)}</View>
         ) : <Ionicons name="person-add-outline" size={22} color={color.accent} />}
         <View style={{ flex: 1, gap: 1 }}>
-          <Text style={[type.headline, { color: color.text }]} numberOfLines={1}>{confirmed.length ? `Con ${confirmed.map((c) => c.user.displayName).join(', ')}` : 'Aggiungi compagni'}</Text>
+          <Text style={[type.headline, { color: color.text }]} numberOfLines={1}>{confirmed.length ? `Con ${confirmed.map((c) => c.user.displayName).join(', ')}` : 'Chi era con te?'}</Text>
           <Text style={t.small} numberOfLines={1}>{confirmed.length ? 'Confermati da entrambe le persone' : 'Attività individuale finché nessuno conferma'}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={color.textTertiary} />
@@ -55,7 +57,7 @@ export function WorkoutCompanions({ logId }: { logId: string }) {
         ) : state.data?.length === 0 ? (
           <Text style={t.muted}>Non segui ancora nessuno: cerca compagni nella Community.</Text>
         ) : null}
-        {(state.data ?? []).map((c) => (
+        {candidates.map((c) => (
           <View key={c.user.id} style={{ gap: S.sm }}>
             <Row>
               <Avatar name={c.user.displayName} hue={c.user.hue} uri={c.user.avatar} size={36} />
@@ -63,7 +65,7 @@ export function WorkoutCompanions({ logId }: { logId: string }) {
                 <Text style={t.title}>{c.user.displayName}</Text>
                 <Text style={[t.small, c.status === 'accepted' && { color: color.success }]}>
                   {LABEL[c.status]}
-                  {c.suggested ? ' · percorso simile, da confermare' : ''}
+                  
                 </Text>
               </View>
             </Row>

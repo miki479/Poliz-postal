@@ -1,7 +1,7 @@
 import { router, Stack } from 'expo-router';
 import { Text } from 'react-native';
 
-import { Async, Button, Card, Chip, Empty, Muted, Row, Screen, t, useLoad } from '@/components/ui';
+import { Async, Button, Card, Chip, Empty, IconButton, Muted, Row, Screen, t, useLoad } from '@/components/ui';
 import { call } from '@/lib/api';
 import { CHALLENGE_PHASE_LABEL, CHALLENGE_TYPE_LABEL, fmtDate } from '@/lib/format';
 import type { ChallengeView } from '@shared/types.ts';
@@ -14,10 +14,12 @@ export default function Sfide() {
   return (
     <Screen onRefresh={state.reload}>
       <Stack.Screen options={{ title: 'Sfide' }} />
-      <Row>
-        <Button style={{ flex: 1 }} title="Nuova sfida" onPress={() => router.push('/sfide/form')} />
-        <Button style={{ flex: 1 }} variant="soft" title="Ho un codice" onPress={() => router.push('/sfide/entra')} />
-      </Row>
+      <Stack.Screen options={{ title: 'Sfide', headerRight: () => (
+        <Row gap={4}>
+          <IconButton name="key-outline" label="Entra con un codice" onPress={() => router.push('/sfide/entra')} />
+          <IconButton name="add-circle-outline" label="Lancia una nuova sfida" onPress={() => router.push('/sfide/form')} />
+        </Row>
+      ) }} />
       <Async state={state}>
         {(list) =>
           list.length ? (
@@ -35,7 +37,7 @@ export default function Sfide() {
               </Card>
             ))
           ) : (
-            <Empty title="Nessuna sfida" text="Lancia una sfida al tuo gruppo o entra con un codice." />
+            <Empty iconName="flash-outline" title="Nessuna sfida" text="Lancia una sfida al tuo gruppo con il + in alto, o entra con un codice." action={<Button title="Lancia una sfida" iconName="add" onPress={() => router.push('/sfide/form')} />} />
           )
         }
       </Async>

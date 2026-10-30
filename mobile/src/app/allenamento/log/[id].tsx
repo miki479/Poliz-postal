@@ -219,7 +219,7 @@ function LinkSuggestion({ log, onLinked }: { log: WorkoutLog; onLinked: () => vo
     if (!log.activityId || log.plannedSessionId) return;
     call<SessionMatch[]>('sessionMatches', log.activityId).then(setM, () => setM([]));
   }, [log.activityId, log.plannedSessionId]);
-  if (!m?.length) return null;
+  if (m?.length !== 1) return null; // più candidati = incerto: non si chiede nulla all'utente
   const best = m[0];
   return (
     <Panel style={{ padding: S.lg, gap: S.sm }}>

@@ -701,36 +701,45 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
   if (km) nums.push(['Distanza', fmtKm(km)]);
   if (min) nums.push(['Tempo', fmtDuration(min)]);
   if (pace) nums.push(['Passo', fmtPace(pace)]);
-  const body = (
-    <View style={{ gap: S.md }}>
+  const ev = item.kind === 'event_created' || item.kind === 'event_joined' ? item.event : null;
+  const link = { color: color.accent, fontWeight: '700' } as const;
+  const body = ev ? (
+    // Uscite: una frase chiara (chi, cosa, di quale gruppo); titolo e gruppo si toccano e aprono la loro scheda.
+    <View style={{ flexDirection: 'row', gap: S.md, alignItems: 'flex-start' }}>
+      <Avatar name={who.displayName} hue={who.hue} uri={who.avatar} size={36} />
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text style={[type.subhead, { color: color.textSecondary }]}>
+          <Text style={{ color: color.text, fontWeight: '700' }}>{who.displayName}</Text>
+          {item.kind === 'event_created' ? ' ha organizzato l’uscita ' : ' partecipa all’uscita '}
+          <Text style={link} onPress={() => openEvent(ev.id)} accessibilityRole="link">{ev.title}</Text>
+          {ev.club ? <>{' '}del gruppo <Text style={link} onPress={() => router.push({ pathname: '/club/[id]', params: { id: ev.club!.id } })} accessibilityRole="link">{ev.club.name}</Text></> : null}
+        </Text>
+        <Text style={[type.caption, { color: color.textTertiary }]} numberOfLines={1}>{[fmtDayShort(ev.startsAt, ev.timezone), placeOf(ev), relativeFromNow(item.at)].filter(Boolean).join(' · ')}</Text>
+      </View>
+    </View>
+  ) : (
+    <View style={{ gap: S.sm }}>
       <Row style={{ alignItems: 'center' }}>
-        <Avatar name={who.displayName} hue={who.hue} uri={who.avatar} size={46} />
+        <Avatar name={who.displayName} hue={who.hue} uri={who.avatar} size={36} />
         <View style={{ flex: 1 }}>
-          <Text style={[type.headline, { color: color.text }]} numberOfLines={1}>{who.displayName}</Text>
-          <Text style={t.small} numberOfLines={1}>{relativeFromNow(item.at)}</Text>
+          <Text style={[type.subhead, { color: color.text, fontWeight: '700' }]} numberOfLines={1}>{who.displayName}</Text>
+          <Text style={t.small} numberOfLines={1}>{typeStyle ? `${typeStyle.label} · ` : ''}{relativeFromNow(item.at)}</Text>
         </View>
-        {typeStyle ? <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: typeStyle.tint, alignItems: 'center', justifyContent: 'center' }}><ActivityGlyph style={typeStyle} size={20} color={typeStyle.solid} /></View> : <Ionicons name={icon} size={20} color={color.textSecondary} />}
       </Row>
-      {item.kind === 'event_created' || item.kind === 'event_joined' ? (
-        <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: R.pill, borderWidth: 1, borderColor: color.accent + '55', backgroundColor: color.accentTint }}>
-          <Ionicons name={item.kind === 'event_created' ? 'megaphone-outline' : 'checkmark-circle-outline'} size={13} color={color.accent} />
-          <Text style={[type.caption, { color: color.accent, fontWeight: '800', letterSpacing: 0.6 }]}>{item.kind === 'event_created' ? 'NUOVA USCITA' : 'ISCRITTO'}</Text>
-        </View>
-      ) : null}
-      <Text style={[type.title2, { color: color.text, fontWeight: '800' }]} numberOfLines={2}>{title}</Text>
+      <Text style={[type.headline, { color: color.text, fontWeight: '800' }]} numberOfLines={2}>{title}</Text>
       {nums.length ? (
         <Row gap={0}>
           {nums.map(([l, v]) => (
-            <View key={l} style={{ flex: 1, gap: 2 }}>
+            <View key={l} style={{ flex: 1, gap: 1 }}>
               <Text style={[type.caption, { color: color.textSecondary }]}>{l}</Text>
-              <Text style={[type.title2, { color: color.text, fontWeight: '800', fontVariant: ['tabular-nums'] }]}>{v}</Text>
+              <Text style={[type.headline, { color: color.text, fontWeight: '800', fontVariant: ['tabular-nums'] }]}>{v}</Text>
             </View>
           ))}
         </Row>
-      ) : item.kind === 'event_joined' ? null : <Text style={t.muted}>{typeStyle ? `${typeStyle.label} · ${detail}` : detail}</Text>}
+      ) : <Text style={t.muted}>{detail}</Text>}
     </View>
   );
-  const main = onPress ? (
+  const main = onPress && !ev ? (
     <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel={`${who.displayName}: ${title}. ${detail}`}>
       {body}
     </PressableScale>
@@ -740,11 +749,11 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
     </View>
   );
   return (
-    <View ref={viewportRef} onLayout={(e) => { setPreviewWidth(e.nativeEvent.layout.width - 2 * S.xl); checkViewport(); }} style={{ marginHorizontal: -S.xl, paddingHorizontal: S.xl, paddingTop: S.xl, paddingBottom: S.lg, gap: S.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.separator }}>
+    <View ref={viewportRef} onLayout={(e) => { setPreviewWidth(e.nativeEvent.layout.width - 2 * S.xl); checkViewport(); }} style={{ marginHorizontal: -S.xl, paddingHorizontal: S.xl, paddingTop: S.lg, paddingBottom: S.md, gap: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.separator }}>
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: color.surface, opacity: 0.4 }]} />
       {main}
-      {trace && trace.length > 1 ? <LinearGradient colors={[color.accentTint, color.bg, color.brandTint]} style={{ height: 200, borderRadius: R.lg, overflow: 'hidden', justifyContent: 'center' }}>
-        {inView && previewWidth > 0 ? <RouteTrace track={trace} width={previewWidth} height={176} tint={[color.accent, color.brand]} dotEvery={null} /> : null}
+      {trace && trace.length > 1 ? <LinearGradient colors={[color.accentTint, color.bg, color.brandTint]} style={{ height: 150, borderRadius: R.lg, overflow: 'hidden', justifyContent: 'center' }}>
+        {inView && previewWidth > 0 ? <RouteTrace track={trace} width={previewWidth} height={128} tint={[color.accent, color.brand]} dotEvery={null} /> : null}
         <Text style={[type.caption, { textAlign: 'center', color: color.textSecondary, position: 'absolute', bottom: 6, left: 0, right: 0 }]}>Percorso condiviso · estremità protette</Text>
       </LinearGradient> : null}
       {item.social ? <View style={{ paddingTop: S.xs }}>

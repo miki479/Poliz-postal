@@ -117,13 +117,13 @@ export function SocialBar({ itemId, initial, own }: { itemId: string; initial: S
     <Row gap={S.xxl ?? 32}>
       <Pressable onPress={own ? showSparkers : spark} accessibilityRole="button" accessibilityState={{ selected: c.sparked }} accessibilityLabel={own ? `${c.sparks} scintille ricevute` : c.sparked ? `Hai dato una scintilla. ${c.sparks} in tutto. Tocca per toglierla` : `Dai una scintilla. ${c.sparks} finora`} style={({ pressed }) => [{ minHeight: HIT, minWidth: HIT, flexDirection: 'row', alignItems: 'center', gap: 6 }, pressed && { opacity: 0.6 }]}>
         <Animated.View style={{ transform: [{ scale: pop }] }}>
-          <Ionicons name={c.sparked ? 'flash' : 'flash-outline'} size={22} color={c.sparked ? color.warning : color.textSecondary} />
+          <Ionicons name={c.sparked ? 'flash' : 'flash-outline'} size={19} color={c.sparked ? color.warning : color.textSecondary} />
         </Animated.View>
-        <Text style={[t.muted, c.sparked && { color: color.warning, fontWeight: '700' }]}>{own ? (c.sparks ? `${c.sparks} ${c.sparks === 1 ? 'scintilla' : 'scintille'}` : 'Nessuna scintilla') : c.sparks ? `Scintilla (${c.sparks})` : 'Scintilla'}</Text>
+        <Text style={[t.small, c.sparked && { color: color.warning, fontWeight: '700' }]}>{own ? (c.sparks ? `${c.sparks} ${c.sparks === 1 ? 'scintilla' : 'scintille'}` : 'Nessuna scintilla') : c.sparks ? `Scintilla (${c.sparks})` : 'Scintilla'}</Text>
       </Pressable>
       <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`Commenti: ${c.comments}`} style={({ pressed }) => [{ minHeight: HIT, minWidth: HIT, flexDirection: 'row', alignItems: 'center', gap: 6 }, pressed && { opacity: 0.6 }]}>
-        <Ionicons name="chatbubble-outline" size={20} color={color.textSecondary} />
-        <Text style={t.muted}>{c.comments ? `Commenta (${c.comments})` : 'Commenta'}</Text>
+        <Ionicons name="chatbubble-outline" size={17} color={color.textSecondary} />
+        <Text style={t.small}>{c.comments ? `Commenta (${c.comments})` : 'Commenta'}</Text>
       </Pressable>
       <CommentsSheet itemId={itemId} visible={open} onClose={() => setOpen(false)} onCount={(n) => setC((x) => ({ ...x, comments: n }))} />
     </Row>

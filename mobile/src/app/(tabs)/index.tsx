@@ -3,12 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { EventCard, GroupRunCard } from '@/components/cards';
 import { CommunityStream } from '@/components/CommunityStream';
 import { FriendStories } from '@/components/FriendStories';
 import { Banner, Button, IconButton, Metric, Row, Section, Sheet, Skeleton, TabScreen, t, useLoad, Panel } from '@/components/ui';
+import { SESSION_FIGURE } from '@/constants/figureImages';
 import { color, HIT, R, S, type } from '@/constants/theme';
 import { call } from '@/lib/api';
 import { deviceTimezone, fmtDuration, fmtKm, hoursUntil, kmParts, KIND_LABEL, startOfWeekIso, toISODate } from '@/lib/format';
@@ -106,8 +107,37 @@ function HeroEvent({ e, label, clubImage, onChange }: { e: EventView; label: str
   );
 }
 
+const KIND_FIGURE: Record<string, string> = { run_easy: 'easy', run_free: 'easy', run_continuous: 'tempo', run_progressive: 'tempo', run_intervals: 'intervals', run_long: 'long', run_walk: 'fartlek', aerobic: 'training', strength: 'strength', mobility: 'stretch', recovery_active: 'stretch' };
+
+/** Sette giorni della settimana: oggi evidenziato, un punto sui giorni in cui hai registrato un allenamento (solo dati veri). */
+function WeekStrip({ logs }: { logs: WorkoutLog[] }) {
+  const start = new Date(); start.setHours(12, 0, 0, 0);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  const done = new Set(logs.map((l) => toISODate(new Date(l.startedAt))));
+  const todayStr = toISODate(new Date());
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }} accessibilityRole="list">
+      {Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(start); d.setDate(start.getDate() + i);
+        const iso = toISODate(d);
+        const isToday = iso === todayStr, has = done.has(iso);
+        return (
+          <View key={iso} accessible accessibilityLabel={`${d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric' })}${has ? ', allenamento registrato' : ''}`} style={{ alignItems: 'center', gap: 6, width: 42 }}>
+            <Text style={[type.caption, { color: color.textSecondary, fontWeight: '700' }]}>{d.toLocaleDateString('it-IT', { weekday: 'short' }).slice(0, 3).toUpperCase()}</Text>
+            <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: isToday ? color.accent : has ? color.accentTint : color.surface, borderWidth: isToday ? 0 : 1, borderColor: color.controlBorder }}>
+              <Text style={[type.subhead, { color: isToday ? color.onAccent : color.text, fontWeight: '800' }]}>{d.getDate()}</Text>
+            </View>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: has ? color.accent : 'transparent' }} />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function HeroSession({ s }: { s: PlannedSession }) {
   const today = s.date === todayIso();
+  const fig = SESSION_FIGURE[KIND_FIGURE[s.kind] ?? ''];
   return (
     <Panel style={{ padding: S.lg, gap: S.md, overflow: 'hidden' }}>
       <LinearGradient pointerEvents="none" colors={[color.accentTint, 'transparent']} start={{ x: 1, y: 1 }} end={{ x: 0.3, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -119,6 +149,7 @@ function HeroSession({ s }: { s: PlannedSession }) {
             </View>
             <Text style={[type.title1, { color: color.text, fontWeight: '900' }]}>{s.title || KIND_LABEL[s.kind]}</Text>
           </View>
+          {fig ? <Image source={fig.src} resizeMode="contain" style={{ width: Math.round(84 * fig.ratio), height: 84 }} accessibilityIgnoresInvertColors /> : null}
           <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: R.pill, backgroundColor: color.surface, borderWidth: 1, borderColor: color.controlBorder }}>
             <Text style={[type.caption, { color: color.textSecondary, fontWeight: '700' }]}>{fmtDuration(s.durationMin)}</Text>
           </View>
@@ -266,6 +297,7 @@ export default function Home() {
         )
       ) : (
         <>
+          <WeekStrip logs={d.logs} />
           <FriendStories meId={me?.id} />
           {me && !me.profileCompleted ? <Banner text="Scegli nome e username: i compagni ti riconosceranno nelle uscite." action="Completa il profilo" onAction={() => router.push('/profilo-modifica')} /> : null}
 

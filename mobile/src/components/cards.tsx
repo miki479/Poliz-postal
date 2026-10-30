@@ -7,13 +7,13 @@ import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { ActivityGlyph, SportGlyph, type Glyph } from '@/components/SportIcon';
 import { RouteThumb } from '@/components/RouteThumb';
-import { FIGURE_IMAGE } from '@/constants/figureImages';
+import { SCENE_FIGURE } from '@/constants/figureImages';
 import { ACTIVITY_STYLES, styleOfKind, styleOfSport, type ActivityStyle } from '@/constants/activityColors';
 import { Avatar, AvatarStack, Chip, Panel, PressableScale, Row, t, useReduceMotion, type IconName } from '@/components/ui';
 import { clubTint, eventContext, eventSportStyle, FEATURE_ICONS, PACT_ICONS, pactModes, VISIBILITY_ICONS } from '@/constants/eventStyle';
 import { GradientButton } from '@/components/event/GradientButton';
 import { color, GUTTER, HIT, M, R, S, type } from '@/constants/theme';
-import { dayAgo, eventShareText, fmtClock, fmtDayShort, fmtKm, formatPace, KIND_LABEL, LEVEL_LABEL, relativeFromNow, SPORT_LABEL, whenLabel } from '@/lib/format';
+import { dayAgo, eventShareText, fmtClock, fmtDayShort, fmtDuration, fmtKm, fmtPace, formatPace, KIND_LABEL, LEVEL_LABEL, relativeFromNow, SPORT_LABEL, whenLabel } from '@/lib/format';
 import { SocialBar } from '@/components/SocialBar';
 import { useInView } from '@/components/Motion';
 import { RouteTrace } from '@/components/RouteTrace';
@@ -303,8 +303,8 @@ export function EventScene({ sport, image, style, children }: { sport: SportId; 
             <Rect x={0} y={0} width={400} height={300} fill={`url(#${gid})`} />
             <Path d={st.glyph === 'trail' ? HORIZON.ridge : HORIZON.flat} fill={mix(c1, NIGHT, 0.16)} />
           </Svg>
-          {FIGURE_IMAGE[sport] ? (
-            <Image source={FIGURE_IMAGE[sport]!.src} resizeMode="contain" tintColor="#FFFFFF" style={{ position: 'absolute', right: 10, top: 56, height: 104, width: Math.round(104 * FIGURE_IMAGE[sport]!.ratio), opacity: 0.5 }} accessibilityIgnoresInvertColors />
+          {SCENE_FIGURE[sport] ? (
+            <Image source={SCENE_FIGURE[sport]!.src} resizeMode="contain" tintColor="#FFFFFF" style={{ position: 'absolute', right: 10, top: 56, height: 104, width: Math.round(104 * SCENE_FIGURE[sport]!.ratio), opacity: 0.5 }} accessibilityIgnoresInvertColors />
           ) : fig ? (
             <View style={{ position: 'absolute', left: '56%', bottom: '40%', marginBottom: -14 }}>
               <SportGlyph glyph={fig} size={112} color="#05080B" />
@@ -693,22 +693,36 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
     typeStyle = styleOfKind(item.workout.kind, item.workout.title);
   }
   if (item.kind === 'event_joined') typeStyle = ACTIVITY_STYLES.event;
+  // Numeri essenziali in grande, come nel feed di Strava: solo ciò che l'attività ha davvero.
+  const km = item.kind === 'run_completed' ? item.activity.distanceKm : item.kind === 'workout_shared' ? item.workout.distanceKm : null;
+  const min = item.kind === 'run_completed' ? item.activity.durationMin : item.kind === 'workout_shared' ? item.workout.durationMin : null;
+  const pace = km && min && km >= 0.5 ? (min * 60) / km : null;
+  const nums: Array<[string, string]> = [];
+  if (km) nums.push(['Distanza', fmtKm(km)]);
+  if (min) nums.push(['Tempo', fmtDuration(min)]);
+  if (pace) nums.push(['Passo', fmtPace(pace)]);
   const body = (
-    <Row style={{ alignItems: 'flex-start', paddingVertical: S.md }}>
-      <Avatar name={who.displayName} hue={who.hue} uri={who.avatar} size={40} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={t.small}>
-          <Text style={{ color: color.text, fontWeight: '700' }}>{who.displayName}</Text> · {relativeFromNow(item.at)}
-        </Text>
-        <Text style={t.title} numberOfLines={2}>
-          {title}
-        </Text>
-        <Row gap={6}>
-          {typeStyle ? <ActivityGlyph style={typeStyle} size={15} color={typeStyle.solid} /> : <Ionicons name={icon} size={14} color={color.textSecondary} />}
-          <Text style={t.muted}>{typeStyle && item.kind !== 'event_joined' ? `${typeStyle.label} · ${detail}` : detail}</Text>
+    <View style={{ gap: S.md }}>
+      <Row style={{ alignItems: 'center' }}>
+        <Avatar name={who.displayName} hue={who.hue} uri={who.avatar} size={46} />
+        <View style={{ flex: 1 }}>
+          <Text style={[type.headline, { color: color.text }]} numberOfLines={1}>{who.displayName}</Text>
+          <Text style={t.small} numberOfLines={1}>{relativeFromNow(item.at)}{item.kind === 'event_created' ? ' · ha organizzato un’uscita' : item.kind === 'event_joined' ? ' · si è iscritto a un’uscita' : ''}</Text>
+        </View>
+        {typeStyle ? <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: typeStyle.tint, alignItems: 'center', justifyContent: 'center' }}><ActivityGlyph style={typeStyle} size={20} color={typeStyle.solid} /></View> : <Ionicons name={icon} size={20} color={color.textSecondary} />}
+      </Row>
+      <Text style={[type.title2, { color: color.text, fontWeight: '800' }]} numberOfLines={2}>{title}</Text>
+      {nums.length ? (
+        <Row gap={0}>
+          {nums.map(([l, v]) => (
+            <View key={l} style={{ flex: 1, gap: 2 }}>
+              <Text style={[type.caption, { color: color.textSecondary }]}>{l}</Text>
+              <Text style={[type.title2, { color: color.text, fontWeight: '800', fontVariant: ['tabular-nums'] }]}>{v}</Text>
+            </View>
+          ))}
         </Row>
-      </View>
-    </Row>
+      ) : <Text style={t.muted}>{typeStyle && item.kind !== 'event_joined' ? `${typeStyle.label} · ${detail}` : detail}</Text>}
+    </View>
   );
   const main = onPress ? (
     <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel={`${who.displayName}: ${title}. ${detail}`}>
@@ -720,13 +734,13 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
     </View>
   );
   return (
-    <View ref={viewportRef} onLayout={(e) => { setPreviewWidth(e.nativeEvent.layout.width); checkViewport(); }}>
+    <View ref={viewportRef} onLayout={(e) => { setPreviewWidth(e.nativeEvent.layout.width - 2 * S.lg); checkViewport(); }} style={{ backgroundColor: color.surface, borderRadius: R.card, borderWidth: 1, borderColor: color.controlBorder, padding: S.lg, gap: S.md }}>
       {main}
-      {trace && trace.length > 1 ? <LinearGradient colors={[color.accentTint, color.bg, color.brandTint]} style={{ height: 172, borderRadius: R.card, overflow: 'hidden', marginBottom: S.md }}>
-        {inView && previewWidth > 0 ? <RouteTrace track={trace} width={previewWidth} height={148} tint={[color.accent, color.brand]} dotEvery={null} /> : null}
-        <Text style={[type.caption, { textAlign: 'center', color: color.textSecondary }]}>Percorso condiviso · estremità protette</Text>
+      {trace && trace.length > 1 ? <LinearGradient colors={[color.accentTint, color.bg, color.brandTint]} style={{ height: 200, borderRadius: R.lg, overflow: 'hidden', justifyContent: 'center' }}>
+        {inView && previewWidth > 0 ? <RouteTrace track={trace} width={previewWidth} height={176} tint={[color.accent, color.brand]} dotEvery={null} /> : null}
+        <Text style={[type.caption, { textAlign: 'center', color: color.textSecondary, position: 'absolute', bottom: 6, left: 0, right: 0 }]}>Percorso condiviso · estremità protette</Text>
       </LinearGradient> : null}
-      {item.social ? <View style={{ marginLeft: 52, marginTop: -S.sm }}>
+      {item.social ? <View style={{ borderTopWidth: 1, borderTopColor: color.separator, paddingTop: S.sm }}>
         <SocialBar itemId={item.id} initial={item.social} />
       </View> : null}
     </View>

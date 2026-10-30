@@ -13,7 +13,7 @@ it('i dati di esempio riempiono feed, gruppi e uscite, con almeno una storia col
   expect(call(ctx, 'loadDemoData', [])).toMatchObject({ people: 5, stories: 6 });
   const feed = call(ctx, 'getSocialFeed', [40]) as FeedItem[];
   const stories = feed.filter((f) => f.kind === 'workout_shared');
-  expect(stories.length).toBe(6);
+  expect(stories.length).toBe(9);
   expect(stories.some((f) => f.kind === 'workout_shared' && f.workout.track && f.workout.track.length > 1)).toBe(true);
   expect(Object.values(db.clubs).length).toBe(4);
   const sug = call(ctx, 'suggestClubs', []) as Array<{ id: string; reasons: string[]; isNew: boolean }>;
@@ -39,4 +39,17 @@ it('se due account usano la demo, rimuoverla da uno non toglie le relazioni dell
   expect((call(as('a'), 'getSocialFeed', [40]) as unknown[]).length).toBe(0);
   call(as('b'), 'clearDemoData', []);
   expect(Object.keys(db.users).sort()).toEqual(['a', 'b']);
+});
+
+it('il confronto con chi ha corso con te usa solo allenamenti condivisi dello stesso gruppo', () => {
+  const db = emptyDb();
+  db.users.me = { id: 'me', username: 'me', avatar: null, profileCompleted: true, displayName: 'Io', bio: '', hue: 1, sports: ['running'], area: 'Forlì', privacy: { ...DEFAULT_PRIVACY }, createdAt: NOW.toISOString() };
+  const ctx: Ctx = { db, now: NOW, actorId: 'me' };
+  expect((call(ctx, 'groupComparison', []) as { groupRuns: number }).groupRuns).toBe(0);
+  call(ctx, 'loadDemoData', []);
+  const c = call(ctx, 'groupComparison', []) as { groupRuns: number; myPace: number; othersPace: number; avgRank: number; peers: Array<{ paceDiffSec: number }> };
+  expect(c.groupRuns).toBe(1);
+  expect(c.peers.length).toBe(3);
+  expect(c.avgRank).toBe(3); // più lenta di Giulia e Marco, più veloce di Luca
+  expect(c.myPace).toBeGreaterThan(c.peers.length ? 0 : 1);
 });

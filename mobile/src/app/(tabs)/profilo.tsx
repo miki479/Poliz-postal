@@ -3,7 +3,8 @@ import { RouteThumbnail } from '@/components/RouteThumbnail';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Share, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { GoalsCard, Glow, GroupCompare, WeekLog } from '@/components/ProgressExtras';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RecordRow, SectionHead } from '@/components/BadgeParts';
@@ -16,7 +17,7 @@ import { styleOfSport } from '@/constants/activityColors';
 import { awardsOf, BADGE_KINDS, kindOf, mainRecords } from '@/constants/achievements';
 import { color, GUTTER, HIT, R, S, type } from '@/constants/theme';
 import { call, ext, type StravaStatus } from '@/lib/api';
-import { fmtDate, fmtDuration, fmtKm, toISODate } from '@/lib/format';
+import { fmtClock, fmtDate, fmtDuration, fmtKm, fmtPace, toISODate } from '@/lib/format';
 import { seenSet } from '@/lib/seen';
 import { styleOfLog } from '@/lib/storyPalette';
 import type { FameView } from '@shared/fame.ts';
@@ -177,6 +178,16 @@ function ActivitiesTab({ activities, logs, awards }: { activities: Activity[]; l
                 ) : null}
                 {log || a.source === 'file' || a.eventId ? <Ionicons name="chevron-forward" size={16} color={color.textTertiary} /> : null}
               </Pressable>
+              {log && (log.paceSecPerKm || log.durationSec) ? (
+                <View style={{ flexDirection: 'row', marginLeft: 64 + S.md, marginBottom: S.sm, paddingVertical: S.md, paddingHorizontal: S.md, borderRadius: R.lg, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: StyleSheet.hairlineWidth, borderColor: color.separator }}>
+                  {[['Durata', fmtClock(log.durationSec)], log.paceSecPerKm ? ['Passo medio', fmtPace(log.paceSecPerKm)] : null, log.distanceKm ? ['Distanza', fmtKm(log.distanceKm)] : null].filter(Boolean).map((x) => (
+                    <View key={(x as string[])[0]} style={{ flex: 1, gap: 2 }}>
+                      <Text style={[type.caption, { color: color.textSecondary, letterSpacing: 0.4 }]}>{(x as string[])[0].toUpperCase()}</Text>
+                      <Text style={[type.headline, { color: color.text, fontWeight: '800', fontVariant: ['tabular-nums'] }]}>{(x as string[])[1]}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </View>
           );
         })}
@@ -220,7 +231,8 @@ function ProgressTab({ d }: { d: ProfileData }) {
   const recs = mainRecords(d.records).slice(0, 3);
   return (
     <View style={{ gap: S.lg }}>
-      <Panel style={{ padding: S.lg, gap: S.lg }}>
+      <Panel style={{ padding: S.lg, gap: S.lg, overflow: 'hidden' }}>
+        <Glow />
         {types.length > 1 ? <TextTabs items={[null, ...types]} value={sport} onChange={setSport} bleed={S.lg} /> : null}
         <Text style={t.h2}>Questa settimana</Text>
         <View style={{ flexDirection: 'row', gap: S.xl }}>
@@ -233,7 +245,10 @@ function ProgressTab({ d }: { d: ProfileData }) {
           {km.some((v) => v > 0) ? <AreaChart values={km} height={150} tint={color.accent} label={`Distanza settimanale delle ultime 12 settimane, massimo ${Math.max(...km).toFixed(1).replace('.', ',')} chilometri`} /> : <Text style={t.muted}>Il grafico compare dopo la prima attività con distanza.</Text>}
         </Pressable>
       </Panel>
-      {recs.length ? <View><SectionHead title="Record personali" action="Tutti" onAction={() => router.push('/record')} />{recs.map((r) => <RecordRow key={r.code} r={r} awards={d.awards} />)}</View> : null}
+      <WeekLog logs={logs} />
+      {recs.length ? <View><SectionHead title="Migliori prestazioni" action="Tutte" onAction={() => router.push('/record')} />{recs.map((r) => <RecordRow key={r.code} r={r} awards={d.awards} />)}</View> : null}
+      <GoalsCard />
+      <GroupCompare />
       <NavRow icon="walk-outline" title="Inizia a correre: allenamenti guidati" hint="Programma pubblico NHS, 9 settimane" onPress={() => router.push('/allenamento/iniziare')} />
       <NavRow icon="calendar-outline" title="Il tuo piano" onPress={() => router.push('/allenamento')} />
       <NavRow icon="flag-outline" title="Obiettivi" onPress={() => router.push('/obiettivi')} />

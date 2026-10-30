@@ -92,6 +92,13 @@ export function loadDemoData(ctx: Ctx): { people: number; events: number; storie
     db.workoutLogs[s.id] = log;
   }
 
+  // Corsa di gruppo con confronto: l'utente e tre persone hanno corso insieme "Corsa dopo lavoro" (demo_e1), ieri, con passi diversi.
+  const groupRun: Array<[string, number, number]> = [[me.id, 8, 46], ['demo_giulia', 8, 42], ['demo_marco', 8, 44], ['demo_luca', 8, 51]];
+  for (const [uid, km, min] of groupRun) {
+    const id = uid === me.id ? `demo_wme_${me.id}` : `demo_wg_${uid}`;
+    const t0 = ago(26);
+    db.workoutLogs[id] = { id, userId: uid, plannedSessionId: null, kind: 'run_easy', title: 'Corsa dopo lavoro', startedAt: iso(t0), durationSec: min * 60, distanceKm: km, paceSecPerKm: Math.round((min * 60) / km), rpe: null, difficulties: '', notes: '', sets: [], mode: 'timer', activityId: null, shared: true, sport: 'running', environment: 'outdoor', distanceSource: 'gps', origin: 'app', eventId: 'demo_e1', track: null, createdAt: iso(ago(25)), updatedAt: iso(ago(25)) };
+  }
   // Qualche scintilla e un commento, per vedere i conteggi.
   for (const [item, uid] of [['w_demo_w1', 'demo_marco'], ['w_demo_w1', 'demo_luca'], ['w_demo_w3', 'demo_giulia']] as const) db.sparks[`${item}__${uid}`] = { id: `${item}__${uid}`, itemId: item, userId: uid, createdAt: iso(ago(1)) };
   db.comments.demo_c1 = { id: 'demo_c1', itemId: 'w_demo_w1', userId: 'demo_marco', text: 'Bel ritmo! Domenica ci vediamo al lungo?', createdAt: iso(ago(1)) };

@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ActionSheetIOS, Alert, Platform, Pressable, RefreshControl, ScrollView, Share, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CountText } from '@/components/Results';
 import { ActivityStats } from '@/components/ActivityStats';
 import { AwardDetailSheet, ConquestModal } from '@/components/AwardConquest';
 import { ScrollProvider, useScrollEmitter } from '@/components/Motion';
@@ -278,10 +279,10 @@ function Identity({ log, s }: { log: WorkoutLog; s: ActivityStyle }) {
 function BigMetric({ value, unit, label }: { value: string; unit?: string; label: string }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', gap: 2 }} accessible accessibilityLabel={`${label}: ${value}${unit ? ` ${unit}` : ''}`}>
-      <Text style={[type.title1, { color: color.text, fontVariant: ['tabular-nums'] }]} numberOfLines={1} adjustsFontSizeToFit>
-        {value}
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center' }}>
+        <CountText text={value} duration={900} a11y={false} style={[type.title1, { color: color.text, fontVariant: ['tabular-nums'] }]} />
         {unit ? <Text style={[type.footnote, { color: color.textSecondary, fontWeight: '600' }]}> {unit}</Text> : null}
-      </Text>
+      </View>
       <Text style={[type.caption, { color: color.textSecondary }]} numberOfLines={1}>
         {label}
       </Text>

@@ -80,9 +80,44 @@ export function CommentsSheet({ itemId, visible, onClose, onCount }: { itemId: s
  * Scintilla ⚡ al posto del "mi piace": un incoraggiamento veloce. Risposta immediata (ottimistica) con
  * ritorno allo stato reale se il server rifiuta; vibrazione leggera; piccolo scatto dell'icona.
  */
+/** Piccole scintille che si disperdono dall'icona quando dai una scintilla. */
+function SparkBurst() {
+  const t0 = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(t0, { toValue: 1, duration: 520, useNativeDriver: true }).start(); }, [t0]);
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: 19, height: 19 }}>
+      {Array.from({ length: 7 }, (_, i) => {
+        const a = (i / 7) * Math.PI * 2;
+        return <Animated.View key={i} style={{ position: 'absolute', left: 8, top: 8, width: 4, height: 4, borderRadius: 2, backgroundColor: color.warning, opacity: t0.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 0.8, 0] }), transform: [{ translateX: t0.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(a) * 20] }) }, { translateY: t0.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(a) * 20] }) }, { scale: t0.interpolate({ inputRange: [0, 1], outputRange: [1, 0.3] }) }] }} />;
+      })}
+    </View>
+  );
+}
+
+/** Testo che, quando cambia, sfila verso l'alto come un contachilometri: il vecchio esce, il nuovo sale. */
+function RollText({ text, style }: { text: string; style: object }) {
+  const reduce = useReduceMotion();
+  const prev = useRef(text);
+  const [old, setOld] = useState<string | null>(null);
+  const y = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (prev.current === text) return;
+    if (reduce) { prev.current = text; return; }
+    setOld(prev.current); prev.current = text; y.setValue(0);
+    Animated.timing(y, { toValue: 1, duration: 260, useNativeDriver: true }).start(() => setOld(null));
+  }, [text, reduce, y]);
+  return (
+    <View style={{ overflow: 'hidden', justifyContent: 'center' }}>
+      <Animated.Text style={[style, old !== null && { opacity: y, transform: [{ translateY: y.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>{text}</Animated.Text>
+      {old !== null ? <Animated.Text style={[style, { position: 'absolute', opacity: y.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }), transform: [{ translateY: y.interpolate({ inputRange: [0, 1], outputRange: [0, -12] }) }] }]}>{old}</Animated.Text> : null}
+    </View>
+  );
+}
+
 export function SocialBar({ itemId, initial, own }: { itemId: string; initial: SocialCounts; own?: boolean }) {
   const [c, setC] = useState(initial);
   const [open, setOpen] = useState(false);
+  const [burst, setBurst] = useState(0);
   const busy = useRef(false);
   const reduce = useReduceMotion();
   const pop = useRef(new Animated.Value(1)).current;
@@ -96,7 +131,7 @@ export function SocialBar({ itemId, initial, own }: { itemId: string; initial: S
     setC({ ...c, sparked: next, sparks: c.sparks + (next ? 1 : -1) });
     if (next) {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      if (!reduce) Animated.sequence([Animated.timing(pop, { toValue: 1.3, duration: 110, useNativeDriver: true }), Animated.timing(pop, { toValue: 1, duration: 140, useNativeDriver: true })]).start();
+      if (!reduce) { pop.setValue(0.7); Animated.spring(pop, { toValue: 1, friction: 3, tension: 220, useNativeDriver: true }).start(); setBurst((n) => n + 1); }
     }
     try {
       setC(await call<SocialCounts>('toggleSpark', itemId, next));
@@ -116,10 +151,13 @@ export function SocialBar({ itemId, initial, own }: { itemId: string; initial: S
   return (
     <Row gap={S.xxl ?? 32}>
       <Pressable onPress={own ? showSparkers : spark} accessibilityRole="button" accessibilityState={{ selected: c.sparked }} accessibilityLabel={own ? `${c.sparks} scintille ricevute` : c.sparked ? `Hai dato una scintilla. ${c.sparks} in tutto. Tocca per toglierla` : `Dai una scintilla. ${c.sparks} finora`} style={({ pressed }) => [{ minHeight: HIT, minWidth: HIT, flexDirection: 'row', alignItems: 'center', gap: 6 }, pressed && { opacity: 0.6 }]}>
+        <View>
+          {burst > 0 ? <SparkBurst key={burst} /> : null}
         <Animated.View style={{ transform: [{ scale: pop }] }}>
           <Ionicons name={c.sparked ? 'flash' : 'flash-outline'} size={19} color={c.sparked ? color.warning : color.textSecondary} />
         </Animated.View>
-        <Text style={[t.small, c.sparked && { color: color.warning, fontWeight: '700' }]}>{own ? (c.sparks ? `${c.sparks} ${c.sparks === 1 ? 'scintilla' : 'scintille'}` : 'Nessuna scintilla') : c.sparks ? `Scintilla (${c.sparks})` : 'Scintilla'}</Text>
+        </View>
+        <RollText style={[t.small, c.sparked && { color: color.warning, fontWeight: '700' }]} text={own ? (c.sparks ? `${c.sparks} ${c.sparks === 1 ? 'scintilla' : 'scintille'}` : 'Nessuna scintilla') : c.sparks ? `Scintilla (${c.sparks})` : 'Scintilla'} />
       </Pressable>
       <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`Commenti: ${c.comments}`} style={({ pressed }) => [{ minHeight: HIT, minWidth: HIT, flexDirection: 'row', alignItems: 'center', gap: 6 }, pressed && { opacity: 0.6 }]}>
         <Ionicons name="chatbubble-outline" size={17} color={color.textSecondary} />

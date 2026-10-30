@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { CountText } from '@/components/Results';
 import { GoalsCard, Glow, GroupCompare, WeekLog } from '@/components/ProgressExtras';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -218,6 +219,16 @@ function mondayOf(d: Date): number {
 }
 
 /** Progressi reali: filtro per tipo, riepilogo della settimana e distanza delle ultime 12 settimane (solo attività registrate). */
+/** Numero che sale da 0 al valore finale (fermo con "Riduci movimento"). */
+function CStat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flex: 1, gap: 2 }} accessible accessibilityLabel={`${label}: ${value}`}>
+      <CountText text={value} duration={900} a11y={false} style={[type.metricSmall, { color: color.text }]} />
+      <Text style={t.small}>{label}</Text>
+    </View>
+  );
+}
+
 function ProgressTab({ d }: { d: ProfileData }) {
   const [sport, setSport] = useState<string | null>(null);
   const types = [...new Set(d.logs.map((l) => styleOfLog(l).label))];
@@ -236,9 +247,9 @@ function ProgressTab({ d }: { d: ProfileData }) {
         {types.length > 1 ? <TextTabs items={[null, ...types]} value={sport} onChange={setSport} bleed={S.lg} /> : null}
         <Text style={t.h2}>Questa settimana</Text>
         <View style={{ flexDirection: 'row', gap: S.xl }}>
-          <Stat label="Distanza" value={`${(km[11] || 0).toFixed(km[11] >= 10 ? 0 : 1).replace('.', ',')} km`} />
-          <Stat label="Tempo" value={sec >= 3600 ? `${Math.floor(sec / 3600)}h ${Math.round((sec % 3600) / 60)}m` : `${Math.round(sec / 60)}m`} />
-          {elev > 0 ? <Stat label="Dislivello" value={`${Math.round(elev)} m`} /> : null}
+          <CStat label="Distanza" value={`${(km[11] || 0).toFixed(km[11] >= 10 ? 0 : 1).replace('.', ',')} km`} />
+          <CStat label="Tempo" value={sec >= 3600 ? `${Math.floor(sec / 3600)}h ${Math.round((sec % 3600) / 60)}m` : `${Math.round(sec / 60)}m`} />
+          {elev > 0 ? <CStat label="Dislivello" value={`${Math.round(elev)} m`} /> : null}
         </View>
         <Pressable onPress={() => router.push('/statistiche')} accessibilityRole="button" accessibilityLabel="Apri le statistiche complete" style={{ gap: S.xs }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={t.small}>Ultime 12 settimane</Text><Text style={[t.small, { color: color.accent, fontWeight: '700' }]}>Statistiche ›</Text></View>

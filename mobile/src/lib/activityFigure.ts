@@ -35,7 +35,9 @@ export function figureGeometry(run: number, phase = FIGURE_REST_PHASE, intensity
   const effort = 0.7 + 0.3 * clamp(Number.isFinite(intensity) ? intensity : 0.75, 0, 1);
   const theta = Number.isFinite(phase) ? phase % TAU : FIGURE_REST_PHASE;
   // 0 = posa disegnata, 1 = posa con arti scambiati; l'ampiezza cresce con l'impegno
-  const swap = clamp(0.5 + Math.sin(theta) * 0.5 * effort, 0, 1);
+  // la figura resta a lungo sulle due pose disegnate e passa in fretta dall'una all'altra (niente posa "ripiegata" a metà)
+  const wave = Math.sin(theta);
+  const swap = clamp(0.5 + 0.5 * Math.tanh(2.6 * wave) / Math.tanh(2.6), 0, 1);
   const dy = Math.cos(theta * 2) * lerp(0.1, 0.28, gait);
   const blend = (r: Pt[], w: Pt[]) => lerpChain(w, r, gait);
   const armF = blend(RUN.armF, WALK.armF), armB = blend(RUN.armB, WALK.armB), legF = blend(RUN.legF, WALK.legF), legB = blend(RUN.legB, WALK.legB);

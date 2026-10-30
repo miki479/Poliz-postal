@@ -12,6 +12,7 @@ import { FAME_READ_ONLY, fameMethods } from './fame.ts';
 import { GOALS_READ_ONLY, goalMethods } from './goals.ts';
 import { getPerformances } from './performances.ts';
 import { runCompanions } from './companions.ts';
+import { CLUB_DISCOVERY_READ_ONLY, clubDiscoveryMethods } from './clubDiscovery.ts';
 import { demoMethods } from './demoData.ts';
 import { SOCIAL_READ_ONLY, socialMethods } from './social.ts';
 import { INVITES_READ_ONLY, inviteMethods } from './invites.ts';
@@ -41,6 +42,7 @@ export const methods = {
   ...mapMethods,
   ...gearMethods,
   ...demoMethods,
+  ...clubDiscoveryMethods,
 } as const;
 
 export type MethodName = keyof typeof methods;
@@ -48,7 +50,7 @@ export type MethodName = keyof typeof methods;
 /** Metodi consentiti anche senza sessione (la logica interna decide cosa mostrare). */
 export const PUBLIC_METHODS = new Set<MethodName>(['me', 'listEvents', 'getEvent', 'clubByCode', 'getChallenge', 'getRoute', 'listRoutes']);
 /** Metodi che non modificano i dati: il server non riscrive il file. */
-export const READ_ONLY_METHODS = new Set<string>(['me', 'listEvents', 'getEvent', 'clubByCode', 'listMyClubs', 'getClub', 'clubLeaderboard', 'getProfile', 'listBadges', 'getFeed', 'getHome', 'listNotifications', 'getStats', 'listActivities', 'getFileActivity', 'getChallenge', 'listChallenges', 'getRoute', 'listRoutes', 'listSessions', 'getSession', 'listWorkoutLogs', 'getWorkoutLog', 'previewPlan', 'listPlans', 'listRoutines', 'weekSummary', 'trainingProgress', 'strengthProgress', ...ADAPTIVE_READ_ONLY, ...FAME_READ_ONLY, ...GOALS_READ_ONLY, 'getPerformances', 'runCompanions', ...COMPANIONS_READ_ONLY, ...SOCIAL_READ_ONLY, ...INVITES_READ_ONLY, ...EVENT_INVITES_READ_ONLY, ...MAP_READ_ONLY, ...GEAR_READ_ONLY, 'nearbyHeatmap']);
+export const READ_ONLY_METHODS = new Set<string>(['me', 'listEvents', 'getEvent', 'clubByCode', 'listMyClubs', 'getClub', 'clubLeaderboard', 'getProfile', 'listBadges', 'getFeed', 'getHome', 'listNotifications', 'getStats', 'listActivities', 'getFileActivity', 'getChallenge', 'listChallenges', 'getRoute', 'listRoutes', 'listSessions', 'getSession', 'listWorkoutLogs', 'getWorkoutLog', 'previewPlan', 'listPlans', 'listRoutines', 'weekSummary', 'trainingProgress', 'strengthProgress', ...ADAPTIVE_READ_ONLY, ...FAME_READ_ONLY, ...GOALS_READ_ONLY, 'getPerformances', 'runCompanions', ...COMPANIONS_READ_ONLY, ...SOCIAL_READ_ONLY, ...CLUB_DISCOVERY_READ_ONLY, ...INVITES_READ_ONLY, ...EVENT_INVITES_READ_ONLY, ...MAP_READ_ONLY, ...GEAR_READ_ONLY, 'nearbyHeatmap']);
 
 type Tail<T> = T extends (ctx: Ctx, ...rest: infer R) => infer Ret ? (...args: R) => Promise<Ret> : never;
 export type Api = { [K in MethodName]: Tail<(typeof methods)[K]> };

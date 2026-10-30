@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
-import Animated, { Easing, useAnimatedProps, useDerivedValue, useFrameCallback, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
+import { Image } from 'react-native';
+import Animated, { cancelAnimation, Easing, useAnimatedProps, useAnimatedStyle, useDerivedValue, useFrameCallback, useSharedValue, withRepeat, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 
 import type { ActivityStyle } from '@/constants/activityColors';
+import { FIGURE_IMAGE } from '@/constants/figureImages';
 import { figureGeometry, figureMotion, FIGURE_REST_PHASE, type FigureGeometry, type FigureGlyph } from '@/lib/activityFigure';
 import { useReduceMotion } from '@/lib/useReduceMotion';
 
@@ -82,17 +84,35 @@ export function SportGlyph({ glyph, size = 20, color, pose = 0 }: { glyph: Glyph
   </Svg>;
 }
 
-/** Movimento continuo sul thread UI: la fase resta stabile cambiando sport, ritmo o livello. */
-export function AnimatedActivityFigure({ glyph, size = 72, color, pace, level = 2, active = true }: { glyph: Glyph; size?: number; color: string; pace?: number | null; level?: number; active?: boolean }) {
-  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-    {glyph === 'run_walk' ? <>
-      <G transform="translate(-3 5) scale(.74)"><SingleAnimated glyph="walk" color={color} pace={pace} level={level} active={active} /></G>
-      <G transform="translate(7 5) scale(.74)"><SingleAnimated glyph="run" color={color} pace={pace} level={level} active={active} /></G>
-    </> : <>
-      {glyph === 'trail' ? <Path d="M2 22 L22 17" stroke={color} strokeWidth={1.3} /> : null}
-      <G transform={glyph === 'trail' ? 'translate(2 1) scale(.84)' : undefined}><SingleAnimated glyph={glyph} color={color} pace={pace} level={level} active={active} /></G>
-    </>}
-  </Svg>;
+const GLYPH_SPORT = { run: 'running', walk: 'walking', trail: 'trail', run_walk: 'run_walk' } as const;
+
+/**
+ * Figura a contorno (disegno, non omino) con un movimento morbido e continuo: un leggero rimbalzo del passo, un'inclinazione in avanti
+ * che respira e una piccola oscillazione laterale. Il ritmo segue il livello (più impegno, passo più rapido). Ferma con "Riduci movimento".
+ */
+export function AnimatedActivityFigure({ glyph, size = 72, color, level = 2, active = true }: { glyph: Glyph; size?: number; color: string; pace?: number | null; level?: number; active?: boolean }) {
+  const reduce = useReduceMotion();
+  const p = useSharedValue(0);
+  const fig = FIGURE_IMAGE[GLYPH_SPORT[glyph]];
+  const running = glyph === 'run' || glyph === 'run_walk';
+  const period = Math.round((running ? 820 : 1250) * (1.18 - Math.min(4, Math.max(0, level)) * 0.07));
+  useEffect(() => {
+    if (reduce || !active) { cancelAnimation(p); p.value = withTiming(0, { duration: 300 }); return; }
+    p.value = 0;
+    p.value = withRepeat(withTiming(1, { duration: period, easing: Easing.linear }), -1, false);
+    return () => cancelAnimation(p);
+  }, [reduce, active, period, p]);
+  const st = useAnimatedStyle(() => {
+    const w = p.value * Math.PI * 2;
+    const bounce = -Math.abs(Math.sin(w / 2)) * size * (running ? 0.045 : 0.025);
+    return { transform: [{ translateY: bounce }, { translateX: Math.sin(w) * size * 0.012 }, { rotate: `${Math.sin(w) * (running ? 1.4 : 0.8)}deg` }] };
+  });
+  if (!fig) return <Svg width={size} height={size} viewBox="0 0 24 24" />;
+  return (
+    <Animated.View style={[{ width: size * fig.ratio, height: size }, st]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Image source={fig.src} resizeMode="contain" tintColor={color} style={{ width: '100%', height: '100%' }} />
+    </Animated.View>
+  );
 }
 
 export function ActivityGlyph({ style, size = 20, color }: { style: ActivityStyle; size?: number; color: string }) {

@@ -42,13 +42,15 @@ export function loadDemoData(ctx: Ctx): { people: number; events: number; storie
     db.follows[k] = { id: k, fromId: me.id, toId: p.id, createdAt: iso(now) };
   }
 
-  const clubs: Array<{ id: string; name: string; desc: string; sport: 'running' | 'walking'; code: string; owner: string; members: string[] }> = [
+  const clubs: Array<{ id: string; name: string; desc: string; sport: 'running' | 'walking' | 'trail'; code: string; owner: string; members: string[]; joinMe?: boolean; rules?: string; days?: number; area?: string }> = [
     { id: 'demo_club_runners', name: 'Forlì Runners (demo)', desc: 'Gruppo di esempio: uscite serali e lunghi della domenica.', sport: 'running', code: 'DEMO-RUN1', owner: 'demo_giulia', members: ['demo_giulia', 'demo_marco', 'demo_luca', 'demo_elena'] },
-    { id: 'demo_club_walk', name: 'Camminate Lente (demo)', desc: 'Gruppo di esempio: passeggiate tranquille con caffè.', sport: 'walking', code: 'DEMO-WLK2', owner: 'demo_sara', members: ['demo_sara', 'demo_elena'] },
+    { id: 'demo_club_walk', name: 'Camminate Lente (demo)', desc: 'Gruppo di esempio: passeggiate tranquille con caffè.', sport: 'walking', code: 'DEMO-WLK2', owner: 'demo_sara', members: ['demo_sara', 'demo_elena'], rules: 'Passo tranquillo, nessuno resta indietro. Si finisce sempre con un caffè.' },
+    { id: 'demo_club_alba', name: 'Alba Runners (demo)', desc: 'Si corre alle 6:30, prima del lavoro, tre volte a settimana.', sport: 'running', code: 'DEMO-ALB3', owner: 'demo_giulia', members: ['demo_giulia', 'demo_sara', 'demo_marco'], joinMe: false, days: 4, area: 'Forlì', rules: 'Puntualità: si parte alle 6:30. Passo 5:30–6:00/km. Luce frontale d’inverno.' },
+    { id: 'demo_club_trail', name: 'Trail Romagna (demo)', desc: 'Sentieri e colline tra Forlì e Faenza, uscite lente nel fine settimana.', sport: 'trail', code: 'DEMO-TRL4', owner: 'demo_elena', members: ['demo_elena', 'demo_luca'], joinMe: false, days: 40, area: 'Faenza', rules: 'Scarpe da trail e acqua. Si aspetta l’ultimo ai bivi.' },
   ];
   for (const c of clubs) {
-    db.clubs[c.id] = { id: c.id, name: c.name, description: c.desc, sport: c.sport, area: 'Forlì', imageDataUrl: null, inviteCode: c.code, ownerId: c.owner, createdAt: iso(ago(24 * 20)) };
-    for (const uid of [...c.members, me.id]) db.memberships[`${c.id}__${uid}`] = { id: `demo_mem_${c.id}_${uid}`, clubId: c.id, userId: uid, role: uid === c.owner ? 'owner' : 'member', joinedAt: iso(ago(24 * 10)) };
+    db.clubs[c.id] = { id: c.id, name: c.name, description: c.desc, sport: c.sport, area: c.area ?? 'Forlì', imageDataUrl: null, inviteCode: c.code, ownerId: c.owner, createdAt: iso(ago(24 * (c.days ?? 20))), rules: c.rules, discoverable: c.joinMe === false };
+    for (const uid of c.joinMe === false ? c.members : [...c.members, me.id]) db.memberships[`${c.id}__${uid}`] = { id: `demo_mem_${c.id}_${uid}`, clubId: c.id, userId: uid, role: uid === c.owner ? 'owner' : 'member', joinedAt: iso(ago(24 * 10)) };
   }
 
   const mk = (id: string, over: Partial<RunEvent>): RunEvent => ({

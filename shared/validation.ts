@@ -181,7 +181,8 @@ export function validateClubInput(raw: Partial<ClubInput> | null | undefined): V
     else imageDataUrl = r.imageDataUrl;
   }
   if (Object.keys(errors).length) return { ok: false, errors };
-  return { ok: true, value: { name, description, sport: r.sport as SportId, area, imageDataUrl } };
+  const rules = clean(r.rules, 300);
+  return { ok: true, value: { name, description, sport: r.sport as SportId, area, imageDataUrl, rules, discoverable: r.discoverable === true } };
 }
 
 export const HANDLE_RE = /^[a-z0-9_.]{3,20}$/;

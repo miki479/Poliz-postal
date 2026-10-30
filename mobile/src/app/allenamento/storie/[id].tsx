@@ -771,7 +771,7 @@ export default function Storie() {
   const awards = data?.awards ?? [];
   const heroFresh = !still && !!data && awards.length > 0 && data.fresh.includes(awards[awards.length - 1].id);
   // tempo sufficiente per leggere (e, per i riconoscimenti, per vedere la sequenza completa)
-  const duration = kind === 'brief' ? Math.min(20_000, 7000 + briefLen * 40) : kind === 'route' ? (pal?.focus === 'walk' ? 10_000 : 9000) : kind === 'results' ? Math.min(15_000, 5200 + awards.length * 700 + (heroFresh ? 1600 : 0)) : kind === 'numbers' ? 7000 : 6500;
+  const duration = kind === 'brief' ? Math.min(20_000, 7000 + briefLen * 40) : kind === 'route' ? 13_000 : kind === 'results' ? Math.min(15_000, 5200 + awards.length * 700 + (heroFresh ? 1600 : 0)) : kind === 'numbers' ? 7000 : 6500;
 
   const go = (dlt: number) => {
     const n = i + dlt;
@@ -850,7 +850,7 @@ export default function Storie() {
     <Animated.View style={[{ flex: 1, backgroundColor: DEEP }, enterStyle]} {...pan.panHandlers}>
       <Stack.Screen options={{ headerShown: false }} />
       <Backdrop kind={kind} pal={pal} still={still} active={focused} />
-      {kind === 'route' && track ? <RouteReplay track={track} marks={marks} paused={paused} tint={color.accent} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '30%' }} /> : null}
+      {kind === 'route' && track ? <RouteReplay track={track} marks={marks} paused={paused} seconds={8} tint={color.accent} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '30%' }} /> : null}
       {/* veli per la leggibilità: controlli in alto, testo in basso */}
       <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top + 130 }} />
       <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)']} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '42%' }} />

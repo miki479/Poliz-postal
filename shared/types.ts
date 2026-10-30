@@ -79,6 +79,10 @@ export interface Club {
   inviteCode: string;
   ownerId: Id;
   createdAt: string;
+  /** Regole del gruppo, scritte dal fondatore (es. ritmo, puntualità, rispetto). */
+  rules?: string;
+  /** true = compare tra i gruppi suggeriti in Esplora e chi vuole può unirsi senza codice. */
+  discoverable?: boolean;
 }
 
 export interface ClubMembership {
@@ -388,6 +392,8 @@ export interface ClubInput {
   sport: SportId;
   area: string;
   imageDataUrl: string | null;
+  rules?: string;
+  discoverable?: boolean;
 }
 
 export interface ProfileInput {

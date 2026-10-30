@@ -7,7 +7,7 @@ import { medalCatalog, physicalMedalOffer, type MedalOffer } from '@shared/medal
 import type { Award } from '@shared/records.ts';
 import { useLoad } from './ui';
 
-async function loadCatalog():Promise<MedalOffer[]> {
+export async function loadCatalog():Promise<MedalOffer[]> {
   const response=await fetch(`${API_URL}/api/medals/catalog`,{credentials:'omit'});
   if(!response.ok)return [];
   const data=await response.json();

@@ -109,7 +109,6 @@ function HeroEvent({ e, label, clubImage, onChange }: { e: EventView; label: str
 
 const KIND_FIGURE: Record<string, string> = { run_easy: 'easy', run_free: 'run', run_continuous: 'tempo', run_progressive: 'tempo', run_intervals: 'intervals', run_long: 'long', run_walk: 'fastwalk', aerobic: 'training', strength: 'strength', mobility: 'stretch', recovery_active: 'stretch' };
 
-/** Sette giorni della settimana: oggi evidenziato, un punto sui giorni in cui hai registrato un allenamento (solo dati veri). */
 /** Disposizioni delle uscite di gruppo: lo stesso tasto le scorre in ordine e l'icona mostra quella attiva. */
 const LAYOUTS = {
   cards: { icon: 'albums-outline', label: 'schede grandi', next: 'small' },
@@ -125,31 +124,6 @@ function SmallCard({ children }: { children: ReactNode }) {
   return (
     <View style={{ width: 300 * S_, height: h * S_ }}>
       <View style={{ position: 'absolute', left: 0, top: 0, width: 300, height: h, transform: [{ translateX: -(300 * (1 - S_)) / 2 }, { translateY: -(h * (1 - S_)) / 2 }, { scale: S_ }] }}>{children}</View>
-    </View>
-  );
-}
-
-function WeekStrip({ logs, planned }: { logs: WorkoutLog[]; planned: Set<string> }) {
-  const start = new Date(); start.setHours(12, 0, 0, 0);
-  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-  const done = new Set(logs.map((l) => toISODate(new Date(l.startedAt))));
-  const todayStr = toISODate(new Date());
-  return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }} accessibilityRole="list">
-      {Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(start); d.setDate(start.getDate() + i);
-        const iso = toISODate(d);
-        const isToday = iso === todayStr, has = done.has(iso), plan = planned.has(iso);
-        return (
-          <Pressable key={iso} onPress={() => router.push('/allenamento/piano')} accessibilityRole="button" accessibilityLabel={`${d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric' })}${has ? ', allenamento registrato' : plan ? ', allenamento in programma' : ''}. Apre il calendario del piano`} style={{ alignItems: 'center', gap: 6, width: 42 }}>
-            <Text style={[type.caption, { color: color.textSecondary, fontWeight: '700' }]}>{d.toLocaleDateString('it-IT', { weekday: 'short' }).slice(0, 3).toUpperCase()}</Text>
-            <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: isToday ? color.accent : has ? color.accentTint : color.surface, borderWidth: isToday ? 0 : 1, borderColor: color.controlBorder }}>
-              <Text style={[type.subhead, { color: isToday ? color.onAccent : color.text, fontWeight: '800' }]}>{d.getDate()}</Text>
-            </View>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: has ? color.accent : 'transparent', borderWidth: !has && plan ? 1.5 : 0, borderColor: color.accent }} />
-          </Pressable>
-        );
-      })}
     </View>
   );
 }
@@ -317,7 +291,6 @@ export default function Home() {
         )
       ) : (
         <>
-          <WeekStrip logs={d.logs} planned={new Set(d.today.map((s) => s.date))} />
           <FriendStories meId={me?.id} />
           {me && !me.profileCompleted ? <Banner text="Scegli nome e username: i compagni ti riconosceranno nelle uscite." action="Completa il profilo" onAction={() => router.push('/profilo-modifica')} /> : null}
 

@@ -16,9 +16,9 @@ import type { LatLng, PlannedSession, TrackPoint } from '@shared/types.ts';
 import type { GearView } from '@shared/gear.ts';
 
 type Base = 'night' | 'standard' | 'satellite' | 'hybrid';
-type Heat = 'off' | 'global' | 'week';
+type Heat = 'off' | 'global' | 'week' | 'night' | 'popular';
 const BASES: { value: Base; label: string }[] = [{ value: 'night', label: 'Notturna' }, { value: 'standard', label: 'Standard' }, { value: 'satellite', label: 'Satellite' }, { value: 'hybrid', label: 'Ibrida' }];
-const HEAT: { value: Heat; label: string }[] = [{ value: 'off', label: 'Spenta' }, { value: 'global', label: 'Globale' }, { value: 'week', label: 'Ultimi 7 giorni' }];
+const HEAT: { value: Heat; label: string }[] = [{ value: 'off', label: 'Spenta' }, { value: 'global', label: 'Globale' }, { value: 'week', label: 'Ultimi 7 giorni' }, { value: 'night', label: 'Notturna' }, { value: 'popular', label: 'Più popolata' }];
 
 /** Mappe native di Expo Go: gli strati di densità usano cerchi, disponibili anche con Apple Maps. */
 export function RecordingMap({ track = [], height = 250, fill = false, initialHeat = 'off', showLocation = false, center, suggested = [], onDestination }: { track?: TrackPoint[]; height?: number; fill?: boolean; initialHeat?: Heat; showLocation?: boolean; center?: LatLng | null; suggested?: LatLng[]; onDestination?: (point: LatLng) => void }) {
@@ -35,7 +35,7 @@ export function RecordingMap({ track = [], height = 250, fill = false, initialHe
   const fitted = useRef<string | null>(null);
   useEffect(() => {
     let active = true;
-    void call<MapInsights>('mapInsights', { period: heat === 'week' ? 'week' : 'global', ...(center ? { nearby: { ...center, radiusKm: 5 } } : {}) }).then((value) => { if (active) setResult({ key: queryKey, data: value, failed: false }); }, () => { if (active) setResult({ key: queryKey, data: null, failed: true }); });
+    void call<MapInsights>('mapInsights', { period: heat === 'off' ? 'global' : heat, ...(center ? { nearby: { ...center, radiusKm: 5 } } : {}) }).then((value) => { if (active) setResult({ key: queryKey, data: value, failed: false }); }, () => { if (active) setResult({ key: queryKey, data: null, failed: true }); });
     return () => { active = false; };
   }, [heat, center, queryKey]);
   const first = track[0] ?? center ?? data?.routes[0]?.geometry[0] ?? data?.heat[0];

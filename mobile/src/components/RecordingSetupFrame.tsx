@@ -1,8 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { IconButton, Row, t } from '@/components/ui';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import { IconButton, Row, t, useReduceMotion } from '@/components/ui';
 import { color, GUTTER, R, S, type } from '@/constants/theme';
+
+/**
+ * Alone dell'azione dominante (Avvia): pulsa piano, fermo con "Riduci movimento" e durante la preparazione.
+ * Il pulsante resta inline nel frame: dice sempre cosa succede (Avvia, Preparo, Recupera).
+ */
+function StartGlow({ disabled, starting }: { disabled: boolean; starting: boolean }) {
+  const reduce = useReduceMotion();
+  const glow = useSharedValue(0);
+  useEffect(() => {
+    if (reduce || disabled || starting) { cancelAnimation(glow); glow.value = 0; return; }
+    glow.value = withRepeat(withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin) }), -1, true);
+    return () => cancelAnimation(glow);
+  }, [reduce, disabled, starting, glow]);
+  const halo = useAnimatedStyle(() => ({ opacity: 0.18 + glow.value * 0.3, transform: [{ scale: 1 + glow.value * 0.045 }] }));
+  return <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: -6, bottom: -6, left: -6, right: -6, borderRadius: 38, backgroundColor: color.accent }, halo]} />;
+}
 
 /** Mappa flessibile, card apribile e azione nel flusso: la preparazione non scorre. */
 export function RecordingSetupFrame({ map, summary, subtitle, onOptions, onClose, onStart, starting, disabled, resume = false, insets }: {
@@ -27,11 +44,12 @@ export function RecordingSetupFrame({ map, summary, subtitle, onOptions, onClose
           </Row>
         </Pressable>
       </View>
-      <View style={{ alignItems: 'center', gap: S.xs }}>
-        <Pressable onPress={onStart} disabled={disabled} accessibilityRole="button" accessibilityLabel={starting ? 'Preparo la registrazione' : resume ? 'Recupera l’attività salvata' : 'Avvia la registrazione'} accessibilityState={{ busy: starting, disabled }} style={({ pressed }) => ({ width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: color.accent, opacity: disabled || pressed ? 0.6 : 1 })}>
-          <Ionicons name={resume ? 'refresh' : 'play'} size={34} color={color.onAccent} />
+      <View>
+        <StartGlow disabled={disabled} starting={starting} />
+        <Pressable onPress={onStart} disabled={disabled} accessibilityRole="button" accessibilityLabel={starting ? 'Preparo la registrazione' : resume ? 'Recupera l’attività salvata' : 'Avvia la registrazione'} accessibilityState={{ busy: starting, disabled }} style={({ pressed }) => ({ minHeight: 64, borderRadius: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.sm, backgroundColor: color.accent, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 })}>
+          <Ionicons name={resume ? 'refresh' : 'play'} size={28} color={color.onAccent} />
+          <Text style={[type.title2, { color: color.onAccent, fontWeight: '800' }]}>{starting ? 'Preparo…' : resume ? 'Recupera l’attività' : 'Avvia'}</Text>
         </Pressable>
-        <Text style={[type.caption, { color: color.textSecondary }]}>{starting ? 'Preparo…' : resume ? 'Recupera' : 'Avvia'}</Text>
       </View>
     </View>
   </View>;

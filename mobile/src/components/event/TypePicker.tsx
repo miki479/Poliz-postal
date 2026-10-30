@@ -2,7 +2,7 @@ import { themedStyles , color, R, S, type } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIsFocused } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
@@ -64,6 +64,51 @@ function CardAmbient({ on, tint }: { on: boolean; tint: string }) {
   </View>;
 }
 
+
+/** Particelle astratte (solo al tocco): forma e direzione dipendono dal tipo. Ferme con "Riduci movimento". */
+const SHAPES: Record<string, { n: number; w: number; h: number; r: number; spread: number; up: number }> = {
+  running: { n: 9, w: 14, h: 3, r: 2, spread: 1.7, up: 0 }, // scie orizzontali verso destra
+  walking: { n: 8, w: 6, h: 6, r: 3, spread: 0.8, up: -1 }, // bolle lente che salgono
+  trail: { n: 8, w: 7, h: 7, r: 1, spread: 1.1, up: -0.4 }, // schegge rotate (sassi)
+  run_walk: { n: 9, w: 9, h: 4, r: 2, spread: 1.3, up: -0.5 },
+  other: { n: 8, w: 5, h: 5, r: 3, spread: 1, up: 0 },
+};
+function Particle({ burst, i, n, shape, tint }: { burst: number; i: number; n: number; shape: (typeof SHAPES)[string]; tint: string }) {
+  const t = useSharedValue(0);
+  useEffect(() => {
+    if (!burst) return;
+    t.value = 0;
+    t.value = withTiming(1, { duration: 700 + (i % 3) * 120, easing: Easing.out(Easing.cubic) });
+    return () => cancelAnimation(t);
+  }, [burst, i, t]);
+  const angle = (i / n) * Math.PI * 2 + (i % 2) * 0.35;
+  const dist = (26 + (i % 4) * 9) * shape.spread;
+  const st = useAnimatedStyle(() => ({
+    opacity: t.value === 0 ? 0 : 1 - t.value,
+    transform: [
+      { translateX: Math.cos(angle) * dist * t.value * (shape.up === 0 && shape.spread > 1.5 ? 1.4 : 1) },
+      { translateY: Math.sin(angle) * dist * t.value * 0.7 + shape.up * 22 * t.value },
+      { rotate: `${shape.r === 1 ? t.value * 180 : Math.cos(angle) < 0 ? 180 : 0}deg` },
+      { scale: 1 - t.value * 0.4 },
+    ],
+  }));
+  return <Animated.View style={[{ position: 'absolute', left: '50%', top: '48%', width: shape.w, height: shape.h, borderRadius: shape.r, backgroundColor: tint }, st]} />;
+}
+function TapBurst({ sport, on }: { sport: SportId; on: boolean }) {
+  const reduce = useReduceMotion();
+  const [burst, setBurst] = useState(0);
+  const was = useRef(on);
+  useEffect(() => {
+    if (on && !was.current && !reduce) setBurst((b) => b + 1);
+    was.current = on;
+  }, [on, reduce]);
+  if (!burst || reduce) return null;
+  const shape = SHAPES[sport] ?? SHAPES.other;
+  return <View pointerEvents="none" style={StyleSheet.absoluteFill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    {Array.from({ length: shape.n }, (_, i) => <Particle key={`${burst}-${i}`} burst={burst} i={i} n={shape.n} shape={shape} tint={i % 2 ? color.storyInk : alpha(color.storyInk, 0.6)} />)}
+  </View>;
+}
+
 /**
  * Tessera grande del tipo di attività: sfumatura piena nei colori ufficiali dell'attività (corsa + camminata unisce i due),
  * figura e nome in bianco. Come nel mockup tutte le tessere restano a tutto colore: la scelta si riconosce dalla spunta,
@@ -87,6 +132,7 @@ function TypeCard({ sport, on, onPress }: { sport: SportId; on: boolean; onPress
           <LinearGradient colors={[shade(c1, 0.4), shade(c2, 0.6)]} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={StyleSheet.absoluteFill} />
         </Animated.View>
         <CardAmbient on={on} tint={color.brandText} />
+        <TapBurst sport={sport} on={on} />
         <Animated.View style={[s.check, check]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
           <Ionicons name="checkmark-circle" size={22} color={color.storyInk} />
         </Animated.View>

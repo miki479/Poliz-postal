@@ -61,7 +61,7 @@ export default function Piano() {
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Il tuo piano', headerTransparent: false, headerBackVisible: true, headerBackButtonDisplayMode: 'default' }} />
       {d ? (
         <PlanDashboard
           data={d}

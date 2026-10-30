@@ -536,8 +536,8 @@ export default function Piano() {
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={{ paddingTop: insets.top + S.md, paddingHorizontal: GUTTER }}>
+      <Stack.Screen options={{ headerShown: true, title: 'Nuovo piano', headerBackVisible: true, headerBackButtonDisplayMode: 'default' }} />
+      <View style={{ paddingTop: S.md, paddingHorizontal: GUTTER }}>
         <PlanSteps steps={STEPS} index={Math.min(i, STEPS.length - 1)} onJump={setI} />
       </View>
 

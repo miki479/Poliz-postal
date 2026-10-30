@@ -213,7 +213,7 @@ export function PlanDashboard({
       </LiquidBar>
     </View>
   );
-  const header = (<View style={{ paddingTop: insets.top + S.sm, paddingHorizontal: S.lg, gap: S.lg, paddingBottom: S.md, backgroundColor: color.bg }}>      <Row>
+  const header = (<View style={{ paddingTop: S.sm, paddingHorizontal: S.lg, gap: S.lg, paddingBottom: S.md, backgroundColor: color.bg }}>      <Row>
         <Pressable accessibilityRole="button" accessibilityLabel="Apri il profilo" onPress={() => router.push('/profilo')}>
           <Avatar name={me?.displayName ?? ''} hue={me?.hue ?? 0} uri={me?.avatar} size={36} />
         </Pressable>

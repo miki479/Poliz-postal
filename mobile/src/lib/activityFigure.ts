@@ -9,35 +9,48 @@ function lerp(a: number, b: number, f: number) { 'worklet'; return a + (b - a) *
 function point(x: number, y: number): FigurePoint { 'worklet'; return { x, y }; }
 function at(p: FigurePoint, angle: number, length: number): FigurePoint { 'worklet'; return point(p.x + Math.sin(angle) * length, p.y + Math.cos(angle) * length); }
 function coord(p: FigurePoint): string { 'worklet'; return `${p.x.toFixed(3)} ${p.y.toFixed(3)}`; }
-function arm(shoulder: FigurePoint, phase: number, run: number, effort: number): string {
+/*
+ * Pose prese dagli SVG dell'utente (omini a tratto unico, giunti arrotondati). Coordinate originali del disegno (circa 170 × 160),
+ * riportate sul reticolo 24×24 da map(). Il movimento è il passaggio continuo tra la posa disegnata (A) e la stessa con
+ * braccia e gambe scambiate (B): un passo completo.
+ */
+type Pt = readonly [number, number];
+interface Pose { head: Pt; torso: [Pt, Pt]; armF: [Pt, Pt, Pt]; armB: [Pt, Pt, Pt]; legF: [Pt, Pt, Pt]; legB: [Pt, Pt, Pt] }
+const RUN: Pose = { head: [115, 40], torso: [[110, 50], [85, 95]], armF: [[102, 62], [125, 75], [115, 95]], armB: [[102, 62], [75, 70], [60, 85]], legF: [[85, 95], [115, 120], [135, 155]], legB: [[85, 95], [60, 115], [40, 110]] };
+const WALK: Pose = { head: [90, 38], torso: [[90, 48], [90, 98]], armF: [[90, 60], [108, 80], [120, 95]], armB: [[90, 60], [72, 80], [65, 95]], legF: [[90, 98], [115, 130], [128, 155]], legB: [[90, 98], [68, 130], [52, 155]] };
+const SCALE = 0.15;
+const CENTER: Record<'run' | 'walk', Pt> = { run: [87, 92], walk: [90, 91.5] };
+
+function mix(a: Pt, b: Pt, f: number): Pt { 'worklet'; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]; }
+function line(points: Pt[], dy: number): string {
   'worklet';
-  const swing = Math.sin(phase) * lerp(0.38, 0.86, run) * effort;
-  const bend = lerp(0.35, 1.85, run);
-  const elbow = at(shoulder, swing, 2.8); const wrist = at(elbow, swing + bend, 2.45);
-  return `M${coord(shoulder)} Q${coord(at(shoulder, swing, 1.4))} ${coord(elbow)} Q${coord(at(elbow, swing + bend, 1.2))} ${coord(wrist)}`;
+  return points.map((q, i) => `${i ? 'L' : 'M'}${(12 + (q[0] - 90) * SCALE).toFixed(3)} ${(12 + (q[1] - 92) * SCALE + dy).toFixed(3)}`).join('');
 }
-function leg(hip: FigurePoint, phase: number, run: number, effort: number): string {
-  'worklet';
-  const wave = Math.sin(phase); const thigh = wave * lerp(0.42, 0.95, run) * effort;
-  const bend = lerp(0.12, 0.3, run) + Math.max(0, -wave) * lerp(0.4, 1.4, run);
-  const knee = at(hip, thigh, 3.6); const ankle = at(knee, thigh - bend, 3.55);
-  const toe = point(ankle.x + 1.35, ankle.y - 0.12);
-  return `M${coord(hip)} Q${coord(at(hip, thigh, 1.8))} ${coord(knee)} Q${coord(at(knee, thigh - bend, 1.8))} ${coord(ankle)} L${coord(toe)}`;
-}
-/** run=0 camminata, run=1 corsa; i valori intermedi sono posture valide. */
+function lerpChain(a: Pt[], b: Pt[], f: number): Pt[] { 'worklet'; return a.map((q, i) => mix(q, b[i], f)); }
+
+/** run=0 camminata, run=1 corsa; i valori intermedi mescolano le due pose. */
 export function figureGeometry(run: number, phase = FIGURE_REST_PHASE, intensity = 0.75): FigureGeometry {
   'worklet';
   const gait = clamp(Number.isFinite(run) ? run : 1, 0, 1);
   const effort = 0.7 + 0.3 * clamp(Number.isFinite(intensity) ? intensity : 0.75, 0, 1);
   const theta = Number.isFinite(phase) ? phase % TAU : FIGURE_REST_PHASE;
-  const rise = Math.cos(theta * 2) * lerp(0.08, 0.32, gait);
-  const hip = point(lerp(11.5, 10.75, gait), 12.8 + rise);
-  const shoulder = point(lerp(11.8, 13, gait), 7.35 + rise);
-  const head = point(lerp(12.1, 14.1, gait), 3.6 + rise);
-  const neck = point(lerp(11.9, 13.4, gait), 5.8 + rise);
-  const torso = `M${neck.x - 0.65} ${neck.y} Q${shoulder.x - 1.2} ${shoulder.y - 0.45} ${hip.x - 0.7} ${hip.y} Q${hip.x} ${hip.y + 0.65} ${hip.x + 0.9} ${hip.y + 0.1} L${shoulder.x + 1.25} ${shoulder.y + 0.2} Q${shoulder.x + 1.15} ${shoulder.y - 0.9} ${neck.x + 0.65} ${neck.y} Z`;
-  const shorts = `M${hip.x - 1.05} ${hip.y - 1.2} Q${hip.x} ${hip.y - 0.8} ${hip.x + 1.1} ${hip.y - 1.1} L${hip.x + 1.35} ${hip.y + 1.2} L${hip.x - 1.2} ${hip.y + 1.1} Z`;
-  return { head, torso, shorts, backArm: arm(shoulder, theta, gait, effort), frontArm: arm(shoulder, theta + Math.PI, gait, effort), backLeg: leg(hip, theta + Math.PI, gait, effort), frontLeg: leg(hip, theta, gait, effort) };
+  // 0 = posa disegnata, 1 = posa con arti scambiati; l'ampiezza cresce con l'impegno
+  const swap = clamp(0.5 + Math.sin(theta) * 0.5 * effort, 0, 1);
+  const dy = Math.cos(theta * 2) * lerp(0.1, 0.28, gait);
+  const blend = (r: Pt[], w: Pt[]) => lerpChain(w, r, gait);
+  const armF = blend(RUN.armF, WALK.armF), armB = blend(RUN.armB, WALK.armB), legF = blend(RUN.legF, WALK.legF), legB = blend(RUN.legB, WALK.legB);
+  const torso = blend(RUN.torso, WALK.torso);
+  const headRaw = mix(WALK.head, RUN.head, gait);
+  const aF = lerpChain(armF, armB, swap), aB = lerpChain(armB, armF, swap), lF = lerpChain(legF, legB, swap), lB = lerpChain(legB, legF, swap);
+  return {
+    head: point(12 + (headRaw[0] - 90) * SCALE, 12 + (headRaw[1] - 92) * SCALE + dy),
+    torso: line(torso, dy),
+    shorts: 'M0 0',
+    backArm: line(aB, dy),
+    frontArm: line(aF, dy),
+    backLeg: line(lB, dy),
+    frontLeg: line(lF, dy),
+  };
 }
 /** Frequenza illustrativa derivata dalla scelta, mai una misura di cadenza dell'atleta. */
 export function figureMotion(glyph: FigureGlyph, pace?: number | null, level = 2) {

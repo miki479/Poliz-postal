@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GradientButton } from '@/components/event/GradientButton';
@@ -122,6 +122,9 @@ export function InviteSheet({ visible, onClose, clubId = '', clubName = '', invi
       /* gli appunti non sono essenziali: resta "Condividi link" */
     }
   }
+  const msg = `Entra nel club “${clubName}” su RUNNGO: ${url}
+Codice d’invito: ${inviteCode}`;
+  const shareWhatsApp = () => void Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() => Share.share({ message: msg }));
   const shareLink = () => void Share.share({ message: `Entra nel club “${clubName}” su RUNNGO: ${url}\nCodice d’invito: ${inviteCode}` });
 
   return (
@@ -184,6 +187,10 @@ export function InviteSheet({ visible, onClose, clubId = '', clubName = '', invi
         {url ? (
           <View style={{ paddingHorizontal: GUTTER, paddingTop: S.sm, paddingBottom: insets.bottom + S.md }}>
             <GradientButton title="Condividi link" onPress={shareLink} />
+            <Pressable onPress={shareWhatsApp} accessibilityRole="button" accessibilityLabel="Invia l’invito su WhatsApp" style={({ pressed }) => ({ minHeight: 48, marginTop: S.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.sm, opacity: pressed ? 0.6 : 1 })}>
+              <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
+              <Text style={[type.subhead, { color: color.text, fontWeight: '700' }]}>Invia su WhatsApp</Text>
+            </Pressable>
           </View>
         ) : null}
       </KeyboardAvoidingView>

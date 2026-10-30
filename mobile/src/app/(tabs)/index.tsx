@@ -6,6 +6,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { EventCard, GroupRunCard } from '@/components/cards';
 import { CommunityStream } from '@/components/CommunityStream';
+import { FriendStories } from '@/components/FriendStories';
 import { Banner, Button, IconButton, Metric, Row, Section, Sheet, Skeleton, TabScreen, t, useLoad, Panel } from '@/components/ui';
 import { color, HIT, R, S, type } from '@/constants/theme';
 import { call } from '@/lib/api';
@@ -261,6 +262,7 @@ export default function Home() {
         )
       ) : (
         <>
+          <FriendStories meId={me?.id} />
           {me && !me.profileCompleted ? <Banner text="Scegli nome e username: i compagni ti riconosceranno nelle uscite." action="Completa il profilo" onAction={() => router.push('/profilo-modifica')} /> : null}
 
           {hero?.kind === 'event' ? <HeroEvent e={hero.e} label={hero.label} clubImage={imageOf(hero.e, images)} onChange={() => void state.reload().then(() => force((x) => x + 1))} /> : null}

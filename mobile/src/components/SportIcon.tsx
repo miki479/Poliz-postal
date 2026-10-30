@@ -10,6 +10,8 @@ import { useReduceMotion } from '@/lib/useReduceMotion';
 export type Glyph = FigureGlyph;
 /** Compatibilita con le illustrazioni esistenti; le nuove animazioni usano una fase continua. */
 export type Pose = 0 | 1;
+/** Spessore unico del tratto: figure line-art sottili, con il solo pantaloncino pieno. */
+const LINE = 1.0;
 const APath = Animated.createAnimatedComponent(Path);
 const ACircle = Animated.createAnimatedComponent(Circle);
 type Part = Exclude<keyof FigureGeometry, 'head'>;
@@ -17,13 +19,13 @@ type Part = Exclude<keyof FigureGeometry, 'head'>;
 function StaticFigure({ run, phase, color }: { run: number; phase: number; color: string }) {
   const g = figureGeometry(run, phase);
   return <>
-    <Path d={g.backArm} stroke={color} strokeOpacity={0.62} strokeWidth={1.65} />
-    <Path d={g.backLeg} stroke={color} strokeOpacity={0.68} strokeWidth={2} />
-    <Path d={g.torso} fill={color} stroke="none" />
-    <Path d={g.shorts} fill={color} fillOpacity={0.75} stroke="none" />
-    <Circle cx={g.head.x} cy={g.head.y} r={1.72} fill={color} stroke="none" />
-    <Path d={g.frontLeg} stroke={color} strokeWidth={2.15} />
-    <Path d={g.frontArm} stroke={color} strokeWidth={1.8} />
+    <Path d={g.backArm} stroke={color} strokeOpacity={0.6} strokeWidth={LINE} />
+    <Path d={g.backLeg} stroke={color} strokeOpacity={0.6} strokeWidth={LINE} />
+    <Path d={g.torso} fill="none" stroke={color} strokeWidth={LINE} />
+    <Path d={g.shorts} fill={color} fillOpacity={0.9} stroke="none" />
+    <Circle cx={g.head.x} cy={g.head.y} r={1.72} fill="none" stroke={color} strokeWidth={LINE} />
+    <Path d={g.frontLeg} stroke={color} strokeWidth={LINE} />
+    <Path d={g.frontArm} stroke={color} strokeWidth={LINE} />
   </>;
 }
 function AnimatedPart({ geometry, part, color, width, opacity = 1, fill = false }: { geometry: SharedValue<FigureGeometry>; part: Part; color: string; width: number; opacity?: number; fill?: boolean }) {
@@ -34,13 +36,13 @@ function MovingFigure({ run, phase, intensity, color }: { run: SharedValue<numbe
   const geometry = useDerivedValue(() => figureGeometry(run.get(), phase.get(), intensity.get()));
   const head = useAnimatedProps(() => ({ cx: geometry.get().head.x, cy: geometry.get().head.y }));
   return <>
-    <AnimatedPart geometry={geometry} part="backArm" color={color} width={1.65} opacity={0.62} />
-    <AnimatedPart geometry={geometry} part="backLeg" color={color} width={2} opacity={0.68} />
-    <AnimatedPart geometry={geometry} part="torso" color={color} width={0} fill />
-    <AnimatedPart geometry={geometry} part="shorts" color={color} width={0} fill opacity={0.75} />
-    <ACircle animatedProps={head} r={1.72} fill={color} stroke="none" />
-    <AnimatedPart geometry={geometry} part="frontLeg" color={color} width={2.15} />
-    <AnimatedPart geometry={geometry} part="frontArm" color={color} width={1.8} />
+    <AnimatedPart geometry={geometry} part="backArm" color={color} width={LINE} opacity={0.6} />
+    <AnimatedPart geometry={geometry} part="backLeg" color={color} width={LINE} opacity={0.6} />
+    <AnimatedPart geometry={geometry} part="torso" color={color} width={LINE} />
+    <AnimatedPart geometry={geometry} part="shorts" color={color} width={0} fill opacity={0.9} />
+    <ACircle animatedProps={head} r={1.72} fill="none" stroke={color} strokeWidth={LINE} />
+    <AnimatedPart geometry={geometry} part="frontLeg" color={color} width={LINE} />
+    <AnimatedPart geometry={geometry} part="frontArm" color={color} width={LINE} />
   </>;
 }
 function SingleAnimated({ glyph, color, pace, level, active }: { glyph: Glyph; color: string; pace?: number | null; level?: number; active: boolean }) {

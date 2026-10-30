@@ -229,7 +229,7 @@ export function TypeCards({ value, onChange }: { value: SportId; onChange: (s: S
   }, [idx, w, ref, x]);
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel="Tipo di attività" onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ marginHorizontal: -S.xl, gap: S.sm }}>
-      <Animated.ScrollView ref={ref} horizontal showsHorizontalScrollIndicator={false} snapToInterval={ITEM_W} decelerationRate="fast" scrollEventThrottle={16} onScroll={handler} contentContainerStyle={{ paddingHorizontal: side + S.xl, paddingVertical: S.lg }} contentOffset={{ x: idx * ITEM_W, y: 0 }}>
+      <Animated.ScrollView ref={ref} horizontal showsHorizontalScrollIndicator={false} snapToInterval={ITEM_W} decelerationRate="fast" scrollEventThrottle={16} onScroll={handler} contentContainerStyle={{ paddingHorizontal: side, paddingVertical: S.lg }} contentOffset={{ x: idx * ITEM_W, y: 0 }}>
         {EVENT_SPORTS.map((sp, i) => (
           <CarouselItem key={sp} sport={sp} index={i} x={x} selected={value === sp} onPress={() => choose(i)} />
         ))}

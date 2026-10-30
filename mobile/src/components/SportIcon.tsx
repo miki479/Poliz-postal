@@ -5,7 +5,7 @@ import Animated, { cancelAnimation, Easing, useAnimatedProps, useAnimatedStyle, 
 import Svg, { Circle, G, Path } from 'react-native-svg';
 
 import type { ActivityStyle } from '@/constants/activityColors';
-import { FIGURE_IMAGE } from '@/constants/figureImages';
+import { SESSION_FIGURE } from '@/constants/figureImages';
 import { figureGeometry, figureMotion, FIGURE_REST_PHASE, type FigureGeometry, type FigureGlyph } from '@/lib/activityFigure';
 import { useReduceMotion } from '@/lib/useReduceMotion';
 
@@ -71,20 +71,11 @@ function SingleAnimated({ glyph, color, pace, level, active }: { glyph: Glyph; c
   return <MovingFigure run={run} phase={phase} intensity={intensity} color={color} />;
 }
 
-export function SportGlyph({ glyph, size = 20, color, pose = 0 }: { glyph: Glyph; size?: number; color: string; pose?: Pose }) {
-  const phase = FIGURE_REST_PHASE + pose * Math.PI;
-  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
-    {glyph === 'run_walk' ? <>
-      <G transform="translate(-3 5) scale(.74)"><StaticFigure run={0} phase={phase} color={color} /></G>
-      <G transform="translate(7 5) scale(.74)"><StaticFigure run={1} phase={phase + 0.7} color={color} /></G>
-    </> : glyph === 'trail' ? <>
-      <Path d="M2 22 L22 17" stroke={color} strokeWidth={1.3} />
-      <G transform="translate(2 1) scale(.84)"><StaticFigure run={1} phase={phase} color={color} /></G>
-    </> : <StaticFigure run={glyph === 'walk' ? 0 : 1} phase={phase} color={color} />}
-  </Svg>;
+export function SportGlyph({ glyph, size = 20 }: { glyph: Glyph; size?: number; color?: string; pose?: Pose }) {
+  return <Image source={SESSION_FIGURE[GLYPH_ICON[glyph]].src} resizeMode="contain" style={{ width: size, height: size }} accessibilityIgnoresInvertColors />;
 }
 
-const GLYPH_SPORT = { run: 'running', walk: 'walking', trail: 'trail', run_walk: 'run_walk' } as const;
+const GLYPH_ICON = { run: 'run', walk: 'walk', trail: 'trail', run_walk: 'fastwalk' } as const;
 
 /**
  * Figura a contorno (disegno, non omino) con un movimento morbido e continuo: un leggero rimbalzo del passo, un'inclinazione in avanti
@@ -93,7 +84,7 @@ const GLYPH_SPORT = { run: 'running', walk: 'walking', trail: 'trail', run_walk:
 export function AnimatedActivityFigure({ glyph, size = 72, color, level = 2, active = true }: { glyph: Glyph; size?: number; color: string; pace?: number | null; level?: number; active?: boolean }) {
   const reduce = useReduceMotion();
   const p = useSharedValue(0);
-  const fig = FIGURE_IMAGE[GLYPH_SPORT[glyph]];
+  const fig = SESSION_FIGURE[GLYPH_ICON[glyph]];
   const running = glyph === 'run' || glyph === 'run_walk';
   const period = Math.round((running ? 820 : 1250) * (1.18 - Math.min(4, Math.max(0, level)) * 0.07));
   useEffect(() => {
@@ -110,7 +101,7 @@ export function AnimatedActivityFigure({ glyph, size = 72, color, level = 2, act
   if (!fig) return <Svg width={size} height={size} viewBox="0 0 24 24" />;
   return (
     <Animated.View style={[{ width: size * fig.ratio, height: size }, st]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Image source={fig.src} resizeMode="contain" tintColor={color} style={{ width: '100%', height: '100%' }} />
+      <Image source={fig.src} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
     </Animated.View>
   );
 }

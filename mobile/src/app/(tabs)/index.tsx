@@ -107,7 +107,7 @@ function HeroEvent({ e, label, clubImage, onChange }: { e: EventView; label: str
   );
 }
 
-const KIND_FIGURE: Record<string, string> = { run_easy: 'easy', run_free: 'easy', run_continuous: 'tempo', run_progressive: 'tempo', run_intervals: 'intervals', run_long: 'long', run_walk: 'fartlek', aerobic: 'training', strength: 'strength', mobility: 'stretch', recovery_active: 'stretch' };
+const KIND_FIGURE: Record<string, string> = { run_easy: 'run', run_free: 'run', run_continuous: 'run', run_progressive: 'run', run_intervals: 'run', run_long: 'run', run_walk: 'fastwalk', aerobic: 'training', strength: 'strength', mobility: 'stretch', recovery_active: 'stretch' };
 
 /** Sette giorni della settimana: oggi evidenziato, un punto sui giorni in cui hai registrato un allenamento (solo dati veri). */
 function WeekStrip({ logs }: { logs: WorkoutLog[] }) {

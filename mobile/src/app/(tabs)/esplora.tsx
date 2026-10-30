@@ -128,7 +128,18 @@ export default function Esplora() {
     <TabScreen title="Esplora" onRefresh={mode === 'runs' ? runs.reload : routes.reload} right={<IconButton name="add" label={mode === 'runs' ? 'Organizza un’uscita' : 'Salva un percorso'} onPress={() => router.push(mode === 'runs' ? '/evento/form' : '/percorsi/form')} />}>
       <View style={{ gap: S.md }}>
         <Segmented value={mode} onChange={setMode} options={[{ value: 'runs', label: 'Uscite' }, { value: 'routes', label: 'Percorsi' }]} />
-        <Row><Button small title={mapView ? 'Mostra elenco' : 'Mostra mappa'} onPress={() => setMapView(!mapView)} />{mode === 'runs' ? <Button small title={runF.clubsOnly ? 'Tutte le uscite' : 'I miei gruppi'} onPress={() => setRunF((f) => ({ ...f, clubsOnly: !f.clubsOnly }))} /> : null}</Row>
+        <Row gap={S.sm}>
+          <Pressable onPress={() => setMapView(!mapView)} accessibilityRole="button" accessibilityState={{ selected: mapView }} accessibilityLabel={mapView ? 'Mostra elenco' : 'Mostra mappa'} style={[chip, mapView && chipOn]}>
+            <Ionicons name={mapView ? 'list' : 'map-outline'} size={15} color={mapView ? color.accent : color.textSecondary} />
+            <Text style={[type.subhead, { color: mapView ? color.accent : color.textSecondary, fontWeight: '600' }]}>{mapView ? 'Elenco' : 'Mappa'}</Text>
+          </Pressable>
+          {mode === 'runs' ? (
+            <Pressable onPress={() => setRunF((f) => ({ ...f, clubsOnly: !f.clubsOnly }))} accessibilityRole="button" accessibilityState={{ selected: runF.clubsOnly }} accessibilityLabel={runF.clubsOnly ? 'Mostra tutte le uscite' : 'Mostra solo i miei gruppi'} style={[chip, runF.clubsOnly && chipOn]}>
+              <Ionicons name={runF.clubsOnly ? 'people' : 'people-outline'} size={15} color={runF.clubsOnly ? color.accent : color.textSecondary} />
+              <Text style={[type.subhead, { color: runF.clubsOnly ? color.accent : color.textSecondary, fontWeight: '600' }]}>I miei gruppi</Text>
+            </Pressable>
+          ) : null}
+        </Row>
         <SearchField value={text} onChangeText={(v) => { setText(v); if (v) setPos(null); }} placeholder={mode === 'runs' ? 'Città, zona o luogo di ritrovo' : 'Zona o nome del percorso'} />
         <Row gap={S.sm} style={{ flexWrap: 'wrap' }}>
           {mode === 'runs' ? (

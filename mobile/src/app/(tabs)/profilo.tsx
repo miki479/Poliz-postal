@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Connections } from '@/components/Connections';
 import { RouteThumbnail } from '@/components/RouteThumbnail';
 import { Ionicons } from '@expo/vector-icons';
@@ -123,7 +124,7 @@ function TextTabs({ items, value, onChange, bleed = GUTTER }: { items: Array<str
       {items.map((k) => {
         const on = value === k;
         return (
-          <Pressable key={k ?? 'all'} onPress={() => onChange(k)} accessibilityRole="tab" accessibilityState={{ selected: on }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} style={{ minHeight: 40, justifyContent: 'center' }}>
+          <Pressable key={k ?? 'all'} onPress={() => { void Haptics.selectionAsync(); onChange(k); }} accessibilityRole="tab" accessibilityState={{ selected: on }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} style={{ minHeight: 40, justifyContent: 'center' }}>
             <Text style={[type.subhead, { color: on ? color.text : color.textSecondary, fontWeight: on ? '800' : '500' }]}>{k ?? 'Tutti'}</Text>
             <View style={{ height: 2, borderRadius: 1, marginTop: 4, backgroundColor: on ? color.accent : 'transparent' }} />
           </Pressable>

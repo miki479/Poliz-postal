@@ -1,4 +1,4 @@
-import { themedStyles , color, C, GUTTER, HIT, M, R, S, type } from '@/constants/theme';
+import { themedStyles , color, C, GUTTER, HIT, M, R, S, themeMode, type } from '@/constants/theme';
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -123,6 +123,7 @@ export function Screen({ children, onRefresh, scroll = true, pad = true, bottomP
   );
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
+      {themeMode() === 'dark' ? <LinearGradient pointerEvents="none" colors={['#0F1A33', 'rgba(14,18,22,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 520 }} /> : null}
       {glow ? <AmbientGlow variant={glow} /> : null}
       {header}
       <ScrollProvider value={em.value}>{body}</ScrollProvider>
@@ -179,9 +180,11 @@ export function Section({ title, action, onAction, children, gap = S.md }: { tit
  * `tone`: 'brand' e 'accent' danno una tinta di categoria (viola o turchese) per i pochi momenti distintivi.
  */
 export function Panel({ children, style, tone = 'default' }: { children: ReactNode; style?: StyleProp<ViewStyle>; tone?: 'default' | 'brand' | 'accent' }) {
-  const colors: [string, string] = tone === 'brand' ? [color.brandTint, color.surface] : [color.surfaceElevated, color.surface];
+  // Vetro: in scuro un velo bianco al 4–6% e un filo bianco all'8–9%, niente ombre pesanti; in chiaro le superfici piene.
+  const glass = themeMode() === 'dark';
+  const colors: [string, string] = tone === 'brand' ? [color.brandTint, glass ? 'rgba(255,255,255,0.03)' : color.surface] : glass ? ['rgba(255,255,255,0.065)', 'rgba(255,255,255,0.035)'] : [color.surfaceElevated, color.surface];
   return (
-    <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[{ borderRadius: R.card, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }, style]}>
+    <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[{ borderRadius: R.card, borderWidth: 1, borderColor: glass ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.05)' }, style]}>
       {children}
     </LinearGradient>
   );

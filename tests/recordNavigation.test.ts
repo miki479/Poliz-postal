@@ -15,6 +15,7 @@ it('la barra Expo 58 usa emitter/navigateToTab e il comando Registra apre la rou
     'expo-router': { Tabs, router: { push } },
     '@expo/vector-icons': { Ionicons: 'Icon' },
     'expo-linear-gradient': { LinearGradient: 'Gradient' },
+    'expo-haptics': { selectionAsync: async () => {} },
     '@/lib/session': { useSession: () => ({ me: null }) },
     '@/components/ui': { Avatar: 'Avatar' },
     '@/lib/useReduceMotion': { useReduceMotion: () => false },

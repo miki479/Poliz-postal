@@ -51,7 +51,7 @@ it('il selettore di visibilità mantiene le tre scelte e le dispone in verticale
 });
 it('la barra v0 conserva il vetro, usa gli eventi di navigazione SDK 58',()=>{
  const push=vi.fn(),navigateToTab=vi.fn(),emit=vi.fn(()=>({defaultPrevented:false}));
- const mod=moduleOf('mobile/src/components/RecordTabBar.tsx',{'react/jsx-runtime':{jsx:node,jsxs:node},react:{Fragment:'Fragment'},'expo-router':{router:{push}},'react-native':{View:'View',Text:'Text',Pressable:'Pressable'},'react-native-safe-area-context':{useSafeAreaInsets:()=>({bottom:34})},'@expo/vector-icons':{Ionicons:'Icon'},'./LiquidBar':{LiquidBar:'LiquidBar'},'@/lib/session':{useSession:()=>({me:null})},'@/components/ui':{Avatar:'Avatar'},'@/constants/theme':theme});
+ const mod=moduleOf('mobile/src/components/RecordTabBar.tsx',{'react/jsx-runtime':{jsx:node,jsxs:node},react:{Fragment:'Fragment'},'expo-router':{router:{push}},'react-native':{View:'View',Text:'Text',Pressable:'Pressable'},'react-native-safe-area-context':{useSafeAreaInsets:()=>({bottom:34})},'@expo/vector-icons':{Ionicons:'Icon'},'./LiquidBar':{LiquidBar:'LiquidBar'},'expo-haptics':{selectionAsync:async()=>{}},'@/lib/session':{useSession:()=>({me:null})},'@/components/ui':{Avatar:'Avatar'},'@/constants/theme':theme});
  const tree=mod.RecordTabBar({state:{index:0,routes:['index','esplora','club','medaglie','profilo','social'].map(name=>({key:name,name}))},emitter:{emit},navigateToTab});
  expect(all(tree).some(n=>n.type==='LiquidBar')).toBe(true);
  const tabs=all(tree).filter(n=>n.props.accessibilityRole==='tab');

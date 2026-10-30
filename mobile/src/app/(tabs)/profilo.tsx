@@ -253,12 +253,35 @@ function Stat({ label, value }: { label: string; value: string }) {
   return <View style={{ gap: 2 }}><Text style={t.small}>{label}</Text><Text style={[type.title1, { color: color.text }]}>{value}</Text></View>;
 }
 
+/** Persone, gruppi, uscite e storie di esempio (tutto "demo", si toglie con un tocco) per vedere come appaiono le schede. */
+function DemoPanel() {
+  const [busy, setBusy] = useState<'load' | 'clear' | null>(null);
+  const [msg, setMsg] = useState('');
+  const run = async (what: 'load' | 'clear') => {
+    setBusy(what); setMsg('');
+    try {
+      await call(what === 'load' ? 'loadDemoData' : 'clearDemoData');
+      setMsg(what === 'load' ? 'Fatto: guarda le storie in cima alla Home, i gruppi in Community e le uscite in Esplora.' : 'Dati di esempio rimossi.');
+    } catch { setMsg('Non riesco a completare l’operazione. Riprova.'); } finally { setBusy(null); }
+  };
+  return (
+    <Panel style={{ padding: S.lg, gap: S.sm }}>
+      <Text style={t.title}>Prova con dati di esempio</Text>
+      <Text style={t.small}>Aggiunge persone, gruppi, uscite e storie finte (segnati “demo”) per capire come appaiono le schede. Non toccano i tuoi dati e si tolgono quando vuoi.</Text>
+      <Button title="Carica i dati di esempio" iconName="sparkles-outline" busy={busy === 'load'} onPress={() => void run('load')} />
+      <Button variant="soft" title="Rimuovi i dati di esempio" iconName="trash-outline" busy={busy === 'clear'} onPress={() => void run('clear')} />
+      {msg ? <Text style={t.small} accessibilityLiveRegion="polite">{msg}</Text> : null}
+    </Panel>
+  );
+}
+
 function OtherTab({ d }: { d: ProfileData }) {
   const contribution = d.fame?.tracks?.contribution;
   return <View style={{ gap: S.md }}>
     <Text style={t.muted}>{fameHint(d.fame)}</Text>
     {contribution ? <Text style={t.body}>{contribution.groupRuns} uscite di gruppo · {contribution.organizedHeld} organizzate e svolte</Text> : null}
     {d.fame?.qualities.map((q) => <View key={q.category}><Text style={t.title}>{q.label}</Text><Text style={t.small}>{q.description}</Text></View>)}
+    <DemoPanel />
     <NavRow icon="people-outline" title="Presenza nella community" hint="Partecipazioni e riconoscimenti ricevuti dopo le uscite" onPress={() => router.push('/fama')} />
   </View>;
 }

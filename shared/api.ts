@@ -12,6 +12,7 @@ import { FAME_READ_ONLY, fameMethods } from './fame.ts';
 import { GOALS_READ_ONLY, goalMethods } from './goals.ts';
 import { getPerformances } from './performances.ts';
 import { runCompanions } from './companions.ts';
+import { demoMethods } from './demoData.ts';
 import { SOCIAL_READ_ONLY, socialMethods } from './social.ts';
 import { INVITES_READ_ONLY, inviteMethods } from './invites.ts';
 import { EVENT_INVITES_READ_ONLY, eventInviteMethods } from './eventInvites.ts';
@@ -39,6 +40,7 @@ export const methods = {
   ...eventInviteMethods,
   ...mapMethods,
   ...gearMethods,
+  ...demoMethods,
 } as const;
 
 export type MethodName = keyof typeof methods;

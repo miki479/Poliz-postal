@@ -102,7 +102,7 @@ export default function RootLayout() {
     <ThemeProvider value={theme}>
       <StatusBar style={mode==='light'?'dark':'light'} />
       <SessionProvider>
-        <Routes />
+        <Routes key={mode} />
       </SessionProvider>
     </ThemeProvider>
   );

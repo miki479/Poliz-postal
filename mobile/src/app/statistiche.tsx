@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { AnimatedBar, AreaChart, ColumnChart } from '@/components/Motion';
@@ -30,7 +30,7 @@ function PerfRow({ p }: { p: Performance }) {
           <Text style={t.small}>{[p.date ? fmtDate(p.date) : null, p.activityTitle].filter(Boolean).join(' · ')}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={[type.metricSmall, { color: color.text }]}>{perfValue(p)}</Text>
+          <Text style={[type.metricSmall, { color: color.coral }]}>{perfValue(p)}</Text>
           {pace ? <Text style={t.small}>{pace}</Text> : null}
         </View>
       </Row>
@@ -45,6 +45,9 @@ function Goals() {
   const [mins, setMins] = useState('30');
   const [exp, setExp] = useState<'new' | 'some' | 'regular' | null>(null);
   const [fromAnswers, setFromAnswers] = useState<GoalSuggestion[] | null>(null);
+  const [manual, setManual] = useState(false);
+  const stats = useLoad(() => call<PersonalStats>('getStats', deviceTimezone()));
+  const logs = useLoad(() => call<WorkoutLog[]>('listWorkoutLogs', null).catch(() => [] as WorkoutLog[]));
   const [busy, setBusy] = useState(false);
 
   async function choose(s: GoalSuggestion) {
@@ -61,6 +64,17 @@ function Goals() {
   }
 
   const list = goals.data ?? [];
+  // Precompilazione dai dati: uscite a settimana (mediana delle ultime settimane con attività), minuti tipici e esperienza dal numero di corse.
+  useEffect(() => {
+    if (fromAnswers || manual || goals.data?.length || sugg.data?.suggestions?.length || !stats.data || !logs.data) return;
+    const wk = stats.data.weekly.filter((w) => w.runs > 0).map((w) => w.runs).sort((a, b) => a - b);
+    const d = wk.length ? Math.min(7, Math.max(1, wk[Math.floor(wk.length / 2)])) : 3;
+    const dur = logs.data.map((l) => Math.round(l.durationSec / 60)).filter((m) => m >= 5).sort((a, b) => a - b);
+    const m = dur.length ? Math.max(10, Math.round(dur[Math.floor(dur.length / 2)] / 5) * 5) : 30;
+    const e = stats.data.totals.runs >= 30 ? 'regular' : stats.data.totals.runs >= 5 ? 'some' : 'new';
+    setDays(d); setMins(String(m)); setExp(e);
+    void call<GoalSuggestion[]>('suggestFromAnswers', { daysPerWeek: d, minutesPerSession: m, experience: e }).then(setFromAnswers, () => setManual(true));
+  }, [goals.data, sugg.data, stats.data, logs.data, fromAnswers, manual]);
   const suggestions = fromAnswers ?? sugg.data?.suggestions ?? [];
   return (
     <Section title="Obiettivo">
@@ -86,15 +100,15 @@ function Goals() {
         ) : suggestions.length ? (
           <View style={{ gap: S.md }}>
             {suggestions.map((s) => (
-              <View key={s.type} style={{ backgroundColor: color.surface, borderRadius: R.card, padding: S.lg, gap: S.xs }}>
-                <Text style={t.title}>{s.what}</Text>
-                <Button variant="soft" title="Scegli questo obiettivo" busy={busy} onPress={() => void choose(s)} />
-              </View>
+              <Pressable key={s.type} onPress={() => void choose(s)} disabled={busy} accessibilityRole="button" accessibilityLabel={`Scegli l’obiettivo: ${s.what}`} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: S.md, padding: S.lg, borderRadius: R.card, backgroundColor: color.coralTint, borderWidth: 1, borderColor: color.coral + '55', opacity: pressed ? 0.7 : 1 })}>
+                <Ionicons name="flag" size={20} color={color.coral} />
+                <Text style={[type.headline, { color: color.text, flex: 1 }]}>{s.what}</Text>
+                <Ionicons name="add-circle" size={24} color={color.coral} />
+              </Pressable>
             ))}
           </View>
         ) : (
           <View style={{ gap: S.md }}>
-            <Text style={t.muted}>Non ho ancora abbastanza attività per proporti un obiettivo: dimmi la tua disponibilità.</Text>
             <Text style={t.title}>Giorni a settimana</Text>
             <Pills value={days} onChange={setDays} options={[1, 2, 3, 4, 5, 6, 7].map((n) => ({ value: n, label: String(n) }))} />
             <Field label="Minuti per uscita" value={mins} onChangeText={setMins} keyboardType="number-pad" />
@@ -212,15 +226,6 @@ export default function Progressi() {
                     ))}
                   </>
                 ) : null}
-                <View style={{ gap: 4, marginTop: S.lg }}>
-                  {b.limits.map((x) => (
-                    <Row key={x} gap={6} style={{ alignItems: 'flex-start' }}>
-                      <Ionicons name="information-circle-outline" size={14} color={color.textTertiary} style={{ marginTop: 2 }} />
-                      <Text style={[t.small, { flex: 1 }]}>{x}</Text>
-                    </Row>
-                  ))}
-                  {b.excluded.length ? <Text style={t.small}>Escluse dai record sulla traccia: {b.excluded.map((e) => `${e.title} (${e.reason})`).join('; ')}.</Text> : null}
-                </View>
               </View>
             );
           }}
@@ -235,9 +240,6 @@ export default function Progressi() {
           <Section title="Ultimi 6 mesi (km)">
             <ColumnChart values={stats.data.monthly.map((m) => m.distanceKm)} labels={stats.data.monthly.map((m) => m.label)} label={`Chilometri per mese: ${stats.data.monthly.map((m) => `${m.label} ${Math.round(m.distanceKm)}`).join(', ')}`} />
           </Section>
-          <Text style={t.small}>
-            Origine dei dati: {stats.data.byOrigin.selfDeclared} registrate o dichiarate, {stats.data.byOrigin.imported} importate. Le attività arrivate da più fonti contano una volta sola.
-          </Text>
           <LinkText title="Registra un’attività a mano" onPress={() => router.push('/attivita-form')} />
         </>
       ) : null}

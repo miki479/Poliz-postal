@@ -139,7 +139,9 @@ export function PlanDashboard({
   onRefresh,
   onManage,
     notice,
+    autoScrollY,
 }: {
+  autoScrollY?: number;
   data: PlanDashboardData;
   onRefresh(): Promise<void> | void;
   onManage(): void;
@@ -291,7 +293,7 @@ export function PlanDashboard({
       ) : null}
 </View>);
   return (
-    <Screen onRefresh={onRefresh} bottomPad={148} footer={footer} floatingFooter header={header} style={{ gap: S.xxl }}>
+    <Screen autoScrollY={tab === 'today' ? autoScrollY : undefined} onRefresh={onRefresh} bottomPad={148} footer={footer} floatingFooter header={header} style={{ gap: S.xxl }}>
       {notice}
       {data.state.mode !== 'active' ? <Banner text={data.advice.message ?? 'Il piano è in pausa.'} action="Gestisci" onAction={onManage} /> : null}
       {tab === 'today' ? (

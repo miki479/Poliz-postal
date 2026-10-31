@@ -91,15 +91,23 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 
 /* ---------- struttura ---------- */
 
-export function Screen({ children, onRefresh, scroll = true, pad = true, bottomPad, style, footer, glow, header, floatingFooter = false }: { children: ReactNode; onRefresh?: () => Promise<void> | void; scroll?: boolean; pad?: boolean; bottomPad?: number; style?: StyleProp<ViewStyle>; footer?: ReactNode; glow?: 'default' | 'brand' | 'accent'; header?: ReactNode; floatingFooter?:boolean }) {
+export function Screen({ autoScrollY, children, onRefresh, scroll = true, pad = true, bottomPad, style, footer, glow, header, floatingFooter = false }: { autoScrollY?: number; children: ReactNode; onRefresh?: () => Promise<void> | void; scroll?: boolean; pad?: boolean; bottomPad?: number; style?: StyleProp<ViewStyle>; footer?: ReactNode; glow?: 'default' | 'brand' | 'accent'; header?: ReactNode; floatingFooter?:boolean }) {
   const insets = useSafeAreaInsets();
   const em = useScrollEmitter();
   const [refreshing, setRefreshing] = useState(false);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  // Scroll automatico iniziale (es. dopo la creazione del piano): porta lo sguardo sul contenuto, una volta sola.
+  useEffect(() => {
+    if (!autoScrollY) return;
+    const id = setTimeout(() => scrollRef.current?.scrollTo({ y: autoScrollY, animated: true }), 900);
+    return () => clearTimeout(id);
+  }, [autoScrollY]);
   const content: StyleProp<ViewStyle> = [{ paddingHorizontal: pad ? GUTTER : 0, paddingTop: pad ? S.lg : 0, paddingBottom: (bottomPad ?? S.xxl) + (footer ? 88 : 0) + insets.bottom, gap: S.xxl }, style];
   const body = !scroll ? (
     <View style={[{ flex: 1 }, content]}>{children}</View>
   ) : (
     <ScrollView
+      ref={scrollRef}
       style={{ flex: 1 }}
       contentContainerStyle={content}
       onScroll={em.emit}

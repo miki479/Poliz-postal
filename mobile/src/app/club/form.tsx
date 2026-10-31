@@ -1,5 +1,6 @@
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSession } from '@/lib/session';
 import { Alert } from 'react-native';
 
 import { SportChips } from '@/components/SportChips';
@@ -16,6 +17,9 @@ export default function ClubForm() {
   const [rules, setRules] = useState('');
   const [discoverable, setDiscoverable] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { me } = useSession();
+  // Precompilato dal profilo: zona e sport principale.
+  useEffect(() => { if (!me) return; setArea((a) => a || me.area || ''); if (me.sports[0]) setSport((s) => (s === 'running' ? me.sports[0] : s)); }, [me]);
 
   async function save() {
     setBusy(true);

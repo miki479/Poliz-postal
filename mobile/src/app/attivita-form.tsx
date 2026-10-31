@@ -1,5 +1,6 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { useSession } from '@/lib/session';
 import { Alert, Text, View } from 'react-native';
 
 import { SportChips } from '@/components/SportChips';
@@ -19,6 +20,9 @@ export default function AttivitaForm() {
   const [note, setNote] = useState('');
   const [shared, setShared] = useState(true);
   const [busy, setBusy] = useState(false);
+  const { me } = useSession();
+  // Precompilato: lo sport principale del profilo (solo su una nuova attività).
+  useEffect(() => { if (!id && me?.sports[0]) setSport(me.sports[0]); }, [id, me]);
 
   useEffect(() => {
     if (!id) return;

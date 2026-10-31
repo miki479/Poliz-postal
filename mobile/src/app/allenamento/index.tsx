@@ -68,6 +68,7 @@ export default function Piano() {
       <Stack.Screen options={{ headerShown: true, title: 'Il tuo piano', headerTransparent: false, headerBackVisible: false, headerLeft: () => <HomeExit /> }} />
       {d ? (
         <PlanDashboard
+          autoScrollY={showTour ? 340 : undefined}
           data={d}
           onRefresh={state.reload}
           onManage={menu}

@@ -29,6 +29,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AmbientGlow } from '@/components/Ambient';
+import { RunnerRefresh } from '@/components/RunnerRefresh';
+import * as Haptics from 'expo-haptics';
 import { ScrollProvider, useCountUp, useScrollEmitter } from '@/components/Motion';
 import { AvatarCircle } from '@/components/AvatarCircle';
 
@@ -108,12 +110,18 @@ export function Screen({ children, onRefresh, scroll = true, pad = true, bottomP
       refreshControl={
         onRefresh ? (
           <RefreshControl
-            tintColor={color.accent}
+            tintColor="transparent"
+            colors={['transparent']}
+            progressBackgroundColor="transparent"
             refreshing={refreshing}
             onRefresh={async () => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setRefreshing(true);
-              await onRefresh();
-              setRefreshing(false);
+              const t0 = Date.now();
+              try { await onRefresh(); } finally {
+                // il corridore resta almeno un attimo: l'aggiornamento si deve vedere
+                setTimeout(() => setRefreshing(false), Math.max(0, 700 - (Date.now() - t0)));
+              }
             }}
           />
         ) : undefined
@@ -127,6 +135,7 @@ export function Screen({ children, onRefresh, scroll = true, pad = true, bottomP
       {glow ? <AmbientGlow variant={glow} /> : null}
       {header}
       <ScrollProvider value={em.value}>{body}</ScrollProvider>
+      {onRefresh ? <RunnerRefresh active={refreshing} top={insets.top + S.sm} /> : null}
       {footer ? <FooterBar floating={floatingFooter}>{footer}</FooterBar> : null}
     </View>
   );

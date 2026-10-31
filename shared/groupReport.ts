@@ -1,6 +1,6 @@
 /**
- * Report della corsa di gruppo: temporaneo, compare dopo la fine dell'uscita più una pausa di attesa (i membri hanno il tempo di
- * salvare), e sparisce dopo 72 ore. Confronta SOLO chi ha davvero corso insieme sullo stesso tragitto:
+ * Report della corsa di gruppo: temporaneo, compare 15 minuti dopo che l'ultimo partecipante ha finito e salvato (o, se non ci sono
+ * ancora due tragitti, dopo la fine stimata), e sparisce dopo 72 ore. Confronta SOLO chi ha davvero corso insieme sullo stesso tragitto:
  *  - serve un tragitto GPS con tempi (app Runngo o file); chi ha solo un riepilogo senza traccia non si può verificare e non compare;
  *  - chi è nel gruppo ma ha corso altrove o in un altro gruppo non compare;
  *  - chi si stacca compare solo per il tratto in cui è stato con il gruppo (fino al punto in cui si allontana).
@@ -12,6 +12,7 @@ import { downsample } from './track.ts';
 import type { Id, TrackPoint, UserPublic, WorkoutLog } from './types.ts';
 
 const STANDBY_MIN = 30;
+const STANDBY_AFTER_LAST_MIN = 15;
 const LIFETIME_H = 72;
 const TOGETHER_M = 120;
 const MIN_TOGETHER_KM = 0.8;
@@ -63,8 +64,13 @@ export function groupReport(ctx: Ctx, eventId: Id): GroupReport | null {
   const ev = db.events[eventId];
   if (!ev || ev.status !== 'active') return null;
   if (!db.participations[`${eventId}__${uid}`]) throw new AppError('forbidden', 'Il report è per chi partecipa all’uscita.');
+  // Quando arriva: l'uscita non ha un orario di fine, quindi si usano i fatti. Se almeno due partecipanti hanno già un tragitto collegato
+  // all'uscita, il report compare 15 minuti dopo la fine dell'ultimo di loro. Finché non ce ne sono due, si aspetta la fine stimata
+  // (distanza × passo dell'uscita, o 90 minuti) più 30 minuti.
+  const linked = Object.values(db.workoutLogs).filter((l) => l.eventId === eventId && l.track && l.track.length > 5);
+  const lastEndMs = (l: WorkoutLog) => Date.parse(l.startedAt) + l.durationSec * 1000;
   const expectedMin = ev.distanceKm && ev.paceSecPerKm ? (ev.distanceKm * ev.paceSecPerKm) / 60 : 90;
-  const availableAt = new Date(Date.parse(ev.startsAt) + (expectedMin + STANDBY_MIN) * 60_000);
+  const availableAt = linked.length >= 2 ? new Date(Math.max(...linked.map(lastEndMs)) + STANDBY_AFTER_LAST_MIN * 60_000) : new Date(Date.parse(ev.startsAt) + (expectedMin + STANDBY_MIN) * 60_000);
   const expiresAt = new Date(availableAt.getTime() + LIFETIME_H * 3_600_000);
   const base = { availableAt: availableAt.toISOString(), expiresAt: expiresAt.toISOString() };
   if (now < availableAt) return { ready: false, ...base, metric: 'pace', entries: [], podium: [], tracks: [] };

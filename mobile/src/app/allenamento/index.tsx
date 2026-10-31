@@ -1,4 +1,4 @@
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, View } from 'react-native';
 import { PlanDashboard } from '@/components/PlanDashboard';
@@ -38,8 +38,11 @@ async function loadPlan(): Promise<PlanData> {
   };
 }
 
+import { PlanTour } from '@/components/PlanTour';
 import { HomeExit } from '@/components/HomeExit';
 export default function Piano() {
+  const { tour } = useLocalSearchParams<{ tour?: string }>();
+  const [showTour, setShowTour] = useState(tour === '1');
   const state = useLoad(loadPlan);
   const [req, setReq] = useState<ChangeRequest | null>(null);
   const [applied, setApplied] = useState<PlanChange | null>(null);
@@ -86,6 +89,7 @@ export default function Piano() {
           {state.loading ? <Skeleton height={180} /> : <Banner tone="error" text={state.error} action="Riprova" onAction={state.reload} />}
         </Screen>
       )}
+      {showTour ? <PlanTour onClose={() => setShowTour(false)} /> : null}
       <PlanChangeSheet
         req={req}
         onClose={() => setReq(null)}

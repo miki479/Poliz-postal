@@ -13,6 +13,7 @@ import { Banner, Button, Loading, Panel, PressableScale, Row, Sheet, t, useReduc
 import { ACTIVITY_STYLES, type ActivityTypeId } from '@/constants/activityColors';
 import { color, GUTTER, HIT, R, S, type } from '@/constants/theme';
 import { call, ext } from '@/lib/api';
+import { PlanBuilding, type BuildStep } from '@/components/PlanBuilding';
 import { humanError } from '@/lib/errors';
 import { addDaysIso, toISODate, WEEKDAYS_SHORT } from '@/lib/format';
 import { mix } from '@/lib/storyPalette';
@@ -479,14 +480,38 @@ export default function Piano() {
     setI(CUSTOM_STEPS.indexOf(target));
   }
 
+  const [build, setBuild] = useState<{ steps: BuildStep[]; done: boolean; intro: string | null; error: string } | null>(null);
+
+  /** Crea il piano mostrando i passaggi veri: scelte → allenamenti generati dal server → presentazione del coach (Worker) → salvataggio. */
   async function create() {
     setBusy(true);
     setErr('');
+    const labels = ['Raccolgo le tue scelte', 'Distribuisco gli allenamenti nelle settimane', 'Il coach scrive la tua presentazione', 'Salvo il piano'];
+    const st: BuildStep[] = labels.map((label) => ({ label, state: 'wait' }));
+    const push = (i: number, state: BuildStep['state'], extra: Partial<{ done: boolean; intro: string | null; error: string }> = {}) => { st[i] = { ...st[i], state }; setBuild((x) => ({ steps: [...st], done: false, intro: null, error: '', ...(x ?? {}), ...extra })); };
+    const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    setBuild({ steps: [...st], done: false, intro: null, error: '' });
     try {
+      push(0, 'run'); await pause(700); push(0, 'done');
+      push(1, 'run');
+      const preview2 = await call<{ sessions: unknown[]; warnings: string[] }>('previewPlan', input());
+      await pause(500); push(1, 'done');
+      push(2, 'run');
+      let intro: string | null = null;
+      try {
+        const me2 = describeUser({ goal: goal!, level: level!, days, minutes, weeks, extras });
+        const r = await Promise.race([
+          ext.ai.chat({ prompt: `Presenta in due frasi il piano di ${weeks ?? 8} settimane per ${GOAL_PHRASE[goal!]}. ${me2.text} Livello: ${LEVEL_PHRASE[level!]}. ${preview2.sessions.length} allenamenti.`.slice(0, 480), preset: 'free', useData: false }),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 14000)),
+        ]);
+        intro = r.text.trim().slice(0, 320) || null;
+        push(2, intro ? 'done' : 'skip');
+      } catch { push(2, 'skip'); }
+      push(3, 'run');
       await call<{ plan: TrainingPlan }>('createPlanFromWizard', input());
-      router.dismissTo('/allenamento');
+      await pause(400); push(3, 'done', { done: true, intro });
     } catch (e) {
-      setErr(humanError(e, 'Piano non creato.'));
+      setBuild((x) => ({ steps: x?.steps ?? [...st], done: false, intro: null, error: humanError(e, 'Piano non creato.') }));
     } finally {
       setBusy(false);
     }
@@ -534,6 +559,13 @@ export default function Piano() {
   const goalOpt = GOALS.find((g) => g.value === goal);
   const shown = more ?? lastMore.current;
   const shownAdj = shown ? adjust(shown.tone, { days, minutes: minutes ?? 30, level: level ?? 'beginner' }) : null;
+
+  if (build) return (
+    <View style={{ flex: 1, backgroundColor: color.bg }}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <PlanBuilding steps={build.steps} done={build.done} intro={build.intro} error={build.error} onOpen={() => router.dismissTo({ pathname: '/allenamento', params: { tour: '1' } })} onRetry={() => { setBuild(null); void create(); }} />
+    </View>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>

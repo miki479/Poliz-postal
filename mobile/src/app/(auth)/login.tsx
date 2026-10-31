@@ -92,8 +92,8 @@ function LoginForm({ initialMode }: { initialMode: 'login' | 'register' }) {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: color.bg }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: S.xxl, paddingHorizontal: GUTTER, paddingTop: insets.top + S.xl, paddingBottom: insets.bottom + S.xl }} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: color.bg }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: S.xxl, paddingHorizontal: GUTTER, paddingTop: insets.top + S.xl, paddingBottom: insets.bottom + S.xl }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         <ScreenEntrance changeKey={mode} style={{ gap: S.xxl }}>
         <View style={{ alignItems: 'center', gap: S.lg }}>
           <Image source={require('@/assets/images/icon.png')} style={{ width: 88, height: 88, borderRadius: R.card + 6 }} accessibilityIgnoresInvertColors accessible={false} />

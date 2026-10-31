@@ -752,9 +752,18 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
     <View ref={viewportRef} onLayout={(e) => { setPreviewWidth(e.nativeEvent.layout.width - 2 * S.xl); checkViewport(); }} style={{ marginHorizontal: -S.xl, paddingHorizontal: S.xl, paddingTop: S.lg, paddingBottom: S.md, gap: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.separator }}>
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: color.surface, opacity: 0.4 }]} />
       {main}
+      {item.kind === 'workout_shared' && item.workout.medals?.length ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: S.sm }}>
+          {item.workout.medals.map((m) => (
+            <View key={m.name} accessible accessibilityLabel={`Medaglia: ${m.name}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: R.pill, backgroundColor: color.coralTint, borderWidth: 1, borderColor: color.coral + '55' }}>
+              <Ionicons name={m.record ? 'trophy' : 'medal'} size={14} color={color.coral} />
+              <Text style={[type.caption, { color: color.coral, fontWeight: '800' }]}>{m.name}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
       {trace && trace.length > 1 ? <LinearGradient colors={[color.accentTint, color.bg, color.brandTint]} style={{ height: 150, borderRadius: R.lg, overflow: 'hidden', justifyContent: 'center' }}>
         {inView && previewWidth > 0 ? <RouteTrace track={trace} width={previewWidth} height={128} tint={[color.accent, color.brand]} dotEvery={null} /> : null}
-        <Text style={[type.caption, { textAlign: 'center', color: color.textSecondary, position: 'absolute', bottom: 6, left: 0, right: 0 }]}>Percorso condiviso · estremità protette</Text>
       </LinearGradient> : null}
       {item.social ? <View style={{ paddingTop: S.xs }}>
         <SocialBar itemId={item.id} initial={item.social} />

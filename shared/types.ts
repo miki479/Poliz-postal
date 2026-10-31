@@ -327,7 +327,7 @@ export type FeedItem =
   | { kind: 'event_created'; id: string; at: string; user: UserPublic; event: EventView }
   | { kind: 'event_joined'; id: string; at: string; user: UserPublic; event: EventView }
   | { kind: 'run_completed'; id: string; at: string; user: UserPublic; activity: Activity }
-  | { kind: 'workout_shared'; id: string; at: string; user: UserPublic; workout: { title: string; kind: SessionKind; durationMin: number; distanceKm: number | null; track?: TrackPoint[] } };
+  | { kind: 'workout_shared'; id: string; at: string; user: UserPublic; workout: { title: string; kind: SessionKind; durationMin: number; distanceKm: number | null; track?: TrackPoint[]; medals?: Array<{ name: string; mark: string; unit: string; tone: string; record: boolean }> } };
 
 export interface EventQuery {
   /** Filtro effimero: non memorizzare la posizione del richiedente. */

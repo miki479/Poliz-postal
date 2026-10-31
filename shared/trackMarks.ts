@@ -19,6 +19,8 @@ export interface TrackMark {
   label: string;
   title: string;
   detail: string;
+  /** Podio dei chilometri: 1 oro, 2 argento, 3 bronzo (solo per i pin dei km, a parità di tempi veri). */
+  medal?: 1 | 2 | 3;
   /** Per i record: id dell'award associato. */
   awardId?: string;
   /** Exact recorded-time interval for a segment record. */
@@ -79,10 +81,14 @@ export function buildMarks(log: Pick<WorkoutLog, 'track' | 'id'>, awards: Award[
     const cum = cumulative(track);
     const sp = splits(track).filter((s) => s.distKm >= 1 - 1e-9);
     const every = sp.length > 15 ? 5 : sp.length > 8 ? 2 : 1;
+    const order = [...sp].sort((a, b) => a.sec - b.sec);
+    const medalOf = (km: number): 1 | 2 | 3 | undefined => { const i = order.findIndex((x) => x.km === km); return sp.length >= 4 && i >= 0 && i < 3 ? ((i + 1) as 1 | 2 | 3) : undefined; };
     for (const s of sp) {
+      if ((s.km % every !== 0 && s.km !== 1) && !medalOf(s.km)) continue;
+      if (false) continue;
       if (s.km % every !== 0 && s.km !== 1) continue;
       const p = pointAt(track, cum, s.km);
-      out.push({ id: `km${s.km}`, kind: 'split', lat: p.lat, lng: p.lng, label: String(s.km), title: `Km ${s.km}`, detail: `${fmtSec(s.sec)} · passo ${fmtSec(s.paceSecPerKm)}/km` });
+      out.push({ id: `km${s.km}`, kind: 'split', lat: p.lat, lng: p.lng, label: String(s.km), title: `Km ${s.km}`, detail: `${fmtSec(s.sec)} · passo ${fmtSec(s.paceSecPerKm)}/km`, medal: medalOf(s.km) });
     }
     for (const a of awards) {
       const m = /^seg_(\d+)$/.exec(a.code);

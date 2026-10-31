@@ -13,6 +13,7 @@ import type { FeedItem, Id, UserPublic, WorkoutLog, TrackPoint } from './types.t
 import { haversineKm } from './time.ts';
 import { downsample } from './track.ts';
 import { clean } from './validation.ts';
+import { activityAwards } from './records.ts';
 
 export interface Follow { id: string; fromId: Id; toId: Id; createdAt: string }
 export interface Spark { id: string; itemId: string; userId: Id; createdAt: string }
@@ -223,7 +224,8 @@ export function getSocialFeed(ctx: Ctx, limit = 40): Array<FeedItem & { social: 
   return getFeed(ctx, limit).map((f) => {
     if (f.kind === 'workout_shared') {
       const log = ctx.db.workoutLogs[f.id.slice(2)]; const track = log ? feedTrack(log) : undefined;
-      if (track) return { ...f, workout: { ...f.workout, track }, social: countsFor(ctx, f.id, uid) };
+      const medals = log ? activityAwards(log.id, Object.values(ctx.db.workoutLogs).filter((l) => l.userId === log.userId)).slice(0, 3).map((a) => ({ name: a.name, mark: a.mark, unit: a.unit, tone: a.tone, record: a.record })) : [];
+      if (track || medals.length) return { ...f, workout: { ...f.workout, ...(track ? { track } : {}), ...(medals.length ? { medals } : {}) }, social: countsFor(ctx, f.id, uid) };
     }
     return { ...f, social: countsFor(ctx, f.id, uid) };
   });

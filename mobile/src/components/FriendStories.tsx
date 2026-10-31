@@ -81,8 +81,9 @@ export function FriendStories({ meId }: { meId?: string }) {
           return (
             <Pressable key={g.user.id} onPress={() => setOpen(i)} accessibilityRole="button" accessibilityLabel={`Storie di ${g.user.displayName}: ${g.stories.length}${fresh ? ', nuove' : ''}`} style={{ alignItems: 'center', gap: 6, width: 72 }}>
               <LinearGradient colors={fresh ? [color.accent, '#C77DFF'] : [color.controlBorder, color.controlBorder]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 70, height: 70, borderRadius: 35, alignItems: 'center', justifyContent: 'center' }}>
-                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: color.bg, alignItems: 'center', justifyContent: 'center' }}>
-                  <Avatar name={g.user.displayName} hue={g.user.hue} uri={g.user.avatar} size={58} />
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: color.bg, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  {g.stories.find((x) => x.track)?.track ? <View pointerEvents="none" style={{ position: 'absolute', opacity: 0.28 }}><RouteTrace track={g.stories.find((x) => x.track)!.track!} width={64} height={64} pad={6} tint={color.accent} strokeWidth={2.5} duration={0} dotEvery={null} seed={1} /></View> : null}
+                  <Avatar name={g.user.displayName} hue={g.user.hue} uri={g.user.avatar} size={50} />
                 </View>
               </LinearGradient>
               <Text style={[type.caption, { color: fresh ? color.text : color.textSecondary, fontWeight: fresh ? '700' : '500' }]} numberOfLines={1}>{g.user.displayName.split(' ')[0]}</Text>

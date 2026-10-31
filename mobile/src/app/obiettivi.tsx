@@ -21,10 +21,10 @@ const ACircle = Animated.createAnimatedComponent(Circle);
 
 /** Come appare ogni tipo di obiettivo reale (shared/goals.ts) nell'elenco "Progressi". */
 const ROW: Record<GoalType, { label: string; icon: IconName; tint: string }> = {
-  weekly_km: { label: 'Distanza settimanale', icon: 'navigate', tint: color.success },
-  weekly_minutes: { label: 'Tempo di attività', icon: 'time', tint: BADGE_KINDS.steady.tone.solid },
-  consistency: { label: 'Allenamenti', icon: 'calendar', tint: color.brand },
-  group: { label: 'Uscite di gruppo', icon: 'people', tint: color.accent },
+  weekly_km: { label: 'Distanza settimanale', icon: 'navigate', tint: color.coral },
+  weekly_minutes: { label: 'Tempo di attività', icon: 'time', tint: color.warning },
+  consistency: { label: 'Allenamenti', icon: 'calendar', tint: color.accent },
+  group: { label: 'Uscite di gruppo', icon: 'people', tint: color.teal },
 };
 /** Ordine dell'elenco (come nel mockup: distanza, tempo, allenamenti). */
 const ORDER: GoalType[] = ['weekly_km', 'weekly_minutes', 'consistency', 'group'];
@@ -132,13 +132,11 @@ function EmptyGoals({ sugg, onChosen }: { sugg: { hasHistory: boolean; period: s
         <BadgeHex kind="goal_reached" size={72} locked />
         <View style={{ flex: 1, gap: S.xs }}>
           <Text style={[type.title2, { color: color.text }]}>Nessun obiettivo attivo</Text>
-          <Text style={t.muted}>Scegli un obiettivo: qui ne segui l’avanzamento con le tue attività reali.</Text>
         </View>
       </Panel>
       {list.length ? (
         <View style={{ gap: S.sm }}>
           <SectionHead title="Proposte per te" />
-          <Text style={t.small}>Dalle tue attività ({sugg?.period}). Tocca per sceglierne una.</Text>
           {list.map((s) => (
             <PressableScale key={s.type} onPress={() => void choose(s)} disabled={!!busy} accessibilityRole="button" accessibilityLabel={`Scegli l’obiettivo: ${s.what}. ${s.basis}`}>
               <Panel style={{ padding: S.md, flexDirection: 'row', alignItems: 'center', gap: S.md }}>
@@ -147,9 +145,6 @@ function EmptyGoals({ sugg, onChosen }: { sugg: { hasHistory: boolean; period: s
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[type.headline, { color: color.text }]}>{s.what}</Text>
-                  <Text style={t.small} numberOfLines={2}>
-                    {s.why}
-                  </Text>
                 </View>
                 {busy === s.type ? <ActivityIndicator color={color.accent} /> : <Ionicons name="add-circle-outline" size={22} color={color.accent} />}
               </Panel>

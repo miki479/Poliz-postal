@@ -27,6 +27,12 @@ const dark = {
   brandText: '#9F8BFF',
   brandTint: 'rgba(130,104,245,0.16)',
   route: '#7CB6FF',
+  /** Corallo: traguardi, obiettivi personali, record. */
+  coral: '#FF7F50',
+  coralTint: 'rgba(255,127,80,0.16)',
+  /** Turchese: gruppo, community, confronto con gli altri. */
+  teal: '#4FD1C5',
+  tealTint: 'rgba(79,209,197,0.16)',
   achievement: '#FFAF68',
   success: '#38D39F',
   successTint: 'rgba(56,211,159,0.14)',
@@ -42,7 +48,7 @@ const dark = {
 } as const;
 
 export type ThemeMode='dark'|'light';
-const light:Record<keyof typeof dark,string>={...dark,bg:'#F4F5F7',surface:'#FFFFFF',surfaceElevated:'#E8EBF0',surfacePressed:'#DEE2E8',text:'#171A20',textSecondary:'#505B68',textTertiary:'#647080',separator:'#D7DCE3',controlBorder:'#788493',accent:'#5B3FE0',accentPressed:'#4A2FC8',onAccent:'#FFFFFF',accentTint:'rgba(91,63,224,0.10)',brand:'#7053D4',brandText:'#6543C6',brandTint:'rgba(112,83,212,0.10)',success:'#187849',successTint:'rgba(24,120,73,0.12)',warning:'#906000',warningTint:'rgba(144,96,0,0.10)',danger:'#BE343E',dangerTint:'rgba(190,52,62,0.10)'};
+const light:Record<keyof typeof dark,string>={...dark,coral:'#D9552B',coralTint:'rgba(217,85,43,0.12)',teal:'#0F8F85',tealTint:'rgba(15,143,133,0.12)',bg:'#F4F5F7',surface:'#FFFFFF',surfaceElevated:'#E8EBF0',surfacePressed:'#DEE2E8',text:'#171A20',textSecondary:'#505B68',textTertiary:'#647080',separator:'#D7DCE3',controlBorder:'#788493',accent:'#5B3FE0',accentPressed:'#4A2FC8',onAccent:'#FFFFFF',accentTint:'rgba(91,63,224,0.10)',brand:'#7053D4',brandText:'#6543C6',brandTint:'rgba(112,83,212,0.10)',success:'#187849',successTint:'rgba(24,120,73,0.12)',warning:'#906000',warningTint:'rgba(144,96,0,0.10)',danger:'#BE343E',dangerTint:'rgba(190,52,62,0.10)'};
 let mode:ThemeMode='dark';
 const listeners=new Set<()=>void>();
 export const themeMode=()=>mode;

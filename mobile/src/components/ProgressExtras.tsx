@@ -68,14 +68,14 @@ export function GroupCompare() {
   const faster = g.myPace !== null && g.othersPace !== null ? g.othersPace - g.myPace : null;
   return (
     <Panel style={{ padding: S.lg, gap: S.md, overflow: 'hidden' }}>
-      <Glow tint="#5CE1E6" size={200} />
+      <Glow tint={color.teal} size={200} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <Text style={t.h2}>Tu e gli altri</Text>
         <Text style={t.small}>{g.groupRuns} {g.groupRuns === 1 ? 'corsa' : 'corse'} di gruppo</Text>
       </View>
       {g.myPace !== null && g.othersPace !== null ? (
         <View style={{ gap: S.sm }}>
-          {[['Tu', g.myPace, color.accent], ['Gli altri', g.othersPace, color.textSecondary]].map(([l, v, c]) => {
+          {[['Tu', g.myPace, color.accent], ['Gli altri', g.othersPace, color.teal]].map(([l, v, c]) => {
             const lo = Math.min(g.myPace!, g.othersPace!) - 40;
             const w = 0.45 + 0.55 * ((Number(v) - lo) / Math.max(1, Math.max(g.myPace!, g.othersPace!) - lo));
             return (
@@ -130,11 +130,10 @@ export function GoalsCard() {
               <Text style={[type.subhead, { color: color.text }]}>{g.label}</Text>
               <Text style={[type.subhead, { color: color.textSecondary, fontVariant: ['tabular-nums'] }]}>{Math.round(g.current * 10) / 10}/{g.goal.target} {g.unit}</Text>
             </View>
-            <View style={{ height: 6, borderRadius: 3, backgroundColor: color.controlBorder }}><View style={{ width: `${Math.round(f * 100)}%`, height: 6, borderRadius: R.pill, backgroundColor: f >= 1 ? color.success : color.accent }} /></View>
+            <View style={{ height: 6, borderRadius: 3, backgroundColor: color.controlBorder }}><View style={{ width: `${Math.round(f * 100)}%`, height: 6, borderRadius: R.pill, backgroundColor: f >= 1 ? color.success : color.coral }} /></View>
           </View>
         );
       })}
-      {!list.length ? <Text style={t.muted}>Un traguardo a settimana, calcolato dal tuo storico.</Text> : null}
     </Pressable>
   );
 }

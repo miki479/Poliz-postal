@@ -49,7 +49,20 @@ export function CommunityStream() {
   return (
     <View style={{ gap: S.sm }}>
       <Async state={feed} skeleton={<Skeleton height={220} />}>
-        {(items) => items.length ? <View>{items.map((f) => <FeedRow key={f.id} item={f} />)}</View> : <View style={{ gap: S.sm }}><Text style={t.muted}>Le attività condivise dai compagni e dai tuoi gruppi compariranno qui.</Text><Button small title="Trova compagni" onPress={() => router.navigate({ pathname: '/esplora', params: { tab: 'groups' } })} /></View>}
+        {(items) => {
+          if (!items.length) return <View style={{ gap: S.sm }}><Text style={t.muted}>Le attività condivise dai compagni e dai tuoi gruppi compariranno qui.</Text><Button small title="Trova compagni" onPress={() => router.navigate({ pathname: '/esplora', params: { tab: 'groups' } })} /></View>;
+          // Raggruppamento solo di presentazione: le adesioni alla STESSA uscita (stesso id) diventano un unico blocco; i dati originali restano intatti.
+          const joinedBy = new Map<string, typeof items>();
+          for (const f of items) if (f.kind === 'event_joined') joinedBy.set(f.event.id, [...(joinedBy.get(f.event.id) ?? []), f]);
+          const shown = new Set<string>();
+          return <View>{items.map((f) => {
+            if (f.kind !== 'event_joined') return <FeedRow key={f.id} item={f} />;
+            const g = joinedBy.get(f.event.id)!;
+            if (shown.has(f.event.id)) return null;
+            shown.add(f.event.id);
+            return <FeedRow key={`g_${f.event.id}`} item={g[0]} joined={g} />;
+          })}</View>;
+        }}
       </Async>
     </View>
   );

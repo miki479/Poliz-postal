@@ -662,7 +662,8 @@ export function PersonRow({ p, status, tint = color.textSecondary, isMe, onPress
 /* ---------- feed e racconti ---------- */
 
 /** Attività di una persona: chi, quando, cosa, numeri essenziali. */
-export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }) {
+export function FeedRow({ item, joined }: { item: FeedItem & { social?: SocialCounts }; joined?: Array<FeedItem & { social?: SocialCounts }> }) {
+  const [showAll, setShowAll] = useState(false);
   const { ref: viewportRef, onLayout: checkViewport, inView } = useInView();
   const [previewWidth, setPreviewWidth] = useState(0);
   const trace = item.kind === 'workout_shared' ? item.workout.track : undefined;
@@ -703,19 +704,51 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
   if (pace) nums.push(['Passo', fmtPace(pace)]);
   const ev = item.kind === 'event_created' || item.kind === 'event_joined' ? item.event : null;
   const link = { color: color.accent, fontWeight: '700' } as const;
+  const group = joined && joined.length > 1 ? joined : null;
+  const people = group ? group.map((g) => g.user) : [who];
+  const firstNames = people.map((u) => u.displayName.split(' ')[0]);
+  const namesText = firstNames.length > 2 ? `${firstNames.slice(0, -1).join(', ')} e ${firstNames[firstNames.length - 1]}` : firstNames.join(' e ');
   const body = ev ? (
-    // Uscite: una frase chiara (chi, cosa, di quale gruppo); titolo e gruppo si toccano e aprono la loro scheda.
-    <View style={{ flexDirection: 'row', gap: S.md, alignItems: 'flex-start' }}>
-      <Avatar name={who.displayName} hue={who.hue} uri={who.avatar} size={36} />
-      <View style={{ flex: 1, gap: 3 }}>
-        <Text style={[type.subhead, { color: color.textSecondary }]}>
-          <Text style={{ color: color.text, fontWeight: '700' }}>{who.displayName}</Text>
-          {item.kind === 'event_created' ? ' ha organizzato l’uscita ' : ' partecipa all’uscita '}
-          <Text style={link} onPress={() => openEvent(ev.id)} accessibilityRole="link">{ev.title}</Text>
-          {ev.club ? <>{' '}del gruppo <Text style={link} onPress={() => router.push({ pathname: '/club/[id]', params: { id: ev.club!.id } })} accessibilityRole="link">{ev.club.name}</Text></> : null}
-        </Text>
-        <Text style={[type.caption, { color: color.textTertiary }]} numberOfLines={1}>{[fmtDayShort(ev.startsAt, ev.timezone), placeOf(ev), relativeFromNow(item.at)].filter(Boolean).join(' · ')}</Text>
+    // Uscite: flat, senza riquadro. Intestazione (avatar + frase breve), titolo in accento, righe compatte con icone, partecipanti sovrapposti.
+    <View style={{ gap: S.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md }}>
+        {group ? <AvatarStack people={people} size={34} total={people.length} /> : <Avatar name={who.displayName} hue={who.hue} uri={who.avatar} size={38} />}
+        <View style={{ flex: 1 }}>
+          <Text style={[type.subhead, { color: color.text, fontWeight: '700' }]} numberOfLines={1}>{group ? `${group.length} persone si sono unite` : who.displayName}</Text>
+          <Text style={[type.caption, { color: color.textSecondary }]} numberOfLines={1}>{group ? `${namesText} · ${relativeFromNow(group[0].at)}` : `${item.kind === 'event_created' ? 'Ha organizzato un’uscita' : 'Si è unito a un’uscita'} · ${relativeFromNow(item.at)}`}</Text>
+        </View>
+        <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.sm, backgroundColor: color.accentTint }}>
+          <Text style={[type.caption, { color: color.accent, fontWeight: '800', letterSpacing: 0.6 }]}>{SPORT_LABEL[ev.sport].toUpperCase()}</Text>
+        </View>
       </View>
+      <Pressable onPress={() => openEvent(ev.id)} accessibilityRole="button" accessibilityLabel={`Apri l’uscita ${ev.title}`} style={{ gap: 6, paddingLeft: 0 }}>
+        <Text style={[type.title2, { color: color.accent, fontSize: 26, lineHeight: 28 }]} numberOfLines={2}>{ev.title}</Text>
+        {ev.club ? <Text style={[type.footnote, { color: color.teal, fontWeight: '700' }]} onPress={() => router.push({ pathname: '/club/[id]', params: { id: ev.club!.id } })} accessibilityRole="link" numberOfLines={1}>{ev.club.name}</Text> : null}
+        <View style={{ gap: 4 }}>
+          {placeOf(ev) ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Ionicons name="location-outline" size={14} color={color.textSecondary} /><Text style={[type.footnote, { color: color.textSecondary, flex: 1 }]} numberOfLines={1}>{placeOf(ev)}</Text></View> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Ionicons name="calendar-outline" size={14} color={color.textSecondary} /><Text style={[type.footnote, { color: color.textSecondary }]}>{whenLabel(ev.startsAt, ev.timezone)}</Text></View>
+        </View>
+        {ev.participants?.length ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm, marginTop: 2 }}>
+            <AvatarStack people={ev.participants.slice(0, 4)} total={ev.participantCount} size={24} />
+            <Text style={[type.caption, { color: color.textSecondary }]}>{ev.participantCount}</Text>
+            <Ionicons name="people-outline" size={13} color={color.textSecondary} />
+          </View>
+        ) : null}
+      </Pressable>
+      {group ? (
+        <Pressable onPress={() => setShowAll(!showAll)} accessibilityRole="button" accessibilityState={{ expanded: showAll }} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text style={[type.footnote, { color: color.textSecondary, fontWeight: '600' }]}>{showAll ? 'Nascondi le singole adesioni' : 'Vedi le singole adesioni'}</Text>
+          <Ionicons name={showAll ? 'chevron-up' : 'chevron-down'} size={14} color={color.textSecondary} />
+        </Pressable>
+      ) : null}
+      {group && showAll ? group.map((g) => (
+        <View key={g.id} style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm, paddingVertical: 4 }}>
+          <Avatar name={g.user.displayName} hue={g.user.hue} uri={g.user.avatar} size={26} />
+          <Text style={[type.footnote, { color: color.text, flex: 1 }]} numberOfLines={1}>{g.user.displayName} <Text style={{ color: color.textTertiary }}>· {relativeFromNow(g.at)}</Text></Text>
+          {g.social ? <SocialBar itemId={g.id} initial={g.social} /> : null}
+        </View>
+      )) : null}
     </View>
   ) : (
     <View style={{ gap: S.sm }}>
@@ -726,7 +759,7 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
           <Text style={t.small} numberOfLines={1}>{typeStyle ? `${typeStyle.label} · ` : ''}{relativeFromNow(item.at)}</Text>
         </View>
       </Row>
-      <Text style={[type.headline, { color: color.text, fontWeight: '800' }]} numberOfLines={2}>{title}</Text>
+      <Text style={[type.title2, { color: color.accent, fontSize: 24, lineHeight: 26 }]} numberOfLines={2}>{title}</Text>
       {nums.length ? (
         <Row gap={0}>
           {nums.map(([l, v]) => (
@@ -749,8 +782,7 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
     </View>
   );
   return (
-    <View ref={viewportRef} onLayout={(e) => { setPreviewWidth(e.nativeEvent.layout.width - 2 * S.xl); checkViewport(); }} style={{ marginHorizontal: -S.xl, paddingHorizontal: S.xl, paddingTop: S.lg, paddingBottom: S.md, gap: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.separator }}>
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: color.surface, opacity: 0.4 }]} />
+    <View ref={viewportRef} onLayout={(e) => { setPreviewWidth(e.nativeEvent.layout.width - 2 * S.xl); checkViewport(); }} style={{ marginHorizontal: -S.xl, paddingHorizontal: S.xl, paddingTop: S.xl, paddingBottom: S.xl, gap: S.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.separator }}>
       {main}
       {item.kind === 'workout_shared' && item.workout.medals?.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: S.sm }}>
@@ -765,7 +797,7 @@ export function FeedRow({ item }: { item: FeedItem & { social?: SocialCounts } }
       {trace && trace.length > 1 ? <LinearGradient colors={[color.accentTint, color.bg, color.brandTint]} style={{ height: 150, borderRadius: R.lg, overflow: 'hidden', justifyContent: 'center' }}>
         {inView && previewWidth > 0 ? <RouteTrace track={trace} width={previewWidth} height={128} tint={[color.accent, color.brand]} dotEvery={null} /> : null}
       </LinearGradient> : null}
-      {item.social ? <View style={{ paddingTop: S.xs }}>
+      {item.social && !(group && showAll) ? <View style={{ paddingTop: S.xs }}>
         <SocialBar itemId={item.id} initial={item.social} />
       </View> : null}
     </View>

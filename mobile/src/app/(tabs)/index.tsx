@@ -132,7 +132,7 @@ function HeroSession({ s }: { s: PlannedSession }) {
   const today = s.date === todayIso();
   const fig = SESSION_FIGURE[KIND_FIGURE[s.kind] ?? ''];
   return (
-    <Panel style={{ padding: S.lg, gap: S.md, overflow: 'hidden' }}>
+    <Panel tone="accent" style={{ padding: S.lg, gap: S.md, overflow: 'hidden' }}>
       <LinearGradient pointerEvents="none" colors={[color.accentTint, 'transparent']} start={{ x: 1, y: 1 }} end={{ x: 0.3, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       <Pressable onPress={() => router.push({ pathname: '/allenamento/sessione/[id]', params: { id: s.id } })} accessibilityRole="button" accessibilityLabel={`Dettagli di ${s.title || KIND_LABEL[s.kind]}`} style={{ gap: S.xs }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: S.md }}>

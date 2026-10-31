@@ -105,10 +105,9 @@ function Tabs({ value, onChange }: { value: Tab; onChange: (v: Tab) => void }) {
       {TABS.map((o) => {
         const on = o.value === value;
         return (
-          <Pressable key={o.value} onPress={() => onChange(o.value)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={{ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-            <Ionicons name={on ? o.icon : (`${o.icon}-outline` as IconName)} size={26} color={on ? color.accent : color.textSecondary} />
-            <Text style={[type.footnote, { color: on ? color.accent : color.textSecondary, fontWeight: on ? '800' : '500' }]}>{o.label}</Text>
-            <View style={{ position: 'absolute', bottom: -1, height: 3, left: S.md, right: S.md, borderRadius: 2, backgroundColor: on ? color.accent : 'transparent' }} />
+          <Pressable key={o.value} onPress={() => { void Haptics.selectionAsync(); onChange(o.value); }} accessibilityRole="tab" accessibilityState={{ selected: on }} style={{ flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={[type.title2, { color: on ? color.text : color.textTertiary, letterSpacing: 0.9 }]}>{o.label}</Text>
+            <View style={{ position: 'absolute', bottom: -1, height: 3, left: S.xl, right: S.xl, backgroundColor: on ? color.accent : 'transparent' }} />
           </Pressable>
         );
       })}
@@ -125,7 +124,7 @@ function TextTabs({ items, value, onChange, bleed = GUTTER }: { items: Array<str
         const on = value === k;
         return (
           <Pressable key={k ?? 'all'} onPress={() => { void Haptics.selectionAsync(); onChange(k); }} accessibilityRole="tab" accessibilityState={{ selected: on }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} style={{ minHeight: 40, justifyContent: 'center' }}>
-            <Text style={[type.subhead, { color: on ? color.text : color.textSecondary, fontWeight: on ? '800' : '500' }]}>{k ?? 'Tutti'}</Text>
+            <Text style={[type.title2, { fontSize: 19, color: on ? color.text : color.textTertiary, letterSpacing: 0.8 }]}>{k ?? 'Tutti'}</Text>
             <View style={{ height: 2, borderRadius: 1, marginTop: 4, backgroundColor: on ? color.accent : 'transparent' }} />
           </Pressable>
         );

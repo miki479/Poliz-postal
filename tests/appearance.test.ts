@@ -4,12 +4,12 @@ afterEach(()=>setThemeMode('dark'));
 it('ha due aspetti neutri e aggiorna anche gli stili dichiarati prima del cambio',()=>{
  setThemeMode('dark');
  const styles=themedStyles({card:{backgroundColor:color.surface,color:color.text},input:{color:C.text2}});
- expect(styles.card.backgroundColor).toBe('#191F25');
+ expect(styles.card.backgroundColor).toBe('#151411');
  setThemeMode('light');
  expect(themeMode()).toBe('light');expect(styles.card.backgroundColor).toBe('#FFFFFF');
  expect(styles.card.color).toBe('#171A20');expect(styles.input.color).toBe('#505B68');
- expect(color.accent).toBe('#5B3FE0');
- setThemeMode('dark');expect(styles.card.backgroundColor).toBe('#191F25');
+ expect(color.accent).toBe('#5C7A00');
+ setThemeMode('dark');expect(styles.card.backgroundColor).toBe('#151411');
 });
 it('notifica soltanto i cambiamenti reali e rimuove le sottoscrizioni',()=>{
  let n=0;const off=subscribeTheme(()=>n++);

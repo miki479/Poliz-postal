@@ -6,6 +6,7 @@ import Animated, { cancelAnimation, Easing, useAnimatedProps, useSharedValue, wi
 import Svg, { Circle } from 'react-native-svg';
 
 import { BadgeHex } from '@/components/BadgeHex';
+import { GoalCreator } from '@/components/GoalCreator';
 import { SectionHead } from '@/components/BadgeParts';
 import { AnimatedBar } from '@/components/Motion';
 import { Rise } from '@/components/Results';
@@ -173,9 +174,11 @@ export default function Obiettivi() {
     return { goals, sugg };
   });
 
+  const [creating, setCreating] = useState(false);
   return (
     <Screen onRefresh={state.reload} style={{ gap: S.xl }}>
-      <Stack.Screen options={{ title: 'Obiettivi' }} />
+      <Stack.Screen options={{ title: 'Obiettivi', headerRight: () => <Pressable onPress={() => setCreating(true)} accessibilityRole="button" accessibilityLabel="Crea un obiettivo tuo" hitSlop={10}><Ionicons name="add-circle-outline" size={26} color={color.accent} /></Pressable> }} />
+      <GoalCreator visible={creating} onClose={() => setCreating(false)} onSaved={() => void state.reload()} />
       <Async state={state} skeleton={<><Skeleton height={120} /><Skeleton height={220} /></>}>
         {({ goals, sugg }) => {
           if (!goals.length) return <EmptyGoals sugg={sugg} onChosen={state.reload} />;

@@ -29,13 +29,13 @@ export function AmbientGlow({ height = 480, variant = 'default' }: { height?: nu
       <Svg width={width} height={height}>
         <Defs>
           <RadialGradient id="ambA" cx="50%" cy="50%" r="50%">
-            <Stop offset="0" stopColor={a} stopOpacity={0.38} />
-            <Stop offset="0.55" stopColor={a} stopOpacity={0.12} />
+            <Stop offset="0" stopColor={a} stopOpacity={0.10} />
+            <Stop offset="0.55" stopColor={a} stopOpacity={0.04} />
             <Stop offset="1" stopColor={a} stopOpacity={0} />
           </RadialGradient>
           <RadialGradient id="ambB" cx="50%" cy="50%" r="50%">
-            <Stop offset="0" stopColor={b} stopOpacity={0.24} />
-            <Stop offset="0.6" stopColor={b} stopOpacity={0.07} />
+            <Stop offset="0" stopColor={b} stopOpacity={0.06} />
+            <Stop offset="0.6" stopColor={b} stopOpacity={0.02} />
             <Stop offset="1" stopColor={b} stopOpacity={0} />
           </RadialGradient>
         </Defs>

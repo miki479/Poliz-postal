@@ -139,7 +139,7 @@ export function Screen({ autoScrollY, children, onRefresh, scroll = true, pad = 
   );
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
-      {themeMode() === 'dark' ? <LinearGradient pointerEvents="none" colors={['#0F1A33', 'rgba(14,18,22,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 520 }} /> : null}
+      {themeMode() === 'dark' ? <LinearGradient pointerEvents="none" colors={['#14130F', 'rgba(11,10,8,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 520 }} /> : null}
       {glow ? <AmbientGlow variant={glow} /> : null}
       {header}
       <ScrollProvider value={em.value}>{body}</ScrollProvider>
@@ -163,7 +163,7 @@ export function TabScreen({ title, subtitle, left, right, children, onRefresh, g
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: HIT }}>
         {left}
         <View style={{ flex: 1 }}>
-          <Text style={t.title1} accessibilityRole="header" numberOfLines={2}>
+          <Text style={[t.title1, { fontSize: 38, lineHeight: 38, letterSpacing: 0.8 }]} accessibilityRole="header" numberOfLines={2}>
             {title}
           </Text>
           {subtitle ? <Text style={t.muted}>{subtitle}</Text> : null}
@@ -199,9 +199,10 @@ export function Section({ title, action, onAction, children, gap = S.md }: { tit
 export function Panel({ children, style, tone = 'default' }: { children: ReactNode; style?: StyleProp<ViewStyle>; tone?: 'default' | 'brand' | 'accent' }) {
   // Vetro: in scuro un velo bianco al 4–6% e un filo bianco all'8–9%, niente ombre pesanti; in chiaro le superfici piene.
   const glass = themeMode() === 'dark';
+  const strong = tone === 'accent';
   const colors: [string, string] = tone === 'brand' ? [color.brandTint, glass ? 'rgba(255,255,255,0.03)' : color.surface] : glass ? ['rgba(255,255,255,0.065)', 'rgba(255,255,255,0.035)'] : [color.surfaceElevated, color.surface];
   return (
-    <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[{ borderRadius: R.card, borderWidth: 1, borderColor: glass ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.05)' }, style]}>
+    <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[{ borderRadius: R.card, borderWidth: 1, borderColor: glass ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.05)', ...(strong ? { borderLeftWidth: 3, borderLeftColor: color.accent } : null) }, style]}>
       {children}
     </LinearGradient>
   );
@@ -287,10 +288,10 @@ export function Button({ title, onPress, busy, variant = 'primary', small, disab
     const fg = variant === 'brand' ? color.storyInk : color.onAccent;
     return (
       <PressableScale onPress={onPress} disabled={off} accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: !!off, busy: !!busy }} accessibilityHint={accessibilityHint} style={[{ borderRadius: R.pill, shadowColor: bg, shadowOpacity: off ? 0 : 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: off ? 0 : 6 }, off && { opacity: 0.55 }, style]}>
-        <LinearGradient colors={[mixHex(bg, '#FFFFFF', 0.14), bg, mixHex(bg, '#000000', 0.18)]} locations={[0, 0.5, 1]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={st.primary}>
+        <View style={[st.primary, { backgroundColor: off ? mixHex(bg, color.bg, 0.55) : bg }]}>
           {busy ? <ActivityIndicator color={fg} /> : iconName ? <Ionicons name={iconName} size={20} color={fg} /> : null}
-          <Text style={[type.headline, { color: fg, fontWeight: '800' }]}>{title}</Text>
-        </LinearGradient>
+          <Text style={[type.title2, { color: fg, fontSize: 20, letterSpacing: 1.2, textTransform: 'uppercase' }]}>{title}</Text>
+        </View>
       </PressableScale>
     );
   }
@@ -543,16 +544,26 @@ export function Loading({ label = 'Caricamento' }: { label?: string }) {
 }
 
 /** Segnaposto mostrato SOLO durante un caricamento reale. */
-export function Skeleton({ height = 72, radius = R.card }: { height?: number; radius?: number }) {
+/** Sagoma di un componento in caricamento, con un lampo di luce che la attraversa (fermo con "Riduci movimento"). */
+export function Skeleton({ height = 72, radius = R.card, width, circle }: { height?: number; radius?: number; width?: number | `${number}%`; circle?: boolean }) {
   const reduce = useReduceMotion();
-  const o = useRef(new Animated.Value(0.5)).current;
+  const x = useRef(new Animated.Value(0)).current;
+  const [w, setW] = useState(0);
   useEffect(() => {
     if (reduce) return;
-    const a = Animated.loop(Animated.sequence([Animated.timing(o, { toValue: 1, duration: 700, useNativeDriver: true }), Animated.timing(o, { toValue: 0.5, duration: 700, useNativeDriver: true })]));
+    const a = Animated.loop(Animated.sequence([Animated.timing(x, { toValue: 1, duration: 1100, useNativeDriver: true }), Animated.delay(250)]));
     a.start();
     return () => a.stop();
-  }, [reduce, o]);
-  return <Animated.View style={{ height, borderRadius: radius, backgroundColor: color.surface, opacity: o }} accessibilityLabel="Caricamento" />;
+  }, [reduce, x]);
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)} accessibilityLabel="Caricamento" style={{ height, width: circle ? height : width, borderRadius: circle ? height / 2 : radius, backgroundColor: color.surface, overflow: 'hidden' }}>
+      {!reduce && w > 0 ? (
+        <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, width: w * 0.55, transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [-w * 0.6, w * 1.05] }) }, { skewX: '-18deg' }] }}>
+          <LinearGradient colors={['transparent', 'rgba(255,255,255,0.09)', 'transparent']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={{ flex: 1 }} />
+        </Animated.View>
+      ) : null}
+    </View>
+  );
 }
 
 /** Stato vuoto: un solo passo utile. */
@@ -607,7 +618,7 @@ export function Sheet({ visible, onClose, title, children, footer, avoidKeyboard
 }
 
 export const st = themedStyles({
-  primary: { minHeight: 52, borderRadius: R.pill, paddingHorizontal: S.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.sm },
+  primary: { minHeight: 52, borderRadius: R.control, paddingHorizontal: S.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.sm },
   row: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: S.md },
   label: { ...type.footnote, color: C.text, fontWeight: '600' },
   input: { minHeight: 48, borderRadius: R.control, backgroundColor: color.surface, borderWidth: 1, borderColor: color.controlBorder, color: color.text, paddingHorizontal: S.lg, ...type.body },

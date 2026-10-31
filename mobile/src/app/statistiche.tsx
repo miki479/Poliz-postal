@@ -164,9 +164,7 @@ export default function Progressi() {
       <Stack.Screen options={{ title: 'Progressi' }} />
       <Async state={stats} skeleton={<Skeleton height={90} />}>
         {(s) =>
-          !s.hasData ? (
-            <Banner text="Ancora nessuna attività: registra una corsa o importala da Strava per vedere i tuoi progressi." action="Registra" onAction={() => router.push('/registra')} />
-          ) : (
+          !s.hasData ? null : (
             <Section title="Sintesi">
               <AreaChart values={s.weekly.map((w) => w.distanceKm)} label={`Chilometri delle ultime 8 settimane: ${s.weekly.map((w) => Math.round(w.distanceKm)).join(', ')}`} />
               <Row style={{ justifyContent: 'space-between', marginTop: -S.sm }}>

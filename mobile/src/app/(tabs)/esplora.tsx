@@ -128,40 +128,29 @@ export default function Esplora() {
   return (
     <TabScreen title="Esplora" onRefresh={mode === 'runs' ? runs.reload : routes.reload} right={<IconButton name="add" label={mode === 'runs' ? 'Organizza un’uscita' : mode === 'groups' ? 'Crea un gruppo' : 'Salva un percorso'} onPress={() => router.push(mode === 'runs' ? '/evento/form' : mode === 'groups' ? '/club/form' : '/percorsi/form')} />}>
       <View style={{ gap: S.md }}>
-        <Segmented value={mode} onChange={setMode} options={[{ value: 'runs', label: 'Uscite' }, { value: 'routes', label: 'Percorsi' }, { value: 'groups', label: 'Gruppi' }]} />
-        {mode !== 'groups' ? <><Row gap={S.sm}>
-          <Pressable onPress={() => setMapView(!mapView)} accessibilityRole="button" accessibilityState={{ selected: mapView }} accessibilityLabel={mapView ? 'Mostra elenco' : 'Mostra mappa'} style={[chip, mapView && chipOn]}>
-            <Ionicons name={mapView ? 'list' : 'map-outline'} size={15} color={mapView ? color.accent : color.textSecondary} />
-            <Text style={[type.subhead, { color: mapView ? color.accent : color.textSecondary, fontWeight: '600' }]}>{mapView ? 'Elenco' : 'Mappa'}</Text>
-          </Pressable>
-          {mode === 'runs' ? (
-            <Pressable onPress={() => setRunF((f) => ({ ...f, clubsOnly: !f.clubsOnly }))} accessibilityRole="button" accessibilityState={{ selected: runF.clubsOnly }} accessibilityLabel={runF.clubsOnly ? 'Mostra tutte le uscite' : 'Mostra solo i miei gruppi'} style={[chip, runF.clubsOnly && chipOn]}>
-              <Ionicons name={runF.clubsOnly ? 'people' : 'people-outline'} size={15} color={runF.clubsOnly ? color.accent : color.textSecondary} />
-              <Text style={[type.subhead, { color: runF.clubsOnly ? color.accent : color.textSecondary, fontWeight: '600' }]}>I miei gruppi</Text>
-            </Pressable>
-          ) : null}
-        </Row>
-        <SearchField value={text} onChangeText={(v) => { setText(v); if (v) setPos(null); }} placeholder={mode === 'runs' ? 'Città, zona o luogo di ritrovo' : 'Zona o nome del percorso'} />
-        <Row gap={S.sm} style={{ flexWrap: 'wrap' }}>
-          {mode === 'runs' ? (
-            <Pressable onPress={() => void nearMe()} accessibilityRole="button" accessibilityState={{ selected: !!pos, busy: geo === 'busy' }} accessibilityLabel={pos ? `Vicino a me, entro ${RADIUS_KM} chilometri. Tocca per disattivare` : 'Mostra le uscite vicino a me'} style={[chip, pos && chipOn]}>
-              <Ionicons name={pos ? 'navigate' : 'navigate-outline'} size={15} color={pos ? color.accent : color.textSecondary} />
-              <Text style={[type.subhead, { color: pos ? color.accent : color.textSecondary, fontWeight: '600' }]}>{geo === 'busy' ? 'Cerco la posizione…' : pos ? (city ? `Entro ${RADIUS_KM} km da ${shortPlace(city.name).split(',')[0]}` : `Entro ${RADIUS_KM} km`) : 'Vicino a me'}</Text>
-            </Pressable>
-          ) : null}
-          {mode === 'runs' && !pos ? (
-            <Pressable onPress={() => setCityOpen(true)} accessibilityRole="button" accessibilityLabel="Scegli una città" style={chip}>
-              <Ionicons name="business-outline" size={15} color={color.textSecondary} />
-              <Text style={[type.subhead, { color: color.textSecondary, fontWeight: '600' }]}>Città</Text>
-            </Pressable>
-          ) : null}
-          <Pressable onPress={() => { setDraft(runF); setSheet(true); }} accessibilityRole="button" accessibilityLabel={active ? `Filtri, ${active} attivi` : 'Filtri'} style={[chip, active > 0 && chipOn]}>
-            <Ionicons name="options-outline" size={15} color={active ? color.accent : color.textSecondary} />
-            <Text style={[type.subhead, { color: active ? color.accent : color.textSecondary, fontWeight: '600' }]}>{active ? `Filtri · ${active}` : 'Filtri'}</Text>
-          </Pressable>
-          {active > 0 ? <LinkText title="Azzera" onPress={reset} /> : null}
-        </Row>
-        </>: null}
+        <View style={{ flexDirection: 'row', gap: S.xl, borderBottomWidth: 1, borderBottomColor: color.separator }} accessibilityRole="tablist">
+          {([['runs', 'Uscite'], ['routes', 'Percorsi'], ['groups', 'Gruppi']] as const).map(([v, label]) => {
+            const on = mode === v;
+            return (
+              <Pressable key={v} onPress={() => setMode(v)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={{ paddingBottom: 6, borderBottomWidth: 3, borderBottomColor: on ? color.accent : 'transparent', marginBottom: -1 }}>
+                <Text style={[type.title2, { color: on ? color.text : color.textTertiary, letterSpacing: 0.9 }]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {mode !== 'groups' ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm }}>
+            <View style={{ flex: 1 }}><SearchField value={text} onChangeText={(v) => { setText(v); if (v) setPos(null); }} placeholder={mode === 'runs' ? 'Cerca città, zona o luogo' : 'Cerca zona o percorso'} /></View>
+            {mode === 'runs' ? <IconButton name={pos ? 'navigate' : 'navigate-outline'} label={pos ? 'Vicino a me attivo: tocca per disattivare' : 'Mostra le uscite vicino a me'} color={pos ? color.accent : color.text} onPress={() => void nearMe()} /> : null}
+            <IconButton name="options-outline" label={active ? `Filtri, ${active} attivi` : 'Filtri'} color={active ? color.accent : color.text} onPress={() => { setDraft(runF); setSheet(true); }} />
+            <IconButton name={mapView ? 'list' : 'map-outline'} label={mapView ? 'Mostra elenco' : 'Mostra mappa'} color={mapView ? color.accent : color.text} onPress={() => setMapView(!mapView)} />
+          </View>
+        ) : null}
+        {mode !== 'groups' && (pos || active > 0) ? (
+          <Text style={[type.footnote, { color: color.textSecondary }]}>
+            {[pos ? (city ? `Entro ${RADIUS_KM} km da ${shortPlace(city.name).split(',')[0]}` : `Entro ${RADIUS_KM} km`) : null, active > 0 ? `${active} ${active === 1 ? 'filtro' : 'filtri'}` : null].filter(Boolean).join(' · ')}  <Text style={{ color: color.accent, fontWeight: '700' }} onPress={() => { reset(); setPos(null); setCity(null); }}>Azzera</Text>
+          </Text>
+        ) : null}
         {geo === 'denied' ? <Banner tone="warn" text="Posizione non consentita. Puoi cercare per città qui sopra, oppure attivarla nelle impostazioni." action="Apri impostazioni" onAction={() => void Linking.openSettings()} /> : null}
         {geo === 'failed' ? <Banner tone="warn" text="Non riesco a trovare la tua posizione adesso. Cerca per città oppure riprova all’aperto." action="Riprova" onAction={() => void nearMe()} /> : null}
       </View>
@@ -247,7 +236,12 @@ export default function Esplora() {
               <Text style={t.title}>Distanza</Text>
               <Pills value={draft.len} onChange={(v: LenKey) => setDraft({ ...draft, len: v })} options={[{ value: 'all', label: 'Qualsiasi' }, { value: 'short', label: 'Fino a 5 km' }, { value: 'mid', label: '5–10 km' }, { value: 'long', label: 'Oltre 10 km' }]} />
             </View>
-            <SwitchRow label="Solo dei miei club" value={draft.clubsOnly} onChange={(v) => setDraft({ ...draft, clubsOnly: v })} />
+            <SwitchRow label="Solo i miei gruppi" value={draft.clubsOnly} onChange={(v) => setDraft({ ...draft, clubsOnly: v })} />
+            <Pressable onPress={() => { setSheet(false); setTimeout(() => setCityOpen(true), 250); }} accessibilityRole="button" accessibilityLabel="Scegli una città" style={{ flexDirection: 'row', alignItems: 'center', gap: S.md, minHeight: 48 }}>
+              <Ionicons name="business-outline" size={20} color={color.textSecondary} />
+              <Text style={[type.body, { flex: 1 }]}>{city ? shortPlace(city.name).split(',')[0] : 'Scegli una città'}</Text>
+              <Ionicons name="chevron-forward" size={16} color={color.textTertiary} />
+            </Pressable>
           </>
         ) : (
           <>

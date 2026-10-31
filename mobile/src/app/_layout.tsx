@@ -2,8 +2,10 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AccessibilityInfo, Appearance } from 'react-native';
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useFonts, BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
 import { initializeReduceMotion } from '@/lib/reduceMotion';
 
+import { BootSkeleton } from '@/components/BootSkeleton';
 import { Loading } from '@/components/ui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { themeMode, subscribeTheme, setThemeMode, color, type } from '@/constants/theme';
@@ -20,7 +22,7 @@ function Routes() {
   const { me } = useSession();
   const needsSetup = !!me?.setup && !me.setup.completedAt;
   useAutoStravaSync(!!me && !needsSetup);
-  if (me === undefined) return <Loading label="Apro Runngo…" />;
+  if (me === undefined) return <BootSkeleton />;
   return (
     <Stack
       screenOptions={{
@@ -91,13 +93,14 @@ export default function RootLayout() {
   useEffect(()=>{void AsyncStorage.getItem('runngo-appearance').then(value=>{if(value==='light'||value==='dark')setThemeMode(value);}).catch(()=>{}).finally(()=>setAppearanceReady(true));},[]);
   const base=mode==='light'?DefaultTheme:DarkTheme;
   const theme={...base,colors:{...base.colors,background:color.bg,card:color.bg,border:color.separator,primary:color.accent,text:color.text}};
+  const [fontsLoaded, fontError] = useFonts({ BebasNeue_400Regular });
   const [motionReady, setMotionReady] = useState(false);
   useEffect(() => {
     let active = true;
     void initializeReduceMotion(AccessibilityInfo).then(() => { if (active) setMotionReady(true); });
     return () => { active = false; };
   }, []);
-  if (!motionReady || !appearanceReady) return null;
+  if (!motionReady || !appearanceReady || (!fontsLoaded && !fontError)) return <BootSkeleton />;
   return (
     <ThemeProvider value={theme}>
       <StatusBar style={mode==='light'?'dark':'light'} />

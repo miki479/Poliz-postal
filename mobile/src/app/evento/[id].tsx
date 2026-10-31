@@ -16,6 +16,7 @@ import { useJoin } from '@/lib/useJoin';
 import { RecognizeSheet } from '@/components/Recognize';
 import { compatibility } from '@/lib/compat';
 import { utcToZoned } from '@/lib/format';
+import { GroupReportCard } from '@/components/GroupReportCard';
 import type { RecognitionPrompt } from '@shared/fame.ts';
 import type { PlannedSession } from '@shared/types.ts';
 import type { Activity, ClubView, EventView, JoinBlock, UserPublic } from '@shared/types.ts';
@@ -398,6 +399,8 @@ export default function EventoDettaglio() {
                 <Text style={t.body}>{e.notes}</Text>
               </Section>
             ) : null}
+
+            {e.isPast && e.status === 'active' && e.viewer.isParticipant ? <GroupReportCard eventId={e.id} /> : null}
 
             {e.viewer.canConfirmRun ? (
               <Section title="Hai corso? Registra l’uscita">

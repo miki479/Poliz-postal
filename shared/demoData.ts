@@ -92,12 +92,21 @@ export function loadDemoData(ctx: Ctx): { people: number; events: number; storie
     db.workoutLogs[s.id] = log;
   }
 
-  // Corsa di gruppo con confronto: l'utente e tre persone hanno corso insieme "Corsa dopo lavoro" (demo_e1), ieri, con passi diversi.
-  const groupRun: Array<[string, number, number]> = [[me.id, 8, 46], ['demo_giulia', 8, 42], ['demo_marco', 8, 44], ['demo_luca', 8, 51]];
-  for (const [uid, km, min] of groupRun) {
+  // Corsa di gruppo conclusa (due giorni fa) con tragitti: serve a vedere il report finale. Marco si stacca a metà, Luca corre altrove.
+  const pastStart = ago(48);
+  db.events.demo_e6 = mk('demo_e6', { title: 'Giro del parco (demo)', clubId: 'demo_club_runners', startsAt: iso(pastStart), distanceKm: 3.4, paceSecPerKm: 330, createdAt: iso(ago(96)), updatedAt: iso(ago(96)) });
+  for (const u of [me.id, 'demo_giulia', 'demo_marco', 'demo_luca']) db.participations[`demo_e6__${u}`] = { id: `demo_prt_demo_e6_${u}`, eventId: 'demo_e6', userId: u, joinedAt: iso(ago(72)) };
+  const t0 = Math.round(pastStart.getTime() / 1000);
+  const half = (pts: TrackPoint[]) => pts.map((p, i, a) => (i < a.length / 2 ? p : { ...p, lat: p.lat + 0.02, lng: p.lng + 0.02 }));
+  const groupRun: Array<[string, number, number, number, TrackPoint[]]> = [
+    [me.id, 3.4, 20, 168, loop(44.2227, 12.0407, 0.0042, t0 * 1000, 20 * 60)],
+    ['demo_giulia', 3.4, 18, 176, loop(44.2227, 12.0407, 0.0042, t0 * 1000, 18 * 60)],
+    ['demo_marco', 3.4, 19, 172, half(loop(44.2227, 12.0407, 0.0042, t0 * 1000, 19 * 60))],
+    ['demo_luca', 3.4, 22, 164, loop(44.3500, 12.2000, 0.0042, t0 * 1000, 22 * 60)],
+  ];
+  for (const [uid, km, min, cad, track] of groupRun) {
     const id = uid === me.id ? `demo_wme_${me.id}` : `demo_wg_${uid}`;
-    const t0 = ago(26);
-    db.workoutLogs[id] = { id, userId: uid, plannedSessionId: null, kind: 'run_easy', title: 'Corsa dopo lavoro', startedAt: iso(t0), durationSec: min * 60, distanceKm: km, paceSecPerKm: Math.round((min * 60) / km), rpe: null, difficulties: '', notes: '', sets: [], mode: 'timer', activityId: null, shared: true, sport: 'running', environment: 'outdoor', distanceSource: 'gps', origin: 'app', eventId: 'demo_e1', track: null, createdAt: iso(ago(25)), updatedAt: iso(ago(25)) };
+    db.workoutLogs[id] = { id, userId: uid, plannedSessionId: null, kind: 'run_easy', title: 'Giro del parco', startedAt: iso(pastStart), durationSec: min * 60, distanceKm: km, paceSecPerKm: Math.round((min * 60) / km), rpe: null, difficulties: '', notes: '', sets: [], mode: 'timer', activityId: null, shared: true, sport: 'running', environment: 'outdoor', distanceSource: 'gps', origin: 'app', eventId: 'demo_e6', track, metrics: { movingSec: min * 60, elapsedSec: min * 60, hrAvg: null, hrMax: null, elevGainM: null, maxSpeedKmh: null, cadenceSpm: cad, calories: null, avgWatts: null }, createdAt: iso(ago(46)), updatedAt: iso(ago(46)) };
   }
   // Qualche scintilla e un commento, per vedere i conteggi.
   for (const [item, uid] of [['w_demo_w1', 'demo_marco'], ['w_demo_w1', 'demo_luca'], ['w_demo_w3', 'demo_giulia']] as const) db.sparks[`${item}__${uid}`] = { id: `${item}__${uid}`, itemId: item, userId: uid, createdAt: iso(ago(1)) };

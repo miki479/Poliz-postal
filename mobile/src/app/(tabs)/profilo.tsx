@@ -257,9 +257,9 @@ function ProgressTab({ d }: { d: ProfileData }) {
           {km.some((v) => v > 0) ? <AreaChart values={km} height={150} tint={color.accent} label={`Distanza settimanale delle ultime 12 settimane, massimo ${Math.max(...km).toFixed(1).replace('.', ',')} chilometri`} /> : <Text style={t.muted}>Il grafico compare dopo la prima attività con distanza.</Text>}
         </Pressable>
       </Panel>
-      <WeekLog logs={logs} />
-      {recs.length ? <View><SectionHead title="Migliori prestazioni" action="Tutte" onAction={() => router.push('/record')} />{recs.map((r) => <RecordRow key={r.code} r={r} awards={d.awards} />)}</View> : null}
-      <GoalsCard />
+      <Panel style={{ padding: S.lg }}><WeekLog logs={logs} /></Panel>
+      {recs.length ? <Panel style={{ padding: S.lg, gap: S.xs }}><SectionHead title="Migliori prestazioni" action="Tutte" onAction={() => router.push('/record')} />{recs.map((r) => <RecordRow key={r.code} r={r} awards={d.awards} />)}</Panel> : null}
+      <Panel style={{ padding: S.lg }}><GoalsCard /></Panel>
       <GroupCompare />
       <NavRow icon="walk-outline" title="Inizia a correre: allenamenti guidati" hint="Programma pubblico NHS, 9 settimane" onPress={() => router.push('/allenamento/iniziare')} />
       <NavRow icon="calendar-outline" title="Il tuo piano" onPress={() => router.push('/allenamento')} />

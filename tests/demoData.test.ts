@@ -53,3 +53,21 @@ it('il confronto con chi ha corso con te usa solo allenamenti condivisi dello st
   expect(c.avgRank).toBe(3); // più lenta di Giulia e Marco, più veloce di Luca
   expect(c.myPace).toBeGreaterThan(c.peers.length ? 0 : 1);
 });
+
+it('il report di gruppo: podio per cadenza, chi si stacca solo per il tratto insieme, chi corre altrove escluso, nulla prima della fine', () => {
+  const db = emptyDb();
+  db.users.me = { id: 'me', username: 'me', avatar: null, profileCompleted: true, displayName: 'Io', bio: '', hue: 1, sports: ['running'], area: 'Forlì', privacy: { ...DEFAULT_PRIVACY }, createdAt: NOW.toISOString() };
+  const ctx: Ctx = { db, now: NOW, actorId: 'me' };
+  call(ctx, 'loadDemoData', []);
+  type R = { ready: boolean; metric: string; podium: string[]; entries: Array<{ user: { id: string }; leftAtKm: number | null }> };
+  const r = call(ctx, 'groupReport', ['demo_e6']) as R;
+  expect(r.ready).toBe(true);
+  expect(r.metric).toBe('cadence');
+  const ids = r.entries.map((e) => e.user.id).sort();
+  expect(ids).toEqual(['demo_giulia', 'demo_marco', 'me']); // Luca ha corso altrove
+  expect(r.podium[0]).toBe('demo_giulia');
+  expect(r.entries.find((e) => e.user.id === 'demo_marco')!.leftAtKm).not.toBeNull();
+  expect(r.entries.find((e) => e.user.id === 'me')!.leftAtKm).toBeNull();
+  const early = call({ ...ctx, now: new Date(NOW.getTime() - 60 * 3_600_000) }, 'groupReport', ['demo_e6']) as R;
+  expect(early.ready).toBe(false);
+});

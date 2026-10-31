@@ -140,7 +140,7 @@ function HeroSession({ s }: { s: PlannedSession }) {
             <View style={{ alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: R.sm, backgroundColor: color.accentTint }}>
               <Text style={[type.caption, { color: color.accent, fontWeight: '800', letterSpacing: 0.6 }]}>{today ? 'PROGRAMMA DI OGGI' : `PROGRAMMA · ${s.date.slice(8)}/${s.date.slice(5, 7)}`}</Text>
             </View>
-            <Text style={[type.title1, { color: color.text, fontWeight: '900' }]}>{s.title || KIND_LABEL[s.kind]}</Text>
+            <Text style={[type.title2, { color: color.text, fontSize: 24, lineHeight: 26 }]} numberOfLines={3}>{s.title || KIND_LABEL[s.kind]}</Text>
           </View>
           {fig ? <Image source={fig.src} resizeMode="contain" tintColor={color.text} style={{ width: Math.round(84 * fig.ratio), height: 84 }} accessibilityIgnoresInvertColors /> : null}
           <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: R.pill, backgroundColor: color.surface, borderWidth: 1, borderColor: color.controlBorder }}>

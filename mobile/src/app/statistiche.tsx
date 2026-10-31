@@ -34,12 +34,6 @@ function PerfRow({ p }: { p: Performance }) {
           {pace ? <Text style={t.small}>{pace}</Text> : null}
         </View>
       </Row>
-      {open ? (
-        <View style={{ gap: 2 }}>
-          <Text style={t.small}>Metodo: {p.methodText}</Text>
-          <Text style={t.small}>Origine: {p.origin}{p.estimate ? ' · stima' : ''}</Text>
-        </View>
-      ) : null}
     </Pressable>
   );
 }
@@ -83,7 +77,6 @@ function Goals() {
             </Text>
             <AnimatedBar pct={pct} />
             {g.paused ? <Text style={t.small}>Il piano è in pausa: questo periodo non conta.</Text> : null}
-            <Text style={t.small}>Basato su: {g.goal.basis}</Text>
           </View>
         );
       })}
@@ -92,12 +85,9 @@ function Goals() {
           <Skeleton height={80} />
         ) : suggestions.length ? (
           <View style={{ gap: S.md }}>
-            <Text style={t.muted}>{fromAnswers ? 'In base a ciò che hai indicato:' : `Proposte dalle tue attività (${sugg.data.period}). Puoi sceglierne una o cambiarla.`}</Text>
             {suggestions.map((s) => (
               <View key={s.type} style={{ backgroundColor: color.surface, borderRadius: R.card, padding: S.lg, gap: S.xs }}>
                 <Text style={t.title}>{s.what}</Text>
-                <Text style={t.small}>{s.basis}</Text>
-                <Text style={t.muted}>{s.why}</Text>
                 <Button variant="soft" title="Scegli questo obiettivo" busy={busy} onPress={() => void choose(s)} />
               </View>
             ))}
@@ -118,50 +108,32 @@ function Goals() {
   );
 }
 
-const RPE_BANDS: Array<{ label: string; from: number; to: number }> = [
-  { label: 'Facile (1–3)', from: 1, to: 3 },
-  { label: 'Moderata (4–6)', from: 4, to: 6 },
-  { label: 'Impegnativa (7–8)', from: 7, to: 8 },
-  { label: 'Molto dura (9–10)', from: 9, to: 10 },
+const RPE_BANDS: Array<{ label: string; from: number; to: number; tint: string }> = [
+  { label: 'Facile', from: 1, to: 3, tint: '#4CD58B' },
+  { label: 'Moderata', from: 4, to: 6, tint: '#FFC53D' },
+  { label: 'Impegnativa', from: 7, to: 8, tint: '#FF8A3D' },
+  { label: 'Molto dura', from: 9, to: 10, tint: '#FF5C6C' },
 ];
 
+/** Sforzo percepito delle ultime 4 settimane: compare solo se hai indicato la fatica almeno una volta. Nessuna spiegazione, solo i dati. */
 function Zones({ logs }: { logs: WorkoutLog[] }) {
   const since = Date.now() - 28 * 86_400_000;
-  const recent = logs.filter((l) => Date.parse(l.startedAt) >= since);
-  const rated = recent.filter((l) => l.rpe);
+  const rated = logs.filter((l) => Date.parse(l.startedAt) >= since && l.rpe);
+  if (!rated.length) return null;
   return (
-    <Section title="Zone di allenamento">
-      <View style={{ gap: S.xs }}>
-        <Text style={t.title}>Frequenza cardiaca</Text>
-        <Text style={t.muted}>Non disponibile: nessuna fonte di frequenza cardiaca è collegata. Le zone cardiache non vengono stimate dalla velocità.</Text>
-      </View>
-      <View style={{ gap: S.xs }}>
-        <Text style={t.title}>Passo</Text>
-        <Text style={t.muted}>Non configurate: servono soglie personali affidabili, che Runngo non deduce.</Text>
-      </View>
-      <View style={{ gap: S.sm }}>
-        <Text style={t.title}>Sforzo percepito · ultime 4 settimane</Text>
-        {rated.length ? (
-          <>
-            {RPE_BANDS.map((b) => {
-              const n = rated.filter((l) => l.rpe! >= b.from && l.rpe! <= b.to);
-              const min = n.reduce((a, l) => a + l.durationSec / 60, 0);
-              return (
-                <Row key={b.label} accessible accessibilityLabel={`${b.label}: ${n.length} allenamenti, ${Math.round(min)} minuti`}>
-                  <Text style={[t.body, { width: 150 }]}>{b.label}</Text>
-                  <AnimatedBar style={{ flex: 1 }} height={10} pct={n.length / rated.length} />
-                  <Text style={[t.small, { width: 56, textAlign: 'right' }]}>{fmtDuration(Math.round(min))}</Text>
-                </Row>
-              );
-            })}
-            <Text style={t.small}>
-              Metodo: scala 1–10 che indichi tu dopo ogni allenamento. Copertura: {rated.length} su {recent.length} allenamenti. Più intensità non significa allenamento migliore.
-            </Text>
-          </>
-        ) : (
-          <Text style={t.muted}>Indica la fatica alla fine degli allenamenti per vedere come si distribuisce il tuo sforzo.</Text>
-        )}
-      </View>
+    <Section title="Sforzo · ultime 4 settimane">
+      {RPE_BANDS.map((b) => {
+        const n = rated.filter((l) => l.rpe! >= b.from && l.rpe! <= b.to);
+        if (!n.length) return null;
+        const min = n.reduce((a, l) => a + l.durationSec / 60, 0);
+        return (
+          <Row key={b.label} accessible accessibilityLabel={`${b.label}: ${n.length} allenamenti, ${Math.round(min)} minuti`}>
+            <Text style={[t.body, { width: 110, color: b.tint, fontWeight: '700' }]}>{b.label}</Text>
+            <AnimatedBar style={{ flex: 1 }} height={10} tint={b.tint} pct={n.length / rated.length} />
+            <Text style={[t.small, { width: 56, textAlign: 'right' }]}>{fmtDuration(Math.round(min))}</Text>
+          </Row>
+        );
+      })}
     </Section>
   );
 }

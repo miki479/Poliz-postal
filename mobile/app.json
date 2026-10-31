@@ -33,7 +33,12 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.health.READ_EXERCISE",
         "android.permission.health.READ_DISTANCE"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCoAENYMWDbtt6VdZeHxe2DEPWVEL7bKZ4"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/images/favicon.png"

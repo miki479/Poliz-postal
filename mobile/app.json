@@ -8,7 +8,12 @@
     "scheme": "runngo",
     "userInterfaceStyle": "dark",
     "ios": {
-      "bundleIdentifier": "it.runngo.app"
+      "bundleIdentifier": "it.runngo.app",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,8 +27,12 @@
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_DISTANCE"
       ]
     },
     "web": {
@@ -43,11 +52,27 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Runngo usa la posizione per registrare il percorso dei tuoi allenamenti e mostrarlo sulla mappa."
+          "locationAlwaysAndWhenInUsePermission": "Runngo registra il percorso anche con lo schermo bloccato, solo mentre registri un allenamento.",
+          "locationWhenInUsePermission": "Runngo usa la posizione per registrare il percorso dei tuoi allenamenti e mostrarlo sulla mappa.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "isIosBackgroundLocationEnabled": true
         }
       ],
       "expo-image",
-      "expo-sharing"
+      "expo-sharing",
+      "react-native-health-connect",
+      "expo-task-manager",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false,

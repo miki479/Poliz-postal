@@ -9,6 +9,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams, type ErrorBoundaryProps } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { startBackgroundGps, stopBackgroundGps } from '@/lib/backgroundGps';
 import { AccessibilityInfo, Alert, AppState, Linking, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -88,6 +89,8 @@ export default function Registra() {
   const lastFix = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const lastFixAt = useRef<number>(0);
   const bgAt = useRef<number | null>(null);
+  /** true quando il GPS in background (servizio in primo piano) sta registrando: con il telefono bloccato non si perde nulla. */
+  const bgActive = useRef(false);
   const splits = useRef<number[]>([]);
 
   // fine
@@ -150,7 +153,7 @@ export default function Registra() {
     const epoch = ++gpsEpoch.current;
     if (!draft.current || draft.current.environment === 'treadmill') return setGps('off');
     const p = await contextualLocationPermission(requestPermission ? 'record' : 'resume', Location);
-    if (!mounted.current || epoch !== gpsEpoch.current || AppState.currentState !== 'active') return;
+    if (!mounted.current || epoch !== gpsEpoch.current || (AppState.currentState !== 'active' && !bgActive.current)) return;
     if (p.status !== 'granted') {
       setPerm('denied');
       setGps('denied');
@@ -160,9 +163,9 @@ export default function Registra() {
     setPerm('granted');
     setGps('searching');
     sub.current?.remove();
-    const subscription = await Location.watchPositionAsync({ accuracy: Location.Accuracy.BestForNavigation, timeInterval: 2000, distanceInterval: 3 }, (loc) => {
+    const handle = (loc: Location.LocationObject) => {
       const d = draft.current;
-      if (!mounted.current || epoch !== gpsEpoch.current || AppState.currentState !== 'active' || !d || d.status !== 'recording') return;
+      if (!mounted.current || epoch !== gpsEpoch.current || (AppState.currentState !== 'active' && !bgActive.current) || !d || d.status !== 'recording') return;
       const { latitude, longitude, accuracy } = loc.coords;
       const now = loc.timestamp;
       lastFixAt.current = Date.now();
@@ -196,7 +199,17 @@ export default function Registra() {
       const altitude = loc.coords.altitude;
       d.track.push(typeof altitude === 'number' && Number.isFinite(altitude) ? { lat: latitude, lng: longitude, t: activeSec(d), alt: altitude } : { lat: latitude, lng: longitude, t: activeSec(d) });
       if (breakBefore) d.track[d.track.length - 1].breakBefore = true;
-    });
+    };
+    // Prima il GPS in background (schermo bloccato); se non c'è permesso o non è una build, quello in primo piano.
+    const bg = await startBackgroundGps(handle);
+    if (bg) {
+      bgActive.current = true;
+      if (!mounted.current || epoch !== gpsEpoch.current || draft.current?.status !== 'recording') { bgActive.current = false; void stopBackgroundGps(); return; }
+      sub.current = { remove: () => { bgActive.current = false; void stopBackgroundGps(); } } as Location.LocationSubscription;
+      return;
+    }
+    bgActive.current = false;
+    const subscription = await Location.watchPositionAsync({ accuracy: Location.Accuracy.BestForNavigation, timeInterval: 2000, distanceInterval: 3 }, handle);
     // A pending native subscription can finish after pause, lock or unmount.
     if (!mounted.current || epoch !== gpsEpoch.current || AppState.currentState !== 'active' || draft.current?.status !== 'recording') subscription.remove();
     else sub.current = subscription;
@@ -233,6 +246,7 @@ export default function Registra() {
     const subscription = AppState.addEventListener('change', (state) => {
       setForeground(state === 'active');
       if (state !== 'active') {
+        if (bgActive.current) { persist(); return; }
         if (state === 'background' && bgAt.current === null) {
           bgAt.current = Date.now();
           stopGps();
@@ -245,7 +259,7 @@ export default function Registra() {
       const d = draft.current;
       if (!d) return;
       const lost = resumeRecording(d, backgroundAt, Date.now());
-      lastFix.current = null;
+      if (!bgActive.current) lastFix.current = null;
       if (backgroundAt !== null) setMapEpoch((x) => x + 1);
       setTick((x) => x + 1);
       persist();

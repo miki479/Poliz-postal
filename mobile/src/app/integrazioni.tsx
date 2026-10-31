@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, Pressable, Text, View } from 'react-native';
+import { Alert, AppState, Platform, Pressable, Text, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
@@ -14,6 +14,7 @@ import { ACTIVITY_STYLES, type ActivityStyle } from '@/constants/activityColors'
 import { color, R, S, type } from '@/constants/theme';
 import { ApiError, call, ext, type StravaStatus } from '@/lib/api';
 import { humanError } from '@/lib/errors';
+import { healthState, readHealthRuns, type HealthState } from '@/lib/healthConnect';
 import { fmtClock, fmtDate, fmtDateTimeShort, fmtKm, fmtPace, relativeFromNow } from '@/lib/format';
 import { mix, styleOfLog } from '@/lib/storyPalette';
 import { fileImportBatches, parseWorkoutFile, type ParseResult } from '@shared/importers.ts';
@@ -239,6 +240,39 @@ function StravaStory({ log, order }: { log: WorkoutLog; order: number }) {
         </View>
       </PressableScale>
     </Animated.View>
+  );
+}
+
+/* ---------- dati sanitari di Google (Health Connect) ---------- */
+
+function HealthImport() {
+  const [state, setState] = useState<HealthState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  useEffect(() => { void healthState().then(setState); }, []);
+  if (Platform.OS !== 'android' || state === null || state === 'unavailable') return null;
+  async function run() {
+    setBusy(true); setMsg('');
+    try {
+      const { activities, skipped } = await readHealthRuns(90);
+      if (!activities.length) return setMsg(`Nessuna corsa o camminata trovata negli ultimi 90 giorni (${skipped} sessioni di altri sport ignorate).`);
+      let imported = 0, duplicates = 0;
+      for (const batch of fileImportBatches(activities)) {
+        const r = await call<{ imported: number; duplicates: number }>('importActivities', batch);
+        imported += r.imported; duplicates += r.duplicates;
+      }
+      setMsg(`Importate ${imported} attività (${duplicates} già presenti).`);
+    } catch (e) {
+      setMsg(humanError(e, 'Importazione non riuscita. Riprova.'));
+    } finally { setBusy(false); }
+  }
+  return (
+    <View style={{ gap: S.sm }}>
+      <Text style={t.title}>Dati sanitari di Google</Text>
+      <Muted>Legge da Health Connect le tue corse e camminate degli ultimi 90 giorni (data, durata e distanza). Solo lettura: le attività restano private e puoi revocare il permesso quando vuoi.</Muted>
+      {state === 'needs-install' ? <Muted>Per usarlo serve installare o aggiornare Health Connect dal Play Store.</Muted> : <Button variant="soft" title="Importa da Health Connect" onPress={run} busy={busy} />}
+      {msg ? <Muted>{msg}</Muted> : null}
+    </View>
   );
 }
 
@@ -513,6 +547,7 @@ export default function Integrazioni() {
             </>
           )}
         </View>
+        <HealthImport />
         <FileImport />
         <Muted>Apple Salute: puoi importare il suo file di esportazione. La lettura diretta richiede un’integrazione nativa non ancora presente.</Muted>
       </Sheet>
